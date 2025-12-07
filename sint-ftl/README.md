@@ -73,6 +73,8 @@ export GEMINI_API_KEY="your_api_key_here"
 python3 ai/agent.py
 ```
 *   **Single-Shot Mode:** Use `--max-turns 1` to run the agent for a single decision cycle (useful for debugging/cost saving).
+*   **Debug Mode:** Use `--debug` to print the exact prompt context sent to the LLM.
+*   **Configuration:** Edit `ai/system_prompt.txt` to change the AI's persona and instructions.
 *   *The agent will connect, join the room, and start playing.*
 
 ## **Development Notes**
