@@ -52,19 +52,22 @@ pub fn MapView(ctx: GameContext) -> impl IntoView {
             padding: 20px; 
             border-radius: 12px;
             border: 2px solid #333;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
         ">
             // Top Row
-            <div style="display: flex; gap: 15px; justify-content: center;">
+            <div style="display: flex; gap: 15px; width: 100%;">
                 {move || layout.get().1.into_iter().map(|r| {
                     view! { <RoomCard room=r.clone() state=state.get() my_pid=pid_top.clone() /> }
                 }).collect::<Vec<_>>()}
             </div>
             
             // Hallway (Spine)
-            <div style="display: flex; justify-content: center;">
+            <div style="display: flex; width: 100%;">
                 {move || layout.get().0.into_iter().map(|r| {
                     view! { 
-                        <div style="width: 100%;">
+                        <div style="width: 100%; display: flex;">
                             <RoomCard room=r.clone() state=state.get() my_pid=pid_mid.clone() is_hallway=true /> 
                         </div>
                     }
@@ -72,7 +75,7 @@ pub fn MapView(ctx: GameContext) -> impl IntoView {
             </div>
             
             // Bottom Row
-            <div style="display: flex; gap: 15px; justify-content: center;">
+            <div style="display: flex; gap: 15px; width: 100%;">
                 {move || layout.get().2.into_iter().map(|r| {
                     view! { <RoomCard room=r.clone() state=state.get() my_pid=pid_bot.clone() /> }
                 }).collect::<Vec<_>>()}
@@ -106,7 +109,6 @@ fn RoomCard(
     let bg_color = if has_fire { "#3e1a1a" } else if has_water { "#1a2a3e" } else { "#2a2a2a" };
     let border_color = if is_here { "#4caf50" } else if is_targeted { "#f44336" } else { "#555" };
     let border_style = if is_targeted { "dashed" } else { "solid" };
-    let width = if is_hallway { "100%" } else { "200px" };
     let min_height = "120px";
 
     view! {
@@ -115,12 +117,14 @@ fn RoomCard(
             border: 2px {} {}; 
             border-radius: 8px; 
             padding: 10px; 
-            width: {};
             min-height: {};
             position: relative;
             transition: all 0.2s;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        ", bg_color, border_style, border_color, width, min_height)>
+            flex: 1;
+            min-width: 80px;
+            width: auto;
+        ", bg_color, border_style, border_color, min_height)>
             
             // Target Indicator
             {if is_targeted {

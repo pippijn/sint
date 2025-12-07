@@ -44,10 +44,11 @@ pub fn App() -> impl IntoView {
     let is_connected = ctx.is_connected;
     
     view! {
-        <div style="padding: 20px; font-family: monospace; max-width: 1200px; margin: 0 auto;">
-            <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: #1a1a1a; padding: 15px; border-radius: 8px; border: 1px solid #333;">
+        <div style="display: flex; flex-direction: column; height: 100vh; background: #222; color: #eee; font-family: monospace; overflow: hidden;">
+            // --- HEADER ---
+            <header style="flex: 0 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background: #1a1a1a; border-bottom: 1px solid #333;">
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <h1 style="margin: 0; font-size: 1.5em;">"Sint FTL"</h1>
+                    <h1 style="margin: 0; font-size: 1.2em; color: #fff;">"Sint FTL"</h1>
                     {move || if is_connected.get() {
                         view! { <span style="color: #4caf50; font-size: 0.8em;">"● ONLINE"</span> }
                     } else {
@@ -55,48 +56,59 @@ pub fn App() -> impl IntoView {
                     }}
                 </div>
                 
-                <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
-                    {move || view! { <PhaseTracker phase=state.get().phase /> }}
-                </div>
+                {move || view! { <PhaseTracker phase=state.get().phase /> }}
 
                 <div style="text-align: right; font-size: 0.9em;">
-                    <div style="margin-bottom: 4px;"><strong>{pid}</strong></div>
-                    <div style="display: flex; gap: 10px;">
-                        <span title="Hull Integrity">"🛡 " {move || state.get().hull_integrity} "/20"</span>
-                        <span title="Turn Number">"⏳ T" {move || state.get().turn_count}</span>
-                    </div>
+                    <span style="margin-right: 15px; font-weight: bold; color: #81c784;">{&pid}</span>
+                    <span title="Hull Integrity" style="margin-right: 10px;">"🛡 " {move || state.get().hull_integrity}</span>
+                    <span title="Turn Number">"⏳ T" {move || state.get().turn_count}</span>
                 </div>
             </header>
             
-            <MyStatus ctx=ctx.clone() />
-            
-            <hr style="border-color: #444; margin: 20px 0;" />
-            
-            <MorningReportView ctx=ctx.clone() />
-            
-            <Actions ctx=ctx.clone() />
-
-            <hr style="border-color: #444; margin: 20px 0;" />
-            
-            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
-                <div>
-                    <h3>"Ship Map"</h3>
-                    <MapView ctx=ctx.clone() />
+            // --- MAIN CONTENT (Grid) ---
+            <div style="flex: 1; display: grid; grid-template-columns: 300px 1fr 300px; gap: 1px; background: #333; overflow: hidden;">
+                
+                // LEFT PANEL: Status & Actions
+                <div style="background: #2a2a2a; display: flex; flex-direction: column; overflow-y: auto; border-right: 1px solid #444;">
+                    <div style="padding: 15px;">
+                        <h3 style="margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 5px;">"Status Report"</h3>
+                        <MyStatus ctx=ctx.clone() />
+                        
+                        <div style="margin-top: 15px;">
+                            <MorningReportView ctx=ctx.clone() />
+                        </div>
+                    </div>
+                    
+                    <div style="flex: 1;"></div> // Spacer
+                    
+                    <div style="padding: 15px; background: #222; border-top: 1px solid #444;">
+                        <Actions ctx=ctx.clone() />
+                    </div>
                 </div>
-                <div>
-                    <h3>"Comms"</h3>
-                    <ChatView ctx=ctx.clone() />
+                
+                // CENTER PANEL: Map & Space
+                <div style="background: #111; display: flex; flex-direction: column; padding: 20px; overflow: auto; position: relative;">
+                    // Enemy Placeholder (Top)
+                    <div style="flex: 0 0 100px; border-bottom: 1px dashed #444; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; color: #555;">
+                        "[ ENEMY SHIP VIEW ]"
+                    </div>
+                    
+                    // Map (Center)
+                    <div style="flex: 1; display: flex; align-items: center; justify-content: center;">
+                        <MapView ctx=ctx.clone() />
+                    </div>
+                </div>
+                
+                // RIGHT PANEL: Comms
+                <div style="background: #2a2a2a; border-left: 1px solid #444; display: flex; flex-direction: column;">
+                    <div style="padding: 10px; background: #1a1a1a; font-weight: bold; border-bottom: 1px solid #444;">
+                        "Comms Channel"
+                    </div>
+                    <div style="flex: 1; overflow: hidden;">
+                        <ChatView ctx=ctx.clone() />
+                    </div>
                 </div>
             </div>
-            
-            <hr style="border-color: #444; margin: 20px 0;" />
-            
-            <details>
-                <summary style="cursor: pointer; color: #888;">"Debug State (Click to Expand)"</summary>
-                <pre style="background: #111; padding: 10px; overflow: auto; max-height: 400px; font-size: 0.8em; color: #aaa;">
-                    {move || serde_json::to_string_pretty(&state.get()).unwrap_or_default()}
-                </pre>
-            </details>
         </div>
     }
 }

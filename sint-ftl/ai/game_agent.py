@@ -24,9 +24,12 @@ class GameAgent:
         self.turns_taken: int = 0
         
         self.tools = load_game_tools()
+        
+        system_instr = self._load_system_prompt()
         self.model = genai.GenerativeModel(
             model_name='gemini-2.5-flash-lite',
             tools=[self.tools],
+            system_instruction=system_instr,
         )
         self.websocket: Optional[Any] = None
 
@@ -64,6 +67,8 @@ class GameAgent:
             "action": { "type": action_type, "payload": payload }
         }
         msg = { "type": "Event", "payload": { "sequence_id": 0, "data": event } }
+        if self.debug:
+            print(f"DEBUG: Sending Event: {json.dumps(msg, indent=2)}")
         if self.websocket:
             await self.websocket.send(json.dumps(msg))
 
@@ -84,12 +89,20 @@ class GameAgent:
         elif msg_type == "Event":
             try:
                 if not self.state_json:
+                     print("DEBUG: Initializing new game state...")
                      self.state_json = sint_core.new_game([self.player_id], 12345)
+                     if self.debug:
+                         p = self.state_json['players'].get(self.player_id)
+                         print(f"DEBUG: State after new_game. Player {self.player_id} inventory: {p.get('inventory') if p else 'NOT FOUND'}")
+                         print(f"DEBUG: Latest event: {self.state_json.get('latest_event')}")
 
                 event_data = payload.get("data", {})
                 pid = event_data.get("player_id")
                 action = event_data.get("action", {})
                 
+                if self.debug:
+                    print(f"DEBUG: Processing Action: {action}")
+
                 self.state_json = sint_core.apply_action_with_id(self.state_json, pid, action, None)
                 
                 action_type = action.get("type")
@@ -156,23 +169,34 @@ class GameAgent:
         chat_text = "\n".join([f"CHAT: {msg['sender']}: {msg['text']}" for msg in recent_chat])
         
         status_desc = f"HP {me['hp']}/3, AP {me['ap']}/2. Inventory: {me['inventory']}"
-        room_desc = f"Room {room_id} ({room.get('name')}). Hazards: {room.get('hazards')}. People: {[p['name'] for p in state['players'].values() if p['room_id'] == room_id]}"
+        room_desc = f"Room {room_id} ({room.get('name')}). Neighbors: {room.get('neighbors')}. Hazards: {room.get('hazards')}. People: {[p['name'] for p in state['players'].values() if p['room_id'] == room_id]}"
         
         phase = state.get('phase', 'Unknown')
         active_cards = state.get('active_situations', [])
         
         situation_desc = ""
-        if active_cards:
-            situation_desc = "ACTIVE CARDS:\n" + "\n".join([f"- {c['title']}: {c['description']}" for c in active_cards])
+        latest_event = state.get('latest_event')
+        if latest_event:
+             situation_desc += f"JUST DRAWN EVENT: {latest_event['title']}: {latest_event['description']}\n"
 
-        system_instruction = self._load_system_prompt()
-        
+        if active_cards:
+            situation_desc += "ACTIVE CARDS:\n" + "\n".join([f"- {c['title']}: {c['description']}" for c in active_cards])
+
+        # Map Topology
+        map_desc = "SHIP LAYOUT:\n"
+        try:
+            rooms = state['map']['rooms'].values()
+            sorted_rooms = sorted(rooms, key=lambda x: x['id'])
+            for r in sorted_rooms:
+                map_desc += f"- Room {r['id']} ({r['name']}) connects to {r['neighbors']}\n"
+        except Exception as e:
+            map_desc += f"Error reading map: {e}\n"
+
         prompt_parts = [
-            system_instruction,
-            "",
             f"PHASE: {phase}",
             situation_desc,
             "",
+            map_desc,
             "RECENT EVENTS:",
             memory_text,
             "",
@@ -228,6 +252,9 @@ class GameAgent:
             return f"You are {self.player_id}. Cooperate to survive."
 
     async def execute_tool(self, tool_name: str, args: Dict[str, Any]) -> None:
+        if self.debug:
+            print(f"DEBUG: Executing tool {tool_name} with args: {args}")
+
         if tool_name.startswith("action_"):
             action_type = tool_name.replace("action_", "").capitalize()
             clean_args = dict(args)
@@ -235,5 +262,8 @@ class GameAgent:
                 try: clean_args["to_room"] = int(clean_args["to_room"])
                 except: pass
             
-            await self.send_event(action_type, clean_args)
+            # If no args, pass None (for Unit Variants in Rust)
+            payload = clean_args if clean_args else None
+            
+            await self.send_event(action_type, payload)
             print(f"Sent action: {action_type}")
