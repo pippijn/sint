@@ -1,3 +1,2 @@
 websockets
 google-generativeai
-../core

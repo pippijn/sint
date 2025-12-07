@@ -2,7 +2,39 @@ use leptos::*;
 use crate::state::{provide_game_context, GameContext};
 use crate::map::MapView;
 use crate::chat::ChatView;
-use sint_core::{Action, SystemType, HazardType};
+use sint_core::{Action, SystemType, HazardType, GamePhase};
+
+#[component]
+fn PhaseTracker(phase: GamePhase) -> impl IntoView {
+    let phases = vec![
+        (GamePhase::MorningReport, "MORNING"),
+        (GamePhase::EnemyTelegraph, "TELEGRAPH"),
+        (GamePhase::TacticalPlanning, "PLANNING"),
+        (GamePhase::Execution, "EXECUTE"),
+        (GamePhase::EnemyAction, "ENEMY"),
+    ];
+    
+    view! {
+        <div style="display: flex; gap: 5px; align-items: center; font-size: 0.8em; background: #222; padding: 5px; border-radius: 4px;">
+            {phases.into_iter().map(|(p, label)| {
+                let active = p == phase;
+                let color = if active { "#4caf50" } else { "#555" };
+                let weight = if active { "bold" } else { "normal" };
+                view! {
+                    <div style=format!("color: {}; font-weight: {}; padding: 2px 6px; border-radius: 2px; background: {};", 
+                        if active { "#fff" } else { "#888" }, 
+                        weight,
+                        if active { "#4caf50" } else { "transparent" }
+                    )>
+                        {label}
+                    </div>
+                    // Arrow separator (except last)
+                    {if label != "ENEMY" { "→" } else { "" }}
+                }
+            }).collect::<Vec<_>>()}
+        </div>
+    }
+}
 
 #[component]
 pub fn App() -> impl IntoView {
@@ -13,20 +45,26 @@ pub fn App() -> impl IntoView {
     
     view! {
         <div style="padding: 20px; font-family: monospace; max-width: 1200px; margin: 0 auto;">
-            <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: #1a1a1a; padding: 15px; border-radius: 8px; border: 1px solid #333;">
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <h1>"Sint FTL"</h1>
+                    <h1 style="margin: 0; font-size: 1.5em;">"Sint FTL"</h1>
                     {move || if is_connected.get() {
-                        view! { <span style="color: #4caf50; font-weight: bold;">"● Connected"</span> }
+                        view! { <span style="color: #4caf50; font-size: 0.8em;">"● ONLINE"</span> }
                     } else {
-                        view! { <span style="color: #f44336; font-weight: bold;">"⚠ Disconnected"</span> }
+                        view! { <span style="color: #f44336; font-size: 0.8em;">"⚠ OFFLINE"</span> }
                     }}
                 </div>
-                <div style="text-align: right;">
-                    <div><strong>"Player: "</strong> {&pid}</div>
-                    <div><strong>"Phase: "</strong> {move || format!("{:?}", state.get().phase)}</div>
-                    <div><strong>"Hull: "</strong> {move || state.get().hull_integrity} " / 20"</div>
-                    <div><strong>"Turn: "</strong> {move || state.get().turn_count}</div>
+                
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
+                    {move || view! { <PhaseTracker phase=state.get().phase /> }}
+                </div>
+
+                <div style="text-align: right; font-size: 0.9em;">
+                    <div style="margin-bottom: 4px;"><strong>{pid}</strong></div>
+                    <div style="display: flex; gap: 10px;">
+                        <span title="Hull Integrity">"🛡 " {move || state.get().hull_integrity} "/20"</span>
+                        <span title="Turn Number">"⏳ T" {move || state.get().turn_count}</span>
+                    </div>
                 </div>
             </header>
             

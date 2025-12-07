@@ -63,12 +63,12 @@ pub enum GamePhase {
 
 // --- Map & Rooms ---
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct GameMap {
     pub rooms: HashMap<RoomId, Room>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct Room {
     pub id: RoomId,
     pub name: String,

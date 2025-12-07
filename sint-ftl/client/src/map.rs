@@ -8,30 +8,86 @@ pub fn MapView(ctx: GameContext) -> impl IntoView {
     let state = ctx.state;
     let pid = ctx.player_id.clone();
     
-    // Simple list view for now, grouped by ID
+    // Layout Logic (Memoized)
+    let layout = create_memo(move |_| {
+        let s = state.get();
+        // 1. Find Hallway (Node with most neighbors)
+        let mut rooms: Vec<Room> = s.map.rooms.values().cloned().collect();
+        if rooms.is_empty() { return (vec![], vec![], vec![]); }
+        
+        rooms.sort_by_key(|r| std::cmp::Reverse(r.neighbors.len()));
+        let hallway = rooms[0].clone();
+        
+        // 2. Split neighbors into Top/Bottom
+        let mut top_row = vec![];
+        let mut bot_row = vec![];
+        
+        let mut remaining: Vec<Room> = rooms.into_iter()
+            .filter(|r| r.id != hallway.id)
+            .collect();
+            
+        remaining.sort_by_key(|r| r.id); // Stable sort for consistent layout
+        
+        for (i, room) in remaining.into_iter().enumerate() {
+            if i % 2 == 0 {
+                top_row.push(room);
+            } else {
+                bot_row.push(room);
+            }
+        }
+        
+        (vec![hallway], top_row, bot_row)
+    });
+
+    let pid_top = pid.clone();
+    let pid_mid = pid.clone();
+    let pid_bot = pid.clone();
+
     view! {
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;">
-            {move || {
-                let s = state.get();
-                let mut rooms: Vec<&Room> = s.map.rooms.values().collect();
-                rooms.sort_by_key(|r| r.id);
-                
-                rooms.into_iter().map(|room| {
-                    view! {
-                        <RoomCard 
-                            room=room.clone() 
-                            state=s.clone() 
-                            my_pid=pid.clone() 
-                        />
+        <div style="
+            display: grid; 
+            grid-template-rows: auto auto auto; 
+            gap: 15px; 
+            background: #111; 
+            padding: 20px; 
+            border-radius: 12px;
+            border: 2px solid #333;
+        ">
+            // Top Row
+            <div style="display: flex; gap: 15px; justify-content: center;">
+                {move || layout.get().1.into_iter().map(|r| {
+                    view! { <RoomCard room=r.clone() state=state.get() my_pid=pid_top.clone() /> }
+                }).collect::<Vec<_>>()}
+            </div>
+            
+            // Hallway (Spine)
+            <div style="display: flex; justify-content: center;">
+                {move || layout.get().0.into_iter().map(|r| {
+                    view! { 
+                        <div style="width: 100%;">
+                            <RoomCard room=r.clone() state=state.get() my_pid=pid_mid.clone() is_hallway=true /> 
+                        </div>
                     }
-                }).collect::<Vec<_>>()
-            }}
+                }).collect::<Vec<_>>()}
+            </div>
+            
+            // Bottom Row
+            <div style="display: flex; gap: 15px; justify-content: center;">
+                {move || layout.get().2.into_iter().map(|r| {
+                    view! { <RoomCard room=r.clone() state=state.get() my_pid=pid_bot.clone() /> }
+                }).collect::<Vec<_>>()}
+            </div>
         </div>
     }
 }
 
 #[component]
-fn RoomCard(room: Room, state: GameState, my_pid: String) -> impl IntoView {
+fn RoomCard(
+    room: Room, 
+    state: GameState, 
+    my_pid: String,
+    #[prop(optional)] is_hallway: bool
+) -> impl IntoView {
     let players_here: Vec<Player> = state.players.values()
         .filter(|p| p.room_id == room.id)
         .cloned()
@@ -39,55 +95,89 @@ fn RoomCard(room: Room, state: GameState, my_pid: String) -> impl IntoView {
         
     let is_here = players_here.iter().any(|p| p.id == my_pid);
     
-    let bg_color = if is_here { "#444" } else { "#2a2a2a" };
-    let border = if is_here { "2px solid #4caf50" } else { "1px solid #555" };
+    // Check Hazards
+    let has_fire = room.hazards.contains(&HazardType::Fire);
+    let has_water = room.hazards.contains(&HazardType::Water);
+    
+    // Check if Targeted
+    let is_targeted = state.enemy.next_attack.as_ref().map_or(false, |a| a.target_room == room.id);
+
+    // Styling
+    let bg_color = if has_fire { "#3e1a1a" } else if has_water { "#1a2a3e" } else { "#2a2a2a" };
+    let border_color = if is_here { "#4caf50" } else if is_targeted { "#f44336" } else { "#555" };
+    let border_style = if is_targeted { "dashed" } else { "solid" };
+    let width = if is_hallway { "100%" } else { "200px" };
+    let min_height = "120px";
 
     view! {
-        <div style=format!("background: {}; border: {}; padding: 10px; border-radius: 8px;", bg_color, border)>
-            <div style="font-weight: bold; border-bottom: 1px solid #555; padding-bottom: 5px; margin-bottom: 5px;">
-                {format!("{} - {}", room.id, room.name)}
-                <span style="float: right; font-size: 0.8em; color: #aaa;">
-                    {format!("{:?}", room.system)}
-                </span>
-            </div>
+        <div style=format!("
+            background: {}; 
+            border: 2px {} {}; 
+            border-radius: 8px; 
+            padding: 10px; 
+            width: {};
+            min-height: {};
+            position: relative;
+            transition: all 0.2s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        ", bg_color, border_style, border_color, width, min_height)>
             
-            // Hazards
-            {if !room.hazards.is_empty() {
+            // Target Indicator
+            {if is_targeted {
                 view! {
-                    <div style="color: #ff5252; margin-bottom: 5px;">
-                        "⚠ " {format!("{:?}", room.hazards)}
+                    <div style="position: absolute; top: -10px; right: -10px; background: #f44336; color: white; padding: 2px 8px; border-radius: 10px; font-weight: bold; font-size: 0.8em; box-shadow: 0 2px 4px rgba(0,0,0,0.5);">
+                        "TARGET"
                     </div>
                 }.into_view()
             } else {
                 view! {}.into_view()
             }}
-            
-            // Items
-            {if !room.items.is_empty() {
-                 view! {
-                    <div style="color: #ffeb3b; font-size: 0.9em; margin-bottom: 5px;">
-                        "📦 " {format!("{:?}", room.items)}
-                    </div>
-                 }.into_view()
-            } else {
-                 view! {}.into_view()
-            }}
-            
-            // Players
-            <div style="margin-top: 5px;">
-                {players_here.into_iter().map(|p| {
-                    let style = if p.id == my_pid { "color: #4caf50; font-weight: bold;" } else { "color: #ddd;" };
-                    view! {
-                        <div style=style>
-                            "👤 " {p.name} {format!(" ({}/{} HP)", p.hp, 3)}
-                        </div>
-                    }
-                }).collect::<Vec<_>>()}
+
+            // Header
+            <div style="border-bottom: 1px solid #444; padding-bottom: 5px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: bold;">{format!("{} {}", room.id, room.name)}</span>
+                <span style="font-size: 0.7em; color: #888; text-transform: uppercase;">
+                    {format!("{:?}", room.system).replace("Some(", "").replace(")", "")}
+                </span>
             </div>
             
-            // Connections (Neighbors)
-            <div style="margin-top: 8px; font-size: 0.8em; color: #888;">
-                "Doors: " {format!("{:?}", room.neighbors)}
+            // Content
+            <div style="font-size: 0.9em;">
+                // Hazards
+                <div style="display: flex; gap: 5px; margin-bottom: 5px;">
+                    {room.hazards.iter().map(|h| {
+                        match h {
+                            HazardType::Fire => view! { <span title="Fire">"🔥"</span> },
+                            HazardType::Water => view! { <span title="Water">"💧"</span> },
+                        }
+                    }).collect::<Vec<_>>()}
+                </div>
+                
+                // Items
+                <div style="display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 5px;">
+                    {room.items.iter().map(|i| {
+                        match i {
+                            ItemType::Peppernut => view! { <span title="Peppernut">"🍪"</span> },
+                            _ => view! { <span title="Item">"📦"</span> },
+                        }
+                    }).collect::<Vec<_>>()}
+                </div>
+                
+                // Players
+                <div style="display: flex; flex-direction: column; gap: 2px;">
+                    {players_here.into_iter().map(|p| {
+                        let is_me = p.id == my_pid;
+                        let color = if is_me { "#81c784" } else { "#ddd" };
+                        let fainted = p.status.contains(&sint_core::PlayerStatus::Fainted);
+                        let icon = if fainted { "💀" } else { "👤" };
+                        
+                        view! {
+                            <div style=format!("color: {}; font-size: 0.85em;", color)>
+                                {icon} " " {p.name}
+                            </div>
+                        }
+                    }).collect::<Vec<_>>()}
+                </div>
             </div>
         </div>
     }

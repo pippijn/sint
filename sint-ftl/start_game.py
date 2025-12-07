@@ -34,25 +34,28 @@ def check_venv():
     if not os.path.exists(VENV_DIR):
         print("🔧 Creating Python virtual environment...")
         subprocess.check_call([sys.executable, "-m", "venv", ".venv"])
-        run_cmd("pip install -r ai/requirements.txt")
-        run_cmd("pip install maturin")
+        # Use the python executable inside the venv
+        venv_python = os.path.join(VENV_BIN, "python")
+        run_cmd(f"{venv_python} -m pip install -r ai/requirements.txt")
+        run_cmd(f"{venv_python} -m pip install maturin")
 
 def build_core():
     print("🔨 Building Core & Python Bindings...")
     # Build Rust lib
     run_cmd("cargo build -p sint-core")
-    # Build Python bindings
+    # Build Python bindings using maturin in venv
     run_cmd("maturin develop --release", cwd=os.path.join(ROOT_DIR, "core"))
 
 def run_tests():
     print("🧪 Running Tests...")
     run_cmd("cargo test -p sint-core")
+    run_cmd("cargo check -p sint-client")
+    run_cmd("cargo check -p sint-server")
 
 def main():
     parser = argparse.ArgumentParser(description="Sint FTL Launcher")
     parser.add_argument("--ai", action="store_true", help="Start an AI agent")
-    parser.add_argument("--client", action="store_true", default=True, help="Start Web Client (Trunk)")
-    parser.add_argument("--no-client", action="store_false", dest="client", help="Don't start Web Client")
+    parser.add_argument("--build-only", action="store_true", help="Build and exit")
     parser.add_argument("--clean", action="store_true", help="Clean build artifacts first")
     args = parser.parse_args()
 
@@ -66,6 +69,10 @@ def main():
     # 2. Build & Test
     build_core()
     run_tests()
+    
+    if args.build_only:
+        print("✅ Build Complete.")
+        return
 
     # 3. Start Processes
     procs = []
@@ -74,10 +81,9 @@ def main():
         procs.append(run_cmd("cargo run -p sint-server", background=True))
         time.sleep(1) # Wait for server port
 
-        if args.client:
-            print("\n🖥️  Starting Web Client...")
-            # trunk serve needs to be in client dir
-            procs.append(run_cmd("trunk serve", cwd=os.path.join(ROOT_DIR, "client"), background=True))
+        print("\n🖥️  Starting Web Client...")
+        # trunk serve needs to be in client dir
+        procs.append(run_cmd("trunk serve", cwd=os.path.join(ROOT_DIR, "client"), background=True))
 
         if args.ai:
             print("\n🤖 Starting AI Agent...")
