@@ -99,6 +99,9 @@ class GameAgent:
                 }
                 await ws.send(json.dumps(join_event))
                 
+                # Send Sync Request
+                await ws.send(json.dumps({ "type": "SyncRequest", "payload": None }))
+                
                 # Initial Think (Kickstart)
                 self.schedule_think(delay=2.0)
 
@@ -115,6 +118,22 @@ class GameAgent:
 
         if msg_type == "Welcome":
             print(f"Joined room: {payload.get('room_id')}")
+            
+        elif msg_type == "SyncRequest":
+            # If we have state (seq > 0), send it
+            if self.state_json and self.state_json.get("sequence_id", 0) > 0:
+                print("Responding to SyncRequest with FullSync...")
+                state_str = json.dumps(self.state_json)
+                full_sync = {
+                    "id": str(uuid.uuid4()),
+                    "player_id": self.player_id,
+                    "action": { 
+                        "type": "FullSync", 
+                        "payload": { "state_json": state_str } 
+                    }
+                }
+                msg = { "type": "Event", "payload": { "sequence_id": self.state_json["sequence_id"], "data": full_sync } }
+                await self.websocket.send(json.dumps(msg))
             
         elif msg_type == "Event":
             try:

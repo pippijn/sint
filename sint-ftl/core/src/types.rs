@@ -200,6 +200,8 @@ pub enum Action {
     Pass,
     /// Join the game dynamically
     Join { name: String },
+    /// Receive a full state dump from a peer
+    FullSync { state_json: String },
 }
 
 // --- Cards ---

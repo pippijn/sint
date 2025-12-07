@@ -58,6 +58,7 @@ pub fn provide_game_context() -> GameContext {
     let pid_ws = player_id.clone();
     let rid_ws = room_id.clone();
     let set_state_ws = set_state;
+    let mut tx_inner = tx.clone(); // Clone for internal use
 
     spawn_local(async move {
         let url = "ws://localhost:3000/ws";
@@ -81,6 +82,10 @@ pub fn provide_game_context() -> GameContext {
             player_id: pid_ws.clone(),
         };
         let _ = write.send(Message::Text(serde_json::to_string(&join_msg).unwrap())).await;
+
+        // Request Sync from peers
+        let sync_req = ClientMessage::SyncRequest;
+        let _ = write.send(Message::Text(serde_json::to_string(&sync_req).unwrap())).await;
 
         // Send Join Action (Game State)
         let join_action = ProposedAction {
@@ -162,7 +167,30 @@ pub fn provide_game_context() -> GameContext {
                                 Ok(ServerMessage::Welcome { room_id }) => {
                                     leptos::logging::log!("Welcome to {}", room_id);
                                 }
-                                _ => {}
+                                Ok(ServerMessage::SyncRequest) => {
+                                    let guard = internal_ws.borrow();
+                                    if guard.verified_state.sequence_id > 0 {
+                                        leptos::logging::log!("Providing Sync State");
+                                        let sync_action = ProposedAction {
+                                            id: Uuid::new_v4().to_string(),
+                                            player_id: pid_ws.clone(),
+                                            action: Action::FullSync { 
+                                                state_json: serde_json::to_string(&guard.verified_state).unwrap() 
+                                            },
+                                        };
+                                        let msg = ClientMessage::Event {
+                                            sequence_id: guard.verified_state.sequence_id,
+                                            data: serde_json::to_value(&sync_action).unwrap(),
+                                        };
+                                        let _ = tx_inner.try_send(serde_json::to_string(&msg).unwrap());
+                                    }
+                                }
+                                Ok(ServerMessage::Error { msg }) => {
+                                    leptos::logging::error!("Server Error: {}", msg);
+                                }
+                                Err(e) => {
+                                    leptos::logging::error!("Parse error: {:?}", e);
+                                }
                              }
                         }
                         None => {

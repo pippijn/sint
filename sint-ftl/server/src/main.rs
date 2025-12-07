@@ -32,6 +32,7 @@ enum ClientMessage {
 enum ServerMessage {
     Welcome { room_id: String },
     Event { sequence_id: u64, data: serde_json::Value },
+    SyncRequest,
     Error { msg: String },
 }
 
@@ -113,7 +114,13 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
                             }
                             
                             Ok(ClientMessage::SyncRequest) => {
-                                // TODO: Implement history replay
+                                // Broadcast SyncRequest to peers
+                                if let Some(room_id) = &my_room_id {
+                                    if let Some(tx) = state.rooms.get(room_id) {
+                                        let relay_msg = serde_json::to_string(&ServerMessage::SyncRequest).unwrap();
+                                        let _ = tx.send(relay_msg);
+                                    }
+                                }
                             }
                             
                             Err(e) => {

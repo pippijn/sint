@@ -14,5 +14,6 @@ pub enum ClientMessage {
 pub enum ServerMessage {
     Welcome { room_id: String },
     Event { sequence_id: u64, data: Value },
+    SyncRequest,
     Error { msg: String },
 }

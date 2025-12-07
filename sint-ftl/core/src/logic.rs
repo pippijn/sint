@@ -126,28 +126,26 @@ impl GameLogic {
         _hypothetical_seed: Option<u64>
     ) -> Result<GameState, GameError> {
         
-        // 1. Handle Join (Special Case: Player might not exist yet)
+        // 1. Handle Join & FullSync (Special Cases)
         if let Action::Join { name } = &action {
             if state.players.contains_key(player_id) {
-                // Already joined, maybe just update name or ignore
                 return Ok(state);
             }
-            
             state.players.insert(player_id.to_string(), Player {
                 id: player_id.to_string(),
                 name: name.clone(),
-                room_id: 3, // Default start
-                hp: 3,
-                ap: 2,
-                inventory: vec![],
-                status: vec![],
-                is_ready: false,
+                room_id: 3, hp: 3, ap: 2, inventory: vec![], status: vec![], is_ready: false,
             });
-            
-            // Refund AP cost (Join is free/special)
-            // But we need to skip the AP check below
             state.sequence_id += 1;
             return Ok(state);
+        }
+        
+        if let Action::FullSync { state_json } = &action {
+            // Replace state completely
+            match serde_json::from_str::<GameState>(state_json) {
+                Ok(new_state) => return Ok(new_state),
+                Err(e) => return Err(GameError::InvalidAction(format!("Bad Sync: {}", e))),
+            }
         }
 
         // 2. Validate AP (unless it's free)
@@ -283,5 +281,6 @@ fn action_cost(action: &Action) -> i32 {
         Action::Drop { .. } => 0, 
         Action::Pass => 0,
         Action::Join { .. } => 0,
+        Action::FullSync { .. } => 0,
     }
 }
