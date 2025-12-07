@@ -1,6 +1,7 @@
 use leptos::*;
 use crate::state::{provide_game_context, GameContext};
 use crate::map::MapView;
+use crate::chat::ChatView;
 use sint_core::{Action, SystemType, HazardType};
 
 #[component]
@@ -37,8 +38,16 @@ pub fn App() -> impl IntoView {
 
             <hr style="border-color: #444; margin: 20px 0;" />
             
-            <h3>"Ship Map"</h3>
-            <MapView ctx=ctx.clone() />
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
+                <div>
+                    <h3>"Ship Map"</h3>
+                    <MapView ctx=ctx.clone() />
+                </div>
+                <div>
+                    <h3>"Comms"</h3>
+                    <ChatView ctx=ctx.clone() />
+                </div>
+            </div>
             
             <hr style="border-color: #444; margin: 20px 0;" />
             

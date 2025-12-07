@@ -246,6 +246,14 @@ impl GameLogic {
             Action::Revive { .. } => {
                 // Check location + status.
             },
+            
+            Action::Chat { message } => {
+                state.chat_log.push(ChatMessage {
+                    sender: player_id.to_string(),
+                    text: message,
+                    timestamp: 0, // TODO: Use real timestamp or sequence
+                });
+            },
 
             // TODO: Implement other actions
             _ => {}
