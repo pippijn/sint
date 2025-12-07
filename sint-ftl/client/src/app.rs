@@ -34,6 +34,8 @@ pub fn App() -> impl IntoView {
             
             <hr style="border-color: #444; margin: 20px 0;" />
             
+            <MorningReportView ctx=ctx.clone() />
+            
             <Actions ctx=ctx.clone() />
 
             <hr style="border-color: #444; margin: 20px 0;" />
@@ -62,11 +64,74 @@ pub fn App() -> impl IntoView {
 }
 
 #[component]
+fn MorningReportView(ctx: GameContext) -> impl IntoView {
+    let state = ctx.state;
+    view! {
+        {move || {
+            let s = state.get();
+            let has_event = s.latest_event.is_some();
+            let has_situations = !s.active_situations.is_empty();
+            
+            if has_event || has_situations {
+                view! {
+                    <div style="background: #673ab7; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #9575cd;">
+                        <h3 style="margin-top: 0;">"Morning Report"</h3>
+                        
+                        // Latest Event (Just Drawn)
+                        {if let Some(card) = &s.latest_event {
+                            view! {
+                                <div style="margin-bottom: 20px; background: #fff; color: #222; padding: 15px; border-radius: 4px; border-left: 5px solid #ff4081;">
+                                    <div style="font-size: 0.8em; text-transform: uppercase; color: #888; font-weight: bold;">"Just Drawn"</div>
+                                    <h2 style="margin: 5px 0;">{&card.title}</h2>
+                                    <div>{&card.description}</div>
+                                </div>
+                            }.into_view()
+                        } else {
+                            view! {}.into_view()
+                        }}
+
+                        // Active Situations
+                        {if has_situations {
+                            view! {
+                                <div>
+                                    <h4 style="margin: 10px 0;">"Active Situations"</h4>
+                                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                        {s.active_situations.iter().map(|card| {
+                                            view! {
+                                                <div style="background: #eee; color: #222; padding: 10px; border-radius: 4px; width: 200px;">
+                                                    <strong>{&card.title}</strong>
+                                                    <div style="font-size: 0.8em; margin-top: 5px;">{&card.description}</div>
+                                                    {if let Some(sol) = &card.solution {
+                                                        view! { <div style="font-size: 0.7em; margin-top: 5px; color: #555;">"Solution: " {format!("{:?}", sol)}</div> }.into_view()
+                                                    } else {
+                                                        view! {}.into_view()
+                                                    }}
+                                                </div>
+                                            }
+                                        }).collect::<Vec<_>>()}
+                                    </div>
+                                </div>
+                            }.into_view()
+                        } else {
+                            view! {}.into_view()
+                        }}
+                    </div>
+                }.into_view()
+            } else {
+                view! {}.into_view()
+            }
+        }}
+    }
+}
+
+#[component]
 fn MyStatus(ctx: GameContext) -> impl IntoView {
     let state = ctx.state;
     let pid = ctx.player_id.clone();
     let ctx_join = ctx.clone();
     let pid_join = pid.clone();
+    let ctx_ready = ctx.clone();
+    let pid_ready = pid.clone();
     
     view! {
         <div style="background: #333; padding: 15px; border-radius: 8px;">
@@ -74,13 +139,27 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                 let s = state.get();
                 if let Some(p) = s.players.get(&pid) {
                     let room_name = s.map.rooms.get(&p.room_id).map(|r| r.name.clone()).unwrap_or("Unknown".to_string());
+                    let is_ready = p.is_ready;
+                    let c_ready = ctx_ready.clone();
+                    
                     view! {
-                        <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                        <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: center;">
                             <div>"📍 Location: " <strong>{room_name}</strong> " (" {p.room_id} ")"</div>
                             <div>"❤ HP: " <strong>{p.hp}</strong> "/3"</div>
                             <div>"⚡ AP: " <strong>{p.ap}</strong> "/2"</div>
                             <div>"🎒 Inventory: " {format!("{:?}", p.inventory)}</div>
-                            <div>"Ready: " {if p.is_ready { "✅" } else { "❌" }}</div>
+                            <button
+                                on:click=move |_| {
+                                    c_ready.perform_action.call(Action::VoteReady { ready: !is_ready });
+                                }
+                                style=move || if is_ready {
+                                    "background: #4caf50; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;"
+                                } else {
+                                    "background: #555; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;"
+                                }
+                            >
+                                {if is_ready { "✅ READY" } else { "❌ NOT READY" }}
+                            </button>
                         </div>
                     }.into_view()
                 } else {

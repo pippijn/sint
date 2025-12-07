@@ -39,7 +39,15 @@ pub struct GameState {
     pub proposal_queue: Vec<ProposedAction>,
     
     /// Active "Situation" cards
-    pub active_situations: Vec<CardEffect>,
+    pub active_situations: Vec<Card>,
+    
+    /// The card drawn this turn (Flash or Situation) for display in MorningReport
+    pub latest_event: Option<Card>,
+    
+    /// The Draw Deck
+    pub deck: Vec<Card>,
+    /// The Discard Pile
+    pub discard: Vec<Card>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -207,8 +215,43 @@ pub enum Action {
 // --- Cards ---
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct CardEffect {
+pub struct Card {
     pub id: String,
-    pub name: String,
+    pub title: String,
     pub description: String,
+    pub card_type: CardType,
+    /// If the card offers a choice (Dilemma)
+    pub options: Vec<CardOption>,
+    /// Solution for Situations/Timebombs
+    pub solution: Option<CardSolution>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub enum CardType {
+    Flash,      // Instant effect
+    Situation,  // Persistent negative effect
+    Timebomb { rounds_left: u32 }, // Countdown
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct CardOption {
+    pub text: String,
+    pub effect: EffectType,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub enum EffectType {
+    None,
+    DamageHull(i32),
+    LoseResource(ItemType, u32),
+    MovePlayer(String, RoomId),
+    SpawnHazard(RoomId, HazardType),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct CardSolution {
+    pub room_id: Option<RoomId>, // Where to solve it
+    pub ap_cost: u32,
+    pub item_cost: Option<ItemType>,
+    pub required_players: u32,
 }

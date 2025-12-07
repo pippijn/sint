@@ -1,5 +1,6 @@
 use crate::types::*;
 use rand::{Rng, SeedableRng};
+use rand::seq::SliceRandom;
 use rand::rngs::StdRng;
 use std::collections::HashMap;
 use thiserror::Error;
@@ -93,9 +94,13 @@ impl GameLogic {
             });
         }
 
-        GameState {
+        // Initialize RNG for shuffling
+        let mut rng = StdRng::seed_from_u64(seed);
+        let next_seed = rng.gen();
+
+        let mut state = GameState {
             sequence_id: 0,
-            rng_seed: seed,
+            rng_seed: next_seed,
             phase: GamePhase::MorningReport,
             turn_count: 1,
             hull_integrity: 20,
@@ -110,7 +115,43 @@ impl GameLogic {
             chat_log: vec![],
             proposal_queue: vec![],
             active_situations: vec![],
-        }
+            latest_event: None,
+            deck: Self::initialize_deck(&mut rng),
+            discard: vec![],
+        };
+        
+        // Draw initial card
+        Self::draw_card(&mut state);
+        state
+    }
+
+    fn initialize_deck(rng: &mut StdRng) -> Vec<Card> {
+        let mut deck = vec![
+            Card {
+                id: "C01".to_string(),
+                title: "Afternoon Nap".to_string(),
+                description: "The Reader falls asleep. Cannot spend AP.".to_string(),
+                card_type: CardType::Situation,
+                options: vec![],
+                solution: Some(CardSolution {
+                    room_id: None, 
+                    ap_cost: 1, 
+                    item_cost: None,
+                    required_players: 1
+                })
+            },
+            Card {
+                id: "C05".to_string(),
+                title: "Peppernut Rain".to_string(),
+                description: "+2 Peppernuts for everyone.".to_string(),
+                card_type: CardType::Flash,
+                options: vec![],
+                solution: None
+            }
+        ];
+        
+        deck.shuffle(rng);
+        deck
     }
 
     /// The Core Reducer: Applies a single action to the state.
@@ -207,7 +248,6 @@ impl GameLogic {
                      player.inventory.remove(idx);
                      
                      // Roll for Hit
-                     // TODO: Use the seed
                      let mut rng = StdRng::seed_from_u64(state.rng_seed);
                      let roll: u32 = rng.gen_range(1..=6);
                      state.rng_seed = rng.gen(); // Advance seed
@@ -223,10 +263,19 @@ impl GameLogic {
             Action::Pass => {
                 player.ap = 0;
                 player.is_ready = true;
+                
+                // Check phase advance if ALL players passed?
+                // For now, only VoteReady does it.
             },
             
             Action::VoteReady { ready } => {
                 player.is_ready = ready;
+                
+                // Check Consensus
+                let all_ready = state.players.values().all(|p| p.is_ready);
+                if all_ready {
+                    state = Self::advance_phase(state)?;
+                }
             },
             
             Action::RaiseShields => {
@@ -266,6 +315,157 @@ impl GameLogic {
         state.sequence_id += 1;
 
         Ok(state)
+    }
+
+    fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
+        match state.phase {
+            GamePhase::MorningReport => {
+                state.phase = GamePhase::EnemyTelegraph;
+                
+                // Archive the event
+                state.latest_event = None;
+                
+                // Generate telegraph
+                // For now, simple logic
+                let mut rng = StdRng::seed_from_u64(state.rng_seed);
+                let target_room = rng.gen_range(2..=11);
+                state.rng_seed = rng.gen();
+                
+                state.enemy.next_attack = Some(EnemyAttack {
+                    target_room,
+                    effect: AttackEffect::Fireball,
+                });
+                
+                // Reset ready
+                for p in state.players.values_mut() { p.is_ready = false; }
+            },
+            GamePhase::EnemyTelegraph => {
+                state.phase = GamePhase::TacticalPlanning;
+                // Reset AP
+                for p in state.players.values_mut() {
+                    p.ap = 2;
+                    p.is_ready = false;
+                }
+            },
+            GamePhase::TacticalPlanning => {
+                state.phase = GamePhase::Execution;
+                 for p in state.players.values_mut() { p.is_ready = false; }
+            },
+            GamePhase::Execution => {
+                state.phase = GamePhase::EnemyAction;
+                // Run Logic
+                Self::resolve_enemy_attack(&mut state);
+                Self::resolve_hazards(&mut state);
+                
+                for p in state.players.values_mut() { p.is_ready = false; }
+            },
+            GamePhase::EnemyAction => {
+                state.turn_count += 1;
+                state.phase = GamePhase::MorningReport;
+                
+                // Respawn Logic
+                for p in state.players.values_mut() {
+                    if p.status.contains(&PlayerStatus::Fainted) {
+                        p.status.retain(|s| *s != PlayerStatus::Fainted);
+                        p.hp = 3;
+                        p.room_id = 3; // Dormitory
+                    }
+                }
+                
+                Self::draw_card(&mut state);
+                for p in state.players.values_mut() { p.is_ready = false; }
+            },
+            _ => {}
+        }
+        Ok(state)
+    }
+
+    fn resolve_enemy_attack(state: &mut GameState) {
+        if let Some(attack) = &state.enemy.next_attack {
+            // Check Evasion (TODO: Add Evasion Flag to State)
+            // Check Shields (TODO: Add Shield Flag to State)
+            
+            // Hit!
+            if let Some(room) = state.map.rooms.get_mut(&attack.target_room) {
+                 match attack.effect {
+                     AttackEffect::Fireball => {
+                         room.hazards.push(HazardType::Fire);
+                         state.hull_integrity -= 1; // Direct hit damage?
+                     },
+                     AttackEffect::Leak => {
+                         room.hazards.push(HazardType::Water);
+                     },
+                     _ => {}
+                 }
+            }
+        }
+        state.enemy.next_attack = None;
+    }
+
+    fn resolve_hazards(state: &mut GameState) {
+        let mut fire_spreads = vec![];
+        let mut rng = StdRng::seed_from_u64(state.rng_seed);
+        
+        // 1. Damage Players & Hull
+        for room in state.map.rooms.values() {
+            let has_fire = room.hazards.contains(&HazardType::Fire);
+            
+            if has_fire {
+                state.hull_integrity -= 1;
+                
+                // Spread Chance? (Simple: if > 1 fire, spread to neighbors)
+                if room.hazards.iter().filter(|&h| *h == HazardType::Fire).count() >= 2 {
+                    for &neighbor in &room.neighbors {
+                        if rng.gen_bool(0.5) { // 50% chance to spread
+                            fire_spreads.push(neighbor);
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Apply Player Damage separately to avoid borrow issues
+        for p in state.players.values_mut() {
+            if let Some(room) = state.map.rooms.get(&p.room_id) {
+                if room.hazards.contains(&HazardType::Fire) {
+                    p.hp -= 1;
+                    if p.hp <= 0 {
+                        p.status.push(PlayerStatus::Fainted);
+                    }
+                }
+            }
+        }
+
+        // 2. Apply Spreads
+        for room_id in fire_spreads {
+            if let Some(room) = state.map.rooms.get_mut(&room_id) {
+                if !room.hazards.contains(&HazardType::Fire) {
+                    room.hazards.push(HazardType::Fire);
+                }
+            }
+        }
+        
+        state.rng_seed = rng.gen();
+    }
+
+    fn draw_card(state: &mut GameState) {
+        // Simple draw logic
+        if let Some(card) = state.deck.pop() {
+            state.latest_event = Some(card.clone());
+
+            match card.card_type {
+                 CardType::Flash => {
+                     // Apply flash effect (placeholder)
+                     // e.g. "Rain" -> Add items
+                     state.discard.push(card);
+                 },
+                 CardType::Situation | CardType::Timebomb { .. } => {
+                     state.active_situations.push(card);
+                 }
+            }
+        } else {
+            // Reshuffle discard?
+        }
     }
 }
 

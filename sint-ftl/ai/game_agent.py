@@ -158,10 +158,20 @@ class GameAgent:
         status_desc = f"HP {me['hp']}/3, AP {me['ap']}/2. Inventory: {me['inventory']}"
         room_desc = f"Room {room_id} ({room.get('name')}). Hazards: {room.get('hazards')}. People: {[p['name'] for p in state['players'].values() if p['room_id'] == room_id]}"
         
+        phase = state.get('phase', 'Unknown')
+        active_cards = state.get('active_situations', [])
+        
+        situation_desc = ""
+        if active_cards:
+            situation_desc = "ACTIVE CARDS:\n" + "\n".join([f"- {c['title']}: {c['description']}" for c in active_cards])
+
         system_instruction = self._load_system_prompt()
         
         prompt_parts = [
             system_instruction,
+            "",
+            f"PHASE: {phase}",
+            situation_desc,
             "",
             "RECENT EVENTS:",
             memory_text,
