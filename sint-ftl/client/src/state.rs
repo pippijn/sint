@@ -16,6 +16,7 @@ pub struct GameContext {
     pub player_id: String,
     pub room_id: String,
     pub perform_action: ActionCallback,
+    pub is_connected: ReadSignal<bool>,
 }
 
 #[derive(Clone)]
@@ -31,7 +32,8 @@ pub fn provide_game_context() -> GameContext {
     let player_id = "Player_1".to_string(); 
     let room_id = "Room_A".to_string();
 
-    let initial_state = GameLogic::new_game(vec![player_id.clone()], 12345);
+    // Start empty, let Join actions populate players
+    let initial_state = GameLogic::new_game(vec![], 12345);
     let (state, set_state) = create_signal(initial_state.clone());
 
     // Channel for sending messages to WebSocket
@@ -48,6 +50,9 @@ pub fn provide_game_context() -> GameContext {
         pending_actions: VecDeque::new(),
     }));
 
+    // Connection Status Signal
+    let (is_connected, set_connected) = create_signal(false);
+
     // Spawn WebSocket Task
     let internal_ws = internal.clone();
     let pid_ws = player_id.clone();
@@ -60,19 +65,35 @@ pub fn provide_game_context() -> GameContext {
             Ok(ws) => ws,
             Err(e) => {
                 leptos::logging::error!("Failed to connect: {:?}", e);
+                // We can't update signal easily here if we return, but we can log.
                 return;
             }
         };
 
         let (mut write, read) = ws.split();
         let mut read = read.fuse(); // Enable select! macro usage
+        
+        set_connected.set(true);
 
-        // Send Join immediately
+        // Send Join (Network Room)
         let join_msg = ClientMessage::Join {
-            room_id: rid_ws,
-            player_id: pid_ws,
+            room_id: rid_ws.clone(),
+            player_id: pid_ws.clone(),
         };
         let _ = write.send(Message::Text(serde_json::to_string(&join_msg).unwrap())).await;
+
+        // Send Join Action (Game State)
+        let join_action = ProposedAction {
+            id: Uuid::new_v4().to_string(),
+            player_id: pid_ws.clone(),
+            action: Action::Join { name: pid_ws.clone() },
+        };
+        
+        let event_msg = ClientMessage::Event {
+            sequence_id: 0,
+            data: serde_json::to_value(&join_action).unwrap(),
+        };
+        let _ = write.send(Message::Text(serde_json::to_string(&event_msg).unwrap())).await;
 
         loop {
             futures::select! {
@@ -146,6 +167,12 @@ pub fn provide_game_context() -> GameContext {
                         }
                         None => {
                             leptos::logging::warn!("WS Closed");
+                            set_connected.set(false);
+                            break;
+                        }
+                        Some(Err(e)) => {
+                            leptos::logging::error!("WS Error: {:?}", e);
+                            set_connected.set(false);
                             break;
                         }
                         _ => {}
@@ -206,5 +233,6 @@ pub fn provide_game_context() -> GameContext {
         player_id,
         room_id,
         perform_action,
+        is_connected,
     }
 }

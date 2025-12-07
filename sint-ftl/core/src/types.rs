@@ -198,6 +198,8 @@ pub enum Action {
     VoteReady { ready: bool },
     /// Skip remaining AP for this round
     Pass,
+    /// Join the game dynamically
+    Join { name: String },
 }
 
 // --- Cards ---

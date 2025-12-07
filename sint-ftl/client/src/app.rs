@@ -8,11 +8,19 @@ pub fn App() -> impl IntoView {
     let ctx = provide_game_context();
     let state = ctx.state;
     let pid = ctx.player_id.clone();
+    let is_connected = ctx.is_connected;
     
     view! {
         <div style="padding: 20px; font-family: monospace; max-width: 1200px; margin: 0 auto;">
             <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h1>"Sint FTL"</h1>
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <h1>"Sint FTL"</h1>
+                    {move || if is_connected.get() {
+                        view! { <span style="color: #4caf50; font-weight: bold;">"● Connected"</span> }
+                    } else {
+                        view! { <span style="color: #f44336; font-weight: bold;">"⚠ Disconnected"</span> }
+                    }}
+                </div>
                 <div style="text-align: right;">
                     <div><strong>"Player: "</strong> {&pid}</div>
                     <div><strong>"Phase: "</strong> {move || format!("{:?}", state.get().phase)}</div>
@@ -48,6 +56,8 @@ pub fn App() -> impl IntoView {
 fn MyStatus(ctx: GameContext) -> impl IntoView {
     let state = ctx.state;
     let pid = ctx.player_id.clone();
+    let ctx_join = ctx.clone();
+    let pid_join = pid.clone();
     
     view! {
         <div style="background: #333; padding: 15px; border-radius: 8px;">
@@ -65,7 +75,19 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                         </div>
                     }.into_view()
                 } else {
-                    view! { "Player not found" }.into_view()
+                    let c_join = ctx_join.clone();
+                    let p_join = pid_join.clone();
+                    view! { 
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="color: #f44336;">"⚠ Not Joined"</span>
+                            <button 
+                                style="padding: 8px 16px; background: #4caf50; border: none; color: white; border-radius: 4px; cursor: pointer; font-weight: bold;"
+                                on:click=move |_| c_join.perform_action.call(Action::Join { name: p_join.clone() })
+                            >
+                                "JOIN GAME"
+                            </button>
+                        </div> 
+                    }.into_view()
                 }
             }}
         </div>

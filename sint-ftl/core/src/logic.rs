@@ -126,7 +126,31 @@ impl GameLogic {
         _hypothetical_seed: Option<u64>
     ) -> Result<GameState, GameError> {
         
-        // 1. Validate AP (unless it's free)
+        // 1. Handle Join (Special Case: Player might not exist yet)
+        if let Action::Join { name } = &action {
+            if state.players.contains_key(player_id) {
+                // Already joined, maybe just update name or ignore
+                return Ok(state);
+            }
+            
+            state.players.insert(player_id.to_string(), Player {
+                id: player_id.to_string(),
+                name: name.clone(),
+                room_id: 3, // Default start
+                hp: 3,
+                ap: 2,
+                inventory: vec![],
+                status: vec![],
+                is_ready: false,
+            });
+            
+            // Refund AP cost (Join is free/special)
+            // But we need to skip the AP check below
+            state.sequence_id += 1;
+            return Ok(state);
+        }
+
+        // 2. Validate AP (unless it's free)
         let cost = action_cost(&action);
         let player = state.players.get_mut(player_id).ok_or(GameError::PlayerNotFound)?;
         
@@ -134,7 +158,7 @@ impl GameLogic {
             return Err(GameError::NotEnoughAP);
         }
 
-        // 2. Execute Logic
+        // 3. Execute Logic
         match action {
             Action::Move { to_room } => {
                 let current_room_id = player.room_id;
@@ -250,5 +274,6 @@ fn action_cost(action: &Action) -> i32 {
         Action::RaiseShields | Action::EvasiveManeuvers => 2,
         Action::Drop { .. } => 0, 
         Action::Pass => 0,
+        Action::Join { .. } => 0,
     }
 }
