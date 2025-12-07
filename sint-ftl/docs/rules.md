@@ -109,14 +109,6 @@ The game does not have fixed turns. It plays in a series of **Rounds**, each con
 *   **Danger:** Does not damage Hull directly, but renders systems useless.
 *   **Cleanup:** Requires 'Repair' (Mop).
 
----
-
-## **6. AI & SIMULATION**
-
-*   **The "Oracle" Limit:** The AI (and players) can simulate actions to see validity (pathfinding, AP cost).
-*   **Fog of War:** Simulations stop at **Random Events**.
-    *   *Example:* Simulating "Shoot Cannon" will confirm you can load it, but will **not** reveal if the shot hits or misses.
-
-## **7. COMMUNICATION**
+## **6. COMMUNICATION**
 *   **Standard:** Open Chat.
 *   **"Static Noise" Event:** Communications systems down. Chat is restricted to **Emoji Only**.

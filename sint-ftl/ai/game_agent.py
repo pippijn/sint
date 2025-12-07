@@ -212,8 +212,17 @@ class GameAgent:
 
     def _load_system_prompt(self) -> str:
         try:
-            with open(os.path.join(os.path.dirname(__file__), 'system_prompt.txt'), 'r') as f:
-                return f.read().format(player_id=self.player_id)
+            base_dir = os.path.dirname(os.path.dirname(__file__)) # Up one level to root
+            rules_path = os.path.join(base_dir, 'docs', 'rules.md')
+            prompt_path = os.path.join(os.path.dirname(__file__), 'system_prompt.txt')
+            
+            with open(prompt_path, 'r') as f:
+                prompt = f.read().format(player_id=self.player_id)
+            
+            with open(rules_path, 'r') as f:
+                rules = f.read()
+                
+            return f"{prompt}\n\n=== GAME RULES ===\n{rules}"
         except Exception as e:
             print(f"Error loading system prompt: {e}")
             return f"You are {self.player_id}. Cooperate to survive."

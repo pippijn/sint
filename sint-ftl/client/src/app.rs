@@ -267,18 +267,40 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                 }.into_view());
                             }
                          }
+                         
+                         // Contextual Interact (Solve Situation)
+                         for card in &s.active_situations {
+                             if let Some(sol) = &card.solution {
+                                 let room_match = sol.room_id.map_or(true, |rid| rid == player.room_id);
+                                 
+                                 if room_match {
+                                     let c_interact = ctx_action.clone();
+                                     let title = card.title.clone();
+                                     let cost = sol.ap_cost;
+                                     
+                                     buttons.push(view! {
+                                         <button 
+                                            style="padding: 10px; background: #9c27b0; border: none; color: white; border-radius: 4px; cursor: pointer; border: 2px solid #e1bee7;"
+                                            on:click=move |_| c_interact.perform_action.call(Action::Interact)
+                                        >
+                                            "SOLVE: " {title} " (" {cost} " AP)"
+                                        </button>
+                                     }.into_view());
+                                 }
+                             }
+                         }
+                         
+                         // Pass
+                         let c_pass = ctx_action.clone();
+                         buttons.push(view! {
+                             <button 
+                                style="padding: 10px; background: #555; border: none; color: white; border-radius: 4px; cursor: pointer;"
+                                on:click=move |_| c_pass.perform_action.call(Action::Pass)
+                            >
+                                "End Turn (Pass)"
+                            </button>
+                         }.into_view());
                      }
-                     
-                     // Pass
-                     let c_pass = ctx_action.clone();
-                     buttons.push(view! {
-                         <button 
-                            style="padding: 10px; background: #555; border: none; color: white; border-radius: 4px; cursor: pointer;"
-                            on:click=move |_| c_pass.perform_action.call(Action::Pass)
-                        >
-                            "End Turn (Pass)"
-                        </button>
-                     }.into_view());
                      
                      buttons
                 }}
