@@ -1,0 +1,327 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Action",
+  "oneOf": [
+    {
+      "description": "Move to an adjacent room (Costs 1 AP)",
+      "type": "object",
+      "required": [
+        "payload",
+        "type"
+      ],
+      "properties": {
+        "payload": {
+          "type": "object",
+          "required": [
+            "to_room"
+          ],
+          "properties": {
+            "to_room": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0.0
+            }
+          }
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "Move"
+          ]
+        }
+      }
+    },
+    {
+      "description": "Kitchen: Create Peppernuts (Costs 1 AP)",
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "Bake"
+          ]
+        }
+      }
+    },
+    {
+      "description": "Cannons: Load & Fire at Enemy (Costs 1 AP + 1 Peppernut)",
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "Shoot"
+          ]
+        }
+      }
+    },
+    {
+      "description": "Bridge: Block next damage (Costs 2 AP)",
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "RaiseShields"
+          ]
+        }
+      }
+    },
+    {
+      "description": "Engine: Dodge next attack (Costs 2 AP)",
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "EvasiveManeuvers"
+          ]
+        }
+      }
+    },
+    {
+      "description": "Generic Interact (e.g. solve card, use button)",
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "Interact"
+          ]
+        }
+      }
+    },
+    {
+      "description": "Remove 1 Fire token (Costs 1 AP)",
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "Extinguish"
+          ]
+        }
+      }
+    },
+    {
+      "description": "Remove 1 Water token (Costs 1 AP)",
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "Repair"
+          ]
+        }
+      }
+    },
+    {
+      "description": "Give an item to another player in the same/adjacent room (Costs 1 AP)",
+      "type": "object",
+      "required": [
+        "payload",
+        "type"
+      ],
+      "properties": {
+        "payload": {
+          "type": "object",
+          "required": [
+            "item_index",
+            "target_player"
+          ],
+          "properties": {
+            "item_index": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 0.0
+            },
+            "target_player": {
+              "type": "string"
+            }
+          }
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "Throw"
+          ]
+        }
+      }
+    },
+    {
+      "description": "Pick up an item from the floor (Costs 1 AP)",
+      "type": "object",
+      "required": [
+        "payload",
+        "type"
+      ],
+      "properties": {
+        "payload": {
+          "type": "object",
+          "required": [
+            "item_index"
+          ],
+          "properties": {
+            "item_index": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 0.0
+            }
+          }
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "PickUp"
+          ]
+        }
+      }
+    },
+    {
+      "description": "Drop an item to the floor (Free)",
+      "type": "object",
+      "required": [
+        "payload",
+        "type"
+      ],
+      "properties": {
+        "payload": {
+          "type": "object",
+          "required": [
+            "item_index"
+          ],
+          "properties": {
+            "item_index": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 0.0
+            }
+          }
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "Drop"
+          ]
+        }
+      }
+    },
+    {
+      "description": "Revive a Fainted player in the same room (Costs 1 AP)",
+      "type": "object",
+      "required": [
+        "payload",
+        "type"
+      ],
+      "properties": {
+        "payload": {
+          "type": "object",
+          "required": [
+            "target_player"
+          ],
+          "properties": {
+            "target_player": {
+              "type": "string"
+            }
+          }
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "Revive"
+          ]
+        }
+      }
+    },
+    {
+      "description": "Send a chat message (Free)",
+      "type": "object",
+      "required": [
+        "payload",
+        "type"
+      ],
+      "properties": {
+        "payload": {
+          "type": "object",
+          "required": [
+            "message"
+          ],
+          "properties": {
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "Chat"
+          ]
+        }
+      }
+    },
+    {
+      "description": "Toggle \"Ready\" status for the batch execution",
+      "type": "object",
+      "required": [
+        "payload",
+        "type"
+      ],
+      "properties": {
+        "payload": {
+          "type": "object",
+          "required": [
+            "ready"
+          ],
+          "properties": {
+            "ready": {
+              "type": "boolean"
+            }
+          }
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "VoteReady"
+          ]
+        }
+      }
+    },
+    {
+      "description": "Skip remaining AP for this round",
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "Pass"
+          ]
+        }
+      }
+    }
+  ]
+}

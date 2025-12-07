@@ -1,0 +1,17 @@
+[package]
+name = "sint-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sint-core = { path = "../core" }
+axum = { version = "0.7", features = ["ws"] }
+tokio = { version = "1.0", features = ["full"] }
+tower-http = { version = "0.5", features = ["fs", "trace", "cors"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+futures = "0.3"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { version = "1.0", features = ["v4"] }
+dashmap = "5.5" # Concurrent map for Rooms
