@@ -20,6 +20,8 @@ pub enum GameError {
     Silenced,
     #[error("Invalid item index")]
     InvalidItem,
+    #[error("Invalid Action: {0}")]
+    InvalidAction(String),
 }
 
 pub struct GameLogic;
@@ -152,18 +154,14 @@ impl GameLogic {
                 if let Some(idx) = room.hazards.iter().position(|&h| h == HazardType::Fire) {
                     room.hazards.remove(idx);
                 } else {
-                    // No fire to extinguish. Refund AP? Or just fail?
-                    // "Fail" is better for strict validation.
-                    // But in a "race" condition, maybe we just ignore it?
-                    // Let's error for now.
-                    // return Err(GameError::InvalidAction("No fire here"));
+                    return Err(GameError::InvalidAction("No fire here".to_string()));
                 }
             },
             
             Action::Bake => {
                 let room = state.map.rooms.get_mut(&player.room_id).ok_or(GameError::RoomNotFound)?;
                 if room.system != Some(SystemType::Kitchen) {
-                    // Error: Not in Kitchen
+                    return Err(GameError::InvalidAction("Must be in Kitchen to Bake".to_string()));
                 }
                 // Check if disabled
                 if !room.hazards.is_empty() {
@@ -178,7 +176,9 @@ impl GameLogic {
             
             Action::Shoot => {
                  let room = state.map.rooms.get_mut(&player.room_id).ok_or(GameError::RoomNotFound)?;
-                 if room.system != Some(SystemType::Cannons) { /* Error */ }
+                 if room.system != Some(SystemType::Cannons) {
+                     return Err(GameError::InvalidAction("Must be in Cannons to Shoot".to_string()));
+                 }
                  
                  // Deduct ammo (from player inventory)
                  if let Some(idx) = player.inventory.iter().position(|i| *i == ItemType::Peppernut) {

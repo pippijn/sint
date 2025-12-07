@@ -3,6 +3,7 @@ pub mod logic;
 mod bindings;
 
 pub use types::*;
+pub use logic::{GameLogic, GameError};
 
 #[cfg(feature = "schema")]
 pub fn export_schema() -> String {
