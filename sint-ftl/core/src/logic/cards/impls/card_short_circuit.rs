@@ -23,7 +23,11 @@ impl CardBehavior for ShortCircuitCard {
 
     fn on_activate(&self, state: &mut GameState) {
         // Effect: Spawn 1 Fire in the Engine Room (5).
-        if let Some(room) = state.map.rooms.get_mut(&crate::types::SystemType::Engine.as_u32()) {
+        if let Some(room) = state
+            .map
+            .rooms
+            .get_mut(&crate::types::SystemType::Engine.as_u32())
+        {
             room.hazards.push(HazardType::Fire);
         }
     }

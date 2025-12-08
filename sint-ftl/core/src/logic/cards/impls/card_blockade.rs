@@ -48,8 +48,11 @@ impl CardBehavior for BlockadeCard {
             if let Some(p) = state.players.get(player_id) {
                 if p.room_id == crate::types::SystemType::Cannons.as_u32() {
                     return Err(GameError::InvalidAction(
-                        format!("Blockade! Cannot exit Room {}.", crate::types::SystemType::Cannons.as_u32())
-                            .to_string(),
+                        format!(
+                            "Blockade! Cannot exit Room {}.",
+                            crate::types::SystemType::Cannons.as_u32()
+                        )
+                        .to_string(),
                     ));
                 }
             }

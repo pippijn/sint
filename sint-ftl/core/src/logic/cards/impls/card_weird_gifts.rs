@@ -42,12 +42,20 @@ impl CardBehavior for WeirdGiftsCard {
 
         if triggered {
             // 3 Fire in Cargo (4), 1 Fire in Sickbay (10)
-            if let Some(room) = state.map.rooms.get_mut(&crate::types::SystemType::Cargo.as_u32()) {
+            if let Some(room) = state
+                .map
+                .rooms
+                .get_mut(&crate::types::SystemType::Cargo.as_u32())
+            {
                 for _ in 0..3 {
                     room.hazards.push(HazardType::Fire);
                 }
             }
-            if let Some(room) = state.map.rooms.get_mut(&crate::types::SystemType::Sickbay.as_u32()) {
+            if let Some(room) = state
+                .map
+                .rooms
+                .get_mut(&crate::types::SystemType::Sickbay.as_u32())
+            {
                 room.hazards.push(HazardType::Fire);
             }
             state

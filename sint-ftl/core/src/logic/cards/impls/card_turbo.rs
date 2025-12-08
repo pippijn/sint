@@ -37,11 +37,19 @@ impl CardBehavior for TurboModeCard {
 
         if triggered {
             // Explosion
-            if let Some(room) = state.map.rooms.get_mut(&crate::types::SystemType::Engine.as_u32()) {
+            if let Some(room) = state
+                .map
+                .rooms
+                .get_mut(&crate::types::SystemType::Engine.as_u32())
+            {
                 room.hazards.push(HazardType::Fire);
                 room.hazards.push(HazardType::Fire);
             }
-            if let Some(room) = state.map.rooms.get_mut(&crate::types::SystemType::Hallway.as_u32()) {
+            if let Some(room) = state
+                .map
+                .rooms
+                .get_mut(&crate::types::SystemType::Hallway.as_u32())
+            {
                 room.hazards.push(HazardType::Fire);
             }
             state

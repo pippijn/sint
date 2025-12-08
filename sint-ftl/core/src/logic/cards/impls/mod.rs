@@ -45,7 +45,6 @@ pub mod card_static;
 pub mod card_sticky;
 pub mod card_stowaway;
 pub mod card_sugar;
-pub mod card_tantrum;
 pub mod card_turbo;
 pub mod card_waves;
 pub mod card_weird_gifts;

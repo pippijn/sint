@@ -23,7 +23,11 @@ impl CardBehavior for LeakCard {
 
     fn on_activate(&self, state: &mut GameState) {
         // Effect: Spawn 1 Water in the Cargo Room (4).
-        if let Some(room) = state.map.rooms.get_mut(&crate::types::SystemType::Cargo.as_u32()) {
+        if let Some(room) = state
+            .map
+            .rooms
+            .get_mut(&crate::types::SystemType::Cargo.as_u32())
+        {
             room.hazards.push(HazardType::Water);
         }
     }

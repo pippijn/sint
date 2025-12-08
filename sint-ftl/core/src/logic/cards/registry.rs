@@ -16,8 +16,8 @@ use super::impls::{
     card_shoe::ShoeSettingCard, card_short_circuit::ShortCircuitCard, card_silent::SilentForceCard,
     card_sing::SingASongCard, card_slippery::SlipperyDeckCard, card_staff::TheStaffCard,
     card_static::StaticNoiseCard, card_sticky::StickyFloorCard, card_stowaway::StowawayCard,
-    card_sugar::SugarRushCard, card_tantrum::TantrumCard, card_turbo::TurboModeCard,
-    card_waves::HighWavesCard, card_weird_gifts::WeirdGiftsCard,
+    card_sugar::SugarRushCard, card_turbo::TurboModeCard, card_waves::HighWavesCard,
+    card_weird_gifts::WeirdGiftsCard,
 };
 use crate::types::{Card, CardId};
 
@@ -68,7 +68,6 @@ pub fn get_behavior(card_id: CardId) -> Box<dyn CardBehavior> {
         CardId::Stowaway => Box::new(StowawayCard),
         CardId::StrongHeadwind => Box::new(StrongHeadwindCard),
         CardId::SugarRush => Box::new(SugarRushCard),
-        CardId::Tantrum => Box::new(TantrumCard),
         CardId::TheBook => Box::new(TheBookCard),
         CardId::TheStaff => Box::new(TheStaffCard),
         CardId::TurboMode => Box::new(TurboModeCard),
@@ -81,7 +80,7 @@ pub fn get_behavior(card_id: CardId) -> Box<dyn CardBehavior> {
 
 // Deterministic List of ALL IDs
 const ALL_IDS: &[CardId] = &[
-    // sorted start
+    // keep-sorted start
     CardId::AfternoonNap,
     CardId::Amerigo,
     CardId::AnchorLoose,
@@ -126,14 +125,13 @@ const ALL_IDS: &[CardId] = &[
     CardId::Stowaway,
     CardId::StrongHeadwind,
     CardId::SugarRush,
-    CardId::Tantrum,
     CardId::TheBook,
     CardId::TheStaff,
     CardId::TurboMode,
     CardId::WailingAlarm,
     CardId::WeirdGifts,
     CardId::WheelClamp,
-    // sorted end
+    // keep-sorted end
 ];
 
 pub fn get_all_cards() -> Vec<Card> {

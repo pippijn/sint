@@ -144,7 +144,11 @@ fn test_projected_item_pickup() {
 
     // Setup: P1 in Room 3. Room 3 has items? Default setup Room 3 has NO items.
     // Let's add an item to Room 3.
-    if let Some(r) = state.map.rooms.get_mut(&sint_core::types::SystemType::Dormitory.as_u32()) {
+    if let Some(r) = state
+        .map
+        .rooms
+        .get_mut(&sint_core::types::SystemType::Dormitory.as_u32())
+    {
         r.items.push(ItemType::Peppernut);
     }
 

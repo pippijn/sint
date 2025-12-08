@@ -9,7 +9,11 @@ fn test_game_over_hull_destruction() {
     state.hull_integrity = 1;
 
     // Set Hazard in Kitchen
-    if let Some(r) = state.map.rooms.get_mut(&sint_core::types::SystemType::Kitchen.as_u32()) {
+    if let Some(r) = state
+        .map
+        .rooms
+        .get_mut(&sint_core::types::SystemType::Kitchen.as_u32())
+    {
         r.hazards.push(HazardType::Fire);
     }
 
@@ -52,7 +56,11 @@ fn test_game_over_crew_wipe() {
         p.is_ready = true;
     }
 
-    if let Some(r) = state.map.rooms.get_mut(&sint_core::types::SystemType::Kitchen.as_u32()) {
+    if let Some(r) = state
+        .map
+        .rooms
+        .get_mut(&sint_core::types::SystemType::Kitchen.as_u32())
+    {
         r.hazards.push(HazardType::Fire);
     }
 

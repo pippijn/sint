@@ -126,7 +126,11 @@ fn test_shields_block_damage() {
         "Shields should block damage"
     );
     // Check Hazard
-    if let Some(room) = state.map.rooms.get(&sint_core::types::SystemType::Kitchen.as_u32()) {
+    if let Some(room) = state
+        .map
+        .rooms
+        .get(&sint_core::types::SystemType::Kitchen.as_u32())
+    {
         assert!(room.hazards.is_empty(), "Shields should prevent fire spawn");
     }
 }

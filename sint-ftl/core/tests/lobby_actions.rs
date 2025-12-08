@@ -6,7 +6,10 @@ fn test_move_in_lobby() {
 
     assert_eq!(state.phase, GamePhase::Lobby);
     let player = state.players.get("Player1").unwrap();
-    assert_eq!(player.room_id, sint_core::types::SystemType::Dormitory.as_u32());
+    assert_eq!(
+        player.room_id,
+        sint_core::types::SystemType::Dormitory.as_u32()
+    );
     assert_eq!(player.ap, 2);
 
     // Try to move to Hallway (7)

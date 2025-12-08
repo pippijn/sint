@@ -28,7 +28,11 @@ impl CardBehavior for BigLeakCard {
 
     fn on_round_end(&self, state: &mut GameState) {
         // Automatically 1 Water in Central Hallway (7).
-        if let Some(room) = state.map.rooms.get_mut(&crate::types::SystemType::Hallway.as_u32()) {
+        if let Some(room) = state
+            .map
+            .rooms
+            .get_mut(&crate::types::SystemType::Hallway.as_u32())
+        {
             room.hazards.push(HazardType::Water);
         }
     }

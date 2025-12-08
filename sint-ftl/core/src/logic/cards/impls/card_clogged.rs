@@ -11,8 +11,11 @@ impl CardBehavior for CloggedPipeCard {
         Card {
             id: CardId::CloggedPipe,
             title: "Clogged Pipe".to_string(),
-            description: format!("Kitchen ({}) is disabled.", crate::types::SystemType::Kitchen.as_u32())
-                .to_string(),
+            description: format!(
+                "Kitchen ({}) is disabled.",
+                crate::types::SystemType::Kitchen.as_u32()
+            )
+            .to_string(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {

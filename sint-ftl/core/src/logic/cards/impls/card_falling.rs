@@ -23,12 +23,20 @@ impl CardBehavior for FallingGiftCard {
 
     fn on_activate(&self, state: &mut GameState) {
         // Effect: Leak in Cargo (4). 1 Water.
-        if let Some(room) = state.map.rooms.get_mut(&crate::types::SystemType::Cargo.as_u32()) {
+        if let Some(room) = state
+            .map
+            .rooms
+            .get_mut(&crate::types::SystemType::Cargo.as_u32())
+        {
             room.hazards.push(HazardType::Water);
         }
 
         // Bonus: 2 Peppernuts in Room 4.
-        if let Some(room) = state.map.rooms.get_mut(&crate::types::SystemType::Cargo.as_u32()) {
+        if let Some(room) = state
+            .map
+            .rooms
+            .get_mut(&crate::types::SystemType::Cargo.as_u32())
+        {
             room.items.push(ItemType::Peppernut);
             room.items.push(ItemType::Peppernut);
         }

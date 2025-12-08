@@ -8,7 +8,11 @@ fn test_pickup_resolution() {
     state.phase = GamePhase::TacticalPlanning;
 
     // Setup Room 3 with specific items
-    if let Some(room) = state.map.rooms.get_mut(&sint_core::types::SystemType::Dormitory.as_u32()) {
+    if let Some(room) = state
+        .map
+        .rooms
+        .get_mut(&sint_core::types::SystemType::Dormitory.as_u32())
+    {
         room.items = vec![
             ItemType::Peppernut,
             ItemType::Extinguisher,

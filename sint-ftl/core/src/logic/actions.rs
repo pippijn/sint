@@ -473,7 +473,8 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
 
             // Generate telegraph
             let mut rng = StdRng::seed_from_u64(state.rng_seed);
-            let target_room = rng.gen_range(crate::logic::MIN_ROOM_ID..=crate::logic::MAX_ROOM_ID);
+            // 2d6 distribution (2-12). 12 is a miss.
+            let target_room = rng.gen_range(1..=6) + rng.gen_range(1..=6);
             state.rng_seed = rng.gen();
 
             state.enemy.next_attack = Some(EnemyAttack {
