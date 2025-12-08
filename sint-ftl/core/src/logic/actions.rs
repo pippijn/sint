@@ -102,6 +102,12 @@ pub fn apply_action(
             let p = state.players.get_mut(player_id).unwrap();
             p.ap = 0;
             p.is_ready = true;
+
+            // Check Consensus (Same as VoteReady)
+            let all_ready = state.players.values().all(|p| p.is_ready);
+            if all_ready {
+                state = advance_phase(state)?;
+            }
         },
         Action::Undo { action_id } => {
             is_immediate = true;

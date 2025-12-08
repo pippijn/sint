@@ -415,9 +415,14 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                 let n_room = s.map.rooms.get(&neighbor);
                                 let name = n_room.map(|r| r.name.clone()).unwrap_or("?".to_string());
                                 let c_move = ctx_action.clone();
+                                let disabled = player.ap < 1;
+                                let opacity = if disabled { "0.5" } else { "1.0" };
+                                let cursor = if disabled { "not-allowed" } else { "pointer" };
+                                
                                 buttons.push(view! {
                                     <button 
-                                        style="padding: 10px; background: #2196f3; border: none; color: white; border-radius: 4px; cursor: pointer;"
+                                        style=format!("padding: 10px; background: #2196f3; border: none; color: white; border-radius: 4px; cursor: {}; opacity: {};", cursor, opacity)
+                                        disabled=disabled
                                         on:click=move |_| c_move.perform_action.call(Action::Move { to_room: neighbor })
                                     >
                                         "Move to " {name} " (" {neighbor} ")"
@@ -428,9 +433,13 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                             // Contextual Actions
                             if room.system == Some(SystemType::Kitchen) {
                                 let c_bake = ctx_action.clone();
+                                let disabled = player.ap < 1;
+                                let opacity = if disabled { "0.5" } else { "1.0" };
+                                let cursor = if disabled { "not-allowed" } else { "pointer" };
                                 buttons.push(view! {
                                     <button 
-                                        style="padding: 10px; background: #ff9800; border: none; color: white; border-radius: 4px; cursor: pointer;"
+                                        style=format!("padding: 10px; background: #ff9800; border: none; color: white; border-radius: 4px; cursor: {}; opacity: {};", cursor, opacity)
+                                        disabled=disabled
                                         on:click=move |_| c_bake.perform_action.call(Action::Bake)
                                     >
                                         "Bake Peppernuts"
@@ -440,9 +449,13 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                             
                             if room.system == Some(SystemType::Cannons) {
                                 let c_shoot = ctx_action.clone();
+                                let disabled = player.ap < 1;
+                                let opacity = if disabled { "0.5" } else { "1.0" };
+                                let cursor = if disabled { "not-allowed" } else { "pointer" };
                                 buttons.push(view! {
                                      <button 
-                                        style="padding: 10px; background: #f44336; border: none; color: white; border-radius: 4px; cursor: pointer;"
+                                        style=format!("padding: 10px; background: #f44336; border: none; color: white; border-radius: 4px; cursor: {}; opacity: {};", cursor, opacity)
+                                        disabled=disabled
                                         on:click=move |_| c_shoot.perform_action.call(Action::Shoot)
                                     >
                                         "Fire Cannons!"
@@ -452,9 +465,13 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                             
                             if room.hazards.contains(&HazardType::Fire) {
                                 let c_ext = ctx_action.clone();
+                                let disabled = player.ap < 1;
+                                let opacity = if disabled { "0.5" } else { "1.0" };
+                                let cursor = if disabled { "not-allowed" } else { "pointer" };
                                 buttons.push(view! {
                                      <button 
-                                        style="padding: 10px; background: #607d8b; border: none; color: white; border-radius: 4px; cursor: pointer;"
+                                        style=format!("padding: 10px; background: #607d8b; border: none; color: white; border-radius: 4px; cursor: {}; opacity: {};", cursor, opacity)
+                                        disabled=disabled
                                         on:click=move |_| c_ext.perform_action.call(Action::Extinguish)
                                     >
                                         "Extinguish Fire"
@@ -467,9 +484,13 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                  // Just pick up the first one for now (simplification)
                                  let c_pick = ctx_action.clone();
                                  let item = room.items[0].clone();
+                                 let disabled = player.ap < 1;
+                                 let opacity = if disabled { "0.5" } else { "1.0" };
+                                 let cursor = if disabled { "not-allowed" } else { "pointer" };
                                  buttons.push(view! {
                                      <button 
-                                        style="padding: 10px; background: #8bc34a; border: none; color: black; border-radius: 4px; cursor: pointer;"
+                                        style=format!("padding: 10px; background: #8bc34a; border: none; color: black; border-radius: 4px; cursor: {}; opacity: {};", cursor, opacity)
+                                        disabled=disabled
                                         on:click=move |_| c_pick.perform_action.call(Action::PickUp { item_index: 0 })
                                     >
                                         "Pick Up " {format!("{:?}", item)}
@@ -487,10 +508,14 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                      let c_interact = ctx_action.clone();
                                      let title = card.title.clone();
                                      let cost = sol.ap_cost;
+                                     let disabled = player.ap < cost as i32;
+                                     let opacity = if disabled { "0.5" } else { "1.0" };
+                                     let cursor = if disabled { "not-allowed" } else { "pointer" };
                                      
                                      buttons.push(view! {
                                          <button 
-                                            style="padding: 10px; background: #9c27b0; border: none; color: white; border-radius: 4px; cursor: pointer; border: 2px solid #e1bee7;"
+                                            style=format!("padding: 10px; background: #9c27b0; border: none; color: white; border-radius: 4px; cursor: {}; border: 2px solid #e1bee7; opacity: {};", cursor, opacity)
+                                            disabled=disabled
                                             on:click=move |_| c_interact.perform_action.call(Action::Interact)
                                         >
                                             "SOLVE: " {title} " (" {cost} " AP)"
