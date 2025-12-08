@@ -213,6 +213,8 @@ pub enum Action {
     StartGame,
     /// Receive a full state dump from a peer
     FullSync { state_json: String },
+    /// Undo a queued proposed action
+    Undo { action_id: String },
 }
 
 // --- Cards ---

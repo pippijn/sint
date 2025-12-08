@@ -14,7 +14,6 @@ use std::cell::RefCell;
 pub struct GameContext {
     pub state: ReadSignal<GameState>,
     pub player_id: String,
-    pub room_id: String,
     pub perform_action: ActionCallback,
     pub is_connected: ReadSignal<bool>,
 }
@@ -259,7 +258,6 @@ pub fn provide_game_context() -> GameContext {
     GameContext {
         state,
         player_id,
-        room_id,
         perform_action,
         is_connected,
     }

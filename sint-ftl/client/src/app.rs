@@ -19,7 +19,6 @@ fn PhaseTracker(phase: GamePhase) -> impl IntoView {
         <div style="display: flex; gap: 5px; align-items: center; font-size: 0.8em; background: #222; padding: 5px; border-radius: 4px;">
             {phases.into_iter().map(|(p, label)| {
                 let active = p == phase;
-                let color = if active { "#4caf50" } else { "#555" };
                 let weight = if active { "bold" } else { "normal" };
                 view! {
                     <div style=format!("color: {}; font-weight: {}; padding: 2px 6px; border-radius: 2px; background: {};", 
@@ -100,14 +99,73 @@ pub fn App() -> impl IntoView {
                 
                 // RIGHT PANEL: Comms
                 <div style="background: #2a2a2a; border-left: 1px solid #444; display: flex; flex-direction: column;">
-                    <div style="padding: 10px; background: #1a1a1a; font-weight: bold; border-bottom: 1px solid #444;">
-                        "Comms Channel"
+                    <div style="flex: 1; border-bottom: 1px solid #444; overflow: hidden; display: flex; flex-direction: column;">
+                         <div style="padding: 10px; background: #1a1a1a; font-weight: bold; border-bottom: 1px solid #444;">
+                            "Tactical Plan"
+                        </div>
+                        <div style="flex: 1; overflow-y: auto;">
+                            <ProposalQueueView ctx=ctx.clone() />
+                        </div>
                     </div>
-                    <div style="flex: 1; overflow: hidden;">
-                        <ChatView ctx=ctx.clone() />
+                    
+                    <div style="height: 300px; display: flex; flex-direction: column;">
+                        <div style="padding: 10px; background: #1a1a1a; font-weight: bold; border-bottom: 1px solid #444;">
+                            "Comms Channel"
+                        </div>
+                        <div style="flex: 1; overflow: hidden;">
+                            <ChatView ctx=ctx.clone() />
+                        </div>
                     </div>
                 </div>
             </div>
+        </div>
+    }
+}
+
+#[component]
+fn ProposalQueueView(ctx: GameContext) -> impl IntoView {
+    let state = ctx.state;
+    let pid = ctx.player_id.clone();
+    let ctx_undo = ctx.clone();
+    
+    view! {
+        <div style="padding: 10px; font-size: 0.9em;">
+            {move || {
+                let s = state.get();
+                if s.proposal_queue.is_empty() {
+                    view! { <div style="color: #666; font-style: italic;">"No actions planned yet."</div> }.into_view()
+                } else {
+                    s.proposal_queue.iter().map(|p| {
+                         let is_mine = p.player_id == pid;
+                         let action_desc = format!("{:?}", p.action);
+                         let c_undo = ctx_undo.clone();
+                         let action_id = p.id.clone();
+                         
+                         view! {
+                             <div style="margin-bottom: 8px; background: #333; padding: 6px; border-radius: 4px; border-left: 3px solid #2196f3;">
+                                 <div style="display: flex; justify-content: space-between; align-items: center;">
+                                     <span style="font-weight: bold; color: #90caf9;">{&p.player_id}</span>
+                                     {if is_mine {
+                                         view! {
+                                             <button 
+                                                style="background: #f44336; border: none; color: white; padding: 2px 6px; border-radius: 2px; font-size: 0.7em; cursor: pointer;"
+                                                on:click=move |_| c_undo.perform_action.call(Action::Undo { action_id: action_id.clone() })
+                                             >
+                                                "UNDO"
+                                             </button>
+                                         }.into_view()
+                                     } else {
+                                         view! {}.into_view()
+                                     }}
+                                 </div>
+                                 <div style="color: #ccc; margin-top: 2px;">
+                                     {action_desc}
+                                 </div>
+                             </div>
+                         }
+                    }).collect::<Vec<_>>().into_view()
+                }
+            }}
         </div>
     }
 }
@@ -229,17 +287,26 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
     let ctx_join = ctx.clone();
     let pid_join = pid.clone();
     let ctx_ready = ctx.clone();
-    let pid_ready = pid.clone();
+    let c_start = ctx_ready.clone(); 
     
     view! {
         <div style="background: #333; padding: 15px; border-radius: 8px;">
             {move || {
                 let s = state.get();
-                if let Some(p) = s.players.get(&pid) {
+                if let Some(real_p) = s.players.get(&pid) {
+                    // PREDICTION LOGIC
+                    let mut p = real_p.clone();
+                    for prop in &s.proposal_queue {
+                        if prop.player_id == pid {
+                            if let Action::Move { to_room } = prop.action {
+                                p.room_id = to_room;
+                            }
+                        }
+                    }
+
                     let room_name = s.map.rooms.get(&p.room_id).map(|r| r.name.clone()).unwrap_or("Unknown".to_string());
                     let is_ready = p.is_ready;
                     let c_ready = ctx_ready.clone();
-                    let c_start = ctx_ready.clone(); // Clone for start button
                     let is_lobby = s.phase == GamePhase::Lobby;
                     
                     view! {
@@ -262,10 +329,11 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                             </div>
                             
                             {if is_lobby {
+                                let c_start_click = c_start.clone();
                                 view! {
                                      <button
                                         on:click=move |_| {
-                                            c_start.perform_action.call(Action::StartGame);
+                                            c_start_click.perform_action.call(Action::StartGame);
                                         }
                                         style="background: #e91e63; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; box-shadow: 0 0 10px #e91e63;"
                                     >
@@ -273,10 +341,11 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                                     </button>
                                 }.into_view()
                             } else {
+                                let c_ready_click = c_ready.clone();
                                 view! {
                                     <button
                                         on:click=move |_| {
-                                            c_ready.perform_action.call(Action::VoteReady { ready: !is_ready });
+                                            c_ready_click.perform_action.call(Action::VoteReady { ready: !is_ready });
                                         }
                                         style=move || if is_ready {
                                             "background: #4caf50; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;"
@@ -322,14 +391,23 @@ fn Actions(ctx: GameContext) -> impl IntoView {
             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                 {move || {
                      let s = state.get();
-                     let p = s.players.get(&pid);
                      let mut buttons = vec![];
                      
                      if s.phase != GamePhase::TacticalPlanning {
                          return vec![view! { <div style="color: #888; font-style: italic;">"Waiting for Tactical Planning..."</div> }.into_view()];
                      }
 
-                     if let Some(player) = p {
+                     if let Some(real_p) = s.players.get(&pid) {
+                         // PREDICTION LOGIC
+                         let mut player = real_p.clone();
+                         for prop in &s.proposal_queue {
+                             if prop.player_id == pid {
+                                 if let Action::Move { to_room } = prop.action {
+                                     player.room_id = to_room;
+                                 }
+                             }
+                         }
+
                          if let Some(room) = s.map.rooms.get(&player.room_id) {
                             
                             // Move Buttons

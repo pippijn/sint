@@ -1,7 +1,6 @@
 use leptos::*;
 use crate::state::GameContext;
-use sint_core::{GameState, RoomId, Room, Player, ItemType, HazardType};
-use std::collections::HashMap;
+use sint_core::{GameState, Room, Player, ItemType, HazardType};
 
 #[component]
 pub fn MapView(ctx: GameContext) -> impl IntoView {
@@ -68,7 +67,7 @@ pub fn MapView(ctx: GameContext) -> impl IntoView {
                 {move || layout.get().0.into_iter().map(|r| {
                     view! { 
                         <div style="width: 100%; display: flex;">
-                            <RoomCard room=r.clone() state=state.get() my_pid=pid_mid.clone() is_hallway=true /> 
+                            <RoomCard room=r.clone() state=state.get() my_pid=pid_mid.clone() /> 
                         </div>
                     }
                 }).collect::<Vec<_>>()}
@@ -89,7 +88,6 @@ fn RoomCard(
     room: Room, 
     state: GameState, 
     my_pid: String,
-    #[prop(optional)] is_hallway: bool
 ) -> impl IntoView {
     let players_here: Vec<Player> = state.players.values()
         .filter(|p| p.room_id == room.id)
@@ -98,6 +96,20 @@ fn RoomCard(
         
     let is_here = players_here.iter().any(|p| p.id == my_pid);
     
+    // Check Ghosts (Incoming Moves)
+    // Note: This logic assumes simple move. A complex move logic (multi-step) would require full simulation.
+    // For now, we just show who plans to ARRIVE here.
+    let ghosts: Vec<String> = state.proposal_queue.iter()
+        .filter_map(|prop| {
+            if let sint_core::Action::Move { to_room } = prop.action {
+                if to_room == room.id {
+                    return Some(prop.player_id.clone());
+                }
+            }
+            None
+        })
+        .collect();
+
     // Check Hazards
     let has_fire = room.hazards.contains(&HazardType::Fire);
     let has_water = room.hazards.contains(&HazardType::Water);
@@ -178,6 +190,18 @@ fn RoomCard(
                         view! {
                             <div style=format!("color: {}; font-size: 0.85em;", color)>
                                 {icon} " " {p.name}
+                            </div>
+                        }
+                    }).collect::<Vec<_>>()}
+                    
+                    // Ghosts
+                    {ghosts.into_iter().map(|pid| {
+                        let is_me = pid == my_pid;
+                        let color = if is_me { "#81c784" } else { "#aaa" };
+                        
+                        view! {
+                            <div style=format!("color: {}; font-size: 0.85em; opacity: 0.6; font-style: italic;", color)>
+                                "👻 " {pid} " (Moving)"
                             </div>
                         }
                     }).collect::<Vec<_>>()}
