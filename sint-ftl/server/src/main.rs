@@ -117,7 +117,7 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
                             Ok(ClientMessage::Join { room_id, player_id: _ }) => {
                                 // Create room if not exists
                                 let tx = state.rooms.entry(room_id.clone()).or_insert_with(|| {
-                                    let (tx, _rx) = broadcast::channel(100);
+                                    let (tx, _) = broadcast::channel(100);
                                     tx
                                 });
 

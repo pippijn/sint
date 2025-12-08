@@ -1,38 +1,42 @@
 use crate::types::*;
+use super::cards::get_behavior;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
 pub fn resolve_enemy_attack(state: &mut GameState) {
     if let Some(attack) = &state.enemy.next_attack {
-        // Check Evasion
-        if state.evasion_active {
-            // Attack Misses!
-            println!("Attack Missed due to Evasive Maneuvers!");
-            state.enemy.next_attack = None;
-            return;
+        // Calculate Attack Count
+        let mut count = 1;
+        for card in &state.active_situations {
+            let c = get_behavior(card.id).get_enemy_attack_count(state);
+            if c > count { count = c; }
         }
 
-        // Check Shields (Blocks Damage Only)
-        // For simplicity: Shields block ALL effects for now, or just hull damage?
-        // Rules say: "Blocks the next incoming Damage event."
-        // We'll treat it as blocking the hit entirely for this version.
-        if state.shields_active {
-            println!("Shields Blocked the Attack!");
-            state.enemy.next_attack = None;
-            return;
-        }
+        for _ in 0..count {
+            // Check Evasion
+            if state.evasion_active {
+                println!("Attack Missed due to Evasive Maneuvers!");
+                continue;
+            }
 
-        // Hit!
-        if let Some(room) = state.map.rooms.get_mut(&attack.target_room) {
-            match attack.effect {
-                AttackEffect::Fireball => {
-                    room.hazards.push(HazardType::Fire);
-                    state.hull_integrity -= 1; // Direct hit damage?
+            // Check Shields
+            if state.shields_active {
+                println!("Shields Blocked the Attack!");
+                continue;
+            }
+
+            // Hit!
+            if let Some(room) = state.map.rooms.get_mut(&attack.target_room) {
+                match attack.effect {
+                    AttackEffect::Fireball => {
+                        room.hazards.push(HazardType::Fire);
+                        state.hull_integrity -= 1;
+                    }
+                    AttackEffect::Leak => {
+                        room.hazards.push(HazardType::Water);
+                    }
+                    _ => {}
                 }
-                AttackEffect::Leak => {
-                    room.hazards.push(HazardType::Water);
-                }
-                _ => {}
             }
         }
     }
@@ -60,7 +64,6 @@ pub fn resolve_hazards(state: &mut GameState) {
             {
                 for &neighbor in &room.neighbors {
                     if rng.gen_bool(0.5) {
-                        // 50% chance to spread
                         fire_spreads.push(neighbor);
                     }
                 }
@@ -68,7 +71,7 @@ pub fn resolve_hazards(state: &mut GameState) {
         }
     }
 
-    // Apply Player Damage separately to avoid borrow issues
+    // Apply Player Damage separately
     for p in state.players.values_mut() {
         if let Some(room) = state.map.rooms.get(&p.room_id) {
             if room.hazards.contains(&HazardType::Fire) {
@@ -93,16 +96,37 @@ pub fn resolve_hazards(state: &mut GameState) {
 }
 
 pub fn resolve_proposal_queue(state: &mut GameState) {
-    // We clone the queue to iterate while mutating state
     let queue = state.proposal_queue.clone();
     state.proposal_queue.clear();
 
     for proposal in queue {
         let player_id = &proposal.player_id;
 
-        // Ensure player exists (sanity check)
         if !state.players.contains_key(player_id) {
             continue;
+        }
+
+        // 1. Card Resolution Hook (RNG / Dynamic Blocks)
+        let mut blocked_by_card = false;
+        let active_ids: Vec<CardId> = state.active_situations.iter().map(|c| c.id).collect();
+        
+        for card_id in active_ids {
+             if let Err(e) = get_behavior(card_id).check_resolution(state, player_id, &proposal.action) {
+                 println!("Action Skipped: Blocked by card {:?}: {}", card_id, e);
+                 blocked_by_card = true;
+                 break;
+             }
+        }
+
+        if blocked_by_card {
+             // Refund Logic (Generic)
+             let slippery = state.active_situations.iter().any(|c| c.id == CardId::SlipperyDeck);
+             if !slippery {
+                 if let Some(p) = state.players.get_mut(player_id) {
+                     p.ap += 1;
+                 }
+             }
+             continue;
         }
 
         match proposal.action {
@@ -113,23 +137,19 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
                 // VALIDATION:
                 if let Some(room) = state.map.rooms.get(&current_room_id) {
                     if !room.neighbors.contains(&to_room) {
-                        // Invalid Move: Skip
                         println!(
                             "Action Skipped: Player {} cannot move from {} to {}",
                             player_id, current_room_id, to_room
                         );
+                        
+                        let slippery = state.active_situations.iter().any(|c| c.id == CardId::SlipperyDeck);
+                        if !slippery {
+                             if let Some(p) = state.players.get_mut(player_id) {
+                                 p.ap += 1;
+                             }
+                        }
                         continue;
                     }
-                }
-
-                // C03: Seagull Attack
-                let seagull = state.active_situations.iter().any(|c| c.id == "C03");
-                if seagull && p.inventory.contains(&ItemType::Peppernut) {
-                    println!(
-                        "Action Skipped: Player {} cannot move with Peppernut (Seagulls)",
-                        player_id
-                    );
-                    continue;
                 }
 
                 if let Some(p) = state.players.get_mut(player_id) {
@@ -141,7 +161,6 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
                 let room_id = p.room_id;
 
                 if let Some(room) = state.map.rooms.get(&room_id) {
-                    // Room 5 (Engine) now handles Shields
                     if room.system == Some(SystemType::Engine) {
                         state.shields_active = true;
                     }
@@ -152,16 +171,13 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
                 let room_id = p.room_id;
 
                 if let Some(room) = state.map.rooms.get(&room_id) {
-                    // Room 9 (Bridge) now handles Evasion
                     if room.system == Some(SystemType::Bridge) {
                         state.evasion_active = true;
                     }
                 }
             }
             Action::Interact => {
-                // Complex logic: depends on room state which might have changed?
-                // We'll re-run the logic to find what to solve.
-                let p_copy = state.players.get(player_id).cloned().unwrap(); // Copy for read
+                let p_copy = state.players.get(player_id).cloned().unwrap();
                 let mut solved_idx = None;
 
                 for (i, card) in state.active_situations.iter().enumerate() {
@@ -183,7 +199,6 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
 
                 if let Some(idx) = solved_idx {
                     let card = &state.active_situations[idx];
-                    // Pay Cost (Item)
                     if let Some(sol) = &card.solution {
                         if let Some(req_item) = &sol.item_cost {
                             if let Some(p) = state.players.get_mut(player_id) {
@@ -204,19 +219,20 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
                     }
                 }
             }
-            Action::Bake => {
+            Action::Repair => {
                 let room_id = state.players.get(player_id).unwrap().room_id;
-
-                // Validation
-                if let Some(room) = state.map.rooms.get(&room_id) {
-                    if room.system != Some(SystemType::Kitchen) {
-                        continue;
-                    }
-                    if !room.hazards.is_empty() {
-                        continue;
+                if let Some(room) = state.map.rooms.get_mut(&room_id) {
+                    if let Some(idx) = room.hazards.iter().position(|&h| h == HazardType::Water) {
+                        room.hazards.remove(idx);
                     }
                 }
-
+            }
+            Action::Bake => {
+                let room_id = state.players.get(player_id).unwrap().room_id;
+                if let Some(room) = state.map.rooms.get(&room_id) {
+                    if room.system != Some(SystemType::Kitchen) { continue; }
+                    if !room.hazards.is_empty() { continue; }
+                }
                 if let Some(room) = state.map.rooms.get_mut(&room_id) {
                     room.items.push(ItemType::Peppernut);
                     room.items.push(ItemType::Peppernut);
@@ -226,23 +242,24 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
             Action::Shoot => {
                 let p = state.players.get_mut(player_id).unwrap();
                 let room_id = p.room_id;
-
-                // Validation
                 if let Some(room) = state.map.rooms.get(&room_id) {
-                    if room.system != Some(SystemType::Cannons) {
-                        continue;
-                    }
+                    if room.system != Some(SystemType::Cannons) { continue; }
                 }
 
                 if let Some(idx) = p.inventory.iter().position(|i| *i == ItemType::Peppernut) {
                     p.inventory.remove(idx);
 
-                    // Roll
                     let mut rng = StdRng::seed_from_u64(state.rng_seed);
                     let roll: u32 = rng.gen_range(1..=6);
                     state.rng_seed = rng.gen();
 
-                    if roll >= 3 {
+                    let mut threshold = 3; 
+                    for card in &state.active_situations {
+                        let t = get_behavior(card.id).get_hit_threshold(state);
+                        if t > threshold { threshold = t; }
+                    }
+
+                    if roll >= threshold {
                         state.enemy.hp -= 1;
                     }
                 }
@@ -260,14 +277,13 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
                             "Action Skipped: Player {} cannot pick up {:?} (Not in room)",
                             player_id, item_type
                         );
+                        if let Some(p) = state.players.get_mut(player_id) {
+                             p.ap += 1;
+                        }
                     }
                 }
             }
-            Action::Throw {
-                target_player,
-                item_index,
-            } => {
-                // Removed from source, added to target
+            Action::Throw { target_player, item_index } => {
                 let mut item = None;
                 if let Some(p) = state.players.get_mut(player_id) {
                     if item_index < p.inventory.len() {
@@ -280,7 +296,40 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
                     }
                 }
             }
-            _ => {} // Other actions might be stubs or instant
+            Action::Drop { item_index } => {
+                let mut item = None;
+                let mut room_id = 0;
+                if let Some(p) = state.players.get_mut(player_id) {
+                    room_id = p.room_id;
+                    if item_index < p.inventory.len() {
+                        item = Some(p.inventory.remove(item_index));
+                    }
+                }
+                if let Some(it) = item {
+                    if let Some(room) = state.map.rooms.get_mut(&room_id) {
+                        room.items.push(it);
+                    }
+                }
+            }
+            Action::Revive { target_player } => {
+                // Check if target is in same room and Fainted
+                let mut valid = false;
+                let room_id = state.players.get(player_id).unwrap().room_id;
+                
+                if let Some(target) = state.players.get(&target_player) {
+                    if target.room_id == room_id && target.status.contains(&PlayerStatus::Fainted) {
+                        valid = true;
+                    }
+                }
+                
+                if valid {
+                    if let Some(target) = state.players.get_mut(&target_player) {
+                        target.status.retain(|s| *s != PlayerStatus::Fainted);
+                        target.hp = 1;
+                    }
+                }
+            }
+            _ => {}
         }
     }
 }

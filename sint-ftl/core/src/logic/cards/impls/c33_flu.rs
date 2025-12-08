@@ -1,0 +1,36 @@
+use crate::logic::cards::behavior::CardBehavior;
+use crate::types::{GameState, CardType, CardId};
+
+pub struct C33FluWave;
+
+impl CardBehavior for C33FluWave {
+    fn on_round_end(&self, state: &mut GameState) {
+        let mut triggered = false;
+        for card in state.active_situations.iter_mut() {
+            if card.id == CardId::FluWave {
+                if let CardType::Timebomb { rounds_left } = &mut card.card_type {
+                    if *rounds_left > 0 {
+                        *rounds_left -= 1;
+                        if *rounds_left == 0 {
+                            triggered = true;
+                        }
+                    }
+                }
+            }
+        }
+        
+        if triggered {
+            // Next round 1 AP.
+            // We set AP at start of TacticalPlanning.
+            // We need a persistent status "Sick".
+            // Since we don't have statuses yet other than Fainted/Silenced,
+            // we'll implement this by reducing AP *now* if we reset AP at end of round?
+            // `advance_phase` resets AP to 2 in EnemyTelegraph.
+            // If this triggers in EnemyAction (before Telegraph), we need a way to persist the malus.
+            // State variable? Or just modify players now and hope they don't get reset?
+            // They DO get reset.
+            // We'll leave this unimplemented correctly without a Status system.
+            state.active_situations.retain(|c| c.id != CardId::FluWave);
+        }
+    }
+}

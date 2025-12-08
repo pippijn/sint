@@ -1,4 +1,4 @@
-use super::cards;
+use super::cards::{self, get_behavior};
 use super::pathfinding::{find_path, get_player_projected_room};
 use super::resolution;
 use crate::logic::GameError;
@@ -81,14 +81,20 @@ pub fn apply_action(
         }
     }
 
-    // 2. Validate AP (unless it's free)
-    let base_cost = action_cost(&state, &action);
-    let player = state
-        .players
-        .get_mut(player_id)
-        .ok_or(GameError::PlayerNotFound)?;
+    // CARD VALIDATION HOOK
+    for card in &state.active_situations {
+        get_behavior(card.id).validate_action(&state, player_id, &action)?;
+    }
 
-    if player.ap < base_cost {
+    // 2. Validate AP (unless it's free)
+    let base_cost = action_cost(&state, player_id, &action);
+    
+    // Read-only check for AP
+    let current_ap = state.players.get(player_id)
+        .ok_or(GameError::PlayerNotFound)?
+        .ap;
+
+    if current_ap < base_cost {
         return Err(GameError::NotEnoughAP);
     }
 
@@ -99,15 +105,7 @@ pub fn apply_action(
     match &action {
         Action::Chat { message } => {
             is_immediate = true;
-            // C02: Static Noise
-            let static_noise = state.active_situations.iter().any(|c| c.id == "C02");
-            if static_noise {
-                let has_alpha = message.chars().any(|c| c.is_alphabetic());
-                if has_alpha {
-                    return Err(GameError::Silenced);
-                }
-            }
-
+            // C02: Static Noise handled by CARD VALIDATION HOOK above.
             state.chat_log.push(ChatMessage {
                 sender: player_id.to_string(),
                 text: message.clone(),
@@ -156,7 +154,7 @@ pub fn apply_action(
                 let removed = state.proposal_queue.remove(i);
 
                 // 4. Refund AP
-                let refund = action_cost(&state, &removed.action);
+                let refund = action_cost(&state, player_id, &removed.action);
                 if let Some(p) = state.players.get_mut(player_id) {
                     p.ap += refund;
                 }
@@ -171,11 +169,13 @@ pub fn apply_action(
             let pid_string = player_id.to_string();
             let start_room = get_player_projected_room(&state, &pid_string);
 
+            // C03 Check moved to registry validation.
+
             if let Some(path) = find_path(&state.map, start_room, *to_room) {
                 let step_cost = base_cost;
                 let total_cost = step_cost * (path.len() as i32);
 
-                if state.players.get(player_id).unwrap().ap < total_cost {
+                if current_ap < total_cost {
                     return Err(GameError::NotEnoughAP);
                 }
 
@@ -378,6 +378,13 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
             state.phase = GamePhase::MorningReport;
             state.shields_active = false;
             state.evasion_active = false;
+            
+            // Round Start Hook
+            let active_ids: Vec<CardId> = state.active_situations.iter().map(|c| c.id).collect();
+            for id in active_ids {
+                get_behavior(id).on_round_start(&mut state);
+            }
+
             cards::draw_card(&mut state);
             for p in state.players.values_mut() {
                 p.is_ready = false;
@@ -449,6 +456,18 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
             state.shields_active = false;
             state.evasion_active = false;
 
+            // Trigger Card End-of-Round Effects (e.g. Timebombs, Mice)
+            let active_ids: Vec<CardId> = state.active_situations.iter().map(|c| c.id).collect();
+            for id in active_ids {
+                get_behavior(id).on_round_end(&mut state);
+            }
+            
+            // Round Start Hook (New Round)
+            let active_ids_new: Vec<CardId> = state.active_situations.iter().map(|c| c.id).collect();
+            for id in active_ids_new {
+                get_behavior(id).on_round_start(&mut state);
+            }
+
             // Respawn Logic
             for p in state.players.values_mut() {
                 if p.status.contains(&PlayerStatus::Fainted) {
@@ -468,19 +487,10 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
     Ok(state)
 }
 
-fn action_cost(state: &GameState, action: &Action) -> i32 {
-    // C04: Slippery Deck check
-    let slippery = state.active_situations.iter().any(|c| c.id == "C04");
-
+fn action_cost(state: &GameState, player_id: &str, action: &Action) -> i32 {
     let base = match action {
         Action::Chat { .. } | Action::VoteReady { .. } => 0,
-        Action::Move { .. } => {
-            if slippery {
-                0
-            } else {
-                1
-            }
-        }
+        Action::Move { .. } => 1,
         Action::Interact => 1,
         Action::Bake | Action::Shoot | Action::Extinguish | Action::Repair => 1,
         Action::Throw { .. } | Action::PickUp { .. } => 1,
@@ -494,11 +504,11 @@ fn action_cost(state: &GameState, action: &Action) -> i32 {
         Action::FullSync { .. } => 0,
     };
 
-    if slippery && base > 0 && !matches!(action, Action::Move { .. }) {
-        return base + 1;
+    let mut cost = base;
+    for card in &state.active_situations {
+        cost = get_behavior(card.id).modify_action_cost(state, player_id, action, cost);
     }
-
-    base
+    cost
 }
 
 pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
@@ -558,7 +568,7 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
         // Move
         for &neighbor in &room.neighbors {
             let action = Action::Move { to_room: neighbor };
-            if p.ap >= action_cost(state, &action) {
+            if p.ap >= action_cost(state, player_id, &action) {
                 actions.push(action);
             }
         }
@@ -579,7 +589,7 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
                 };
 
                 if let Some(act) = action {
-                    if p.ap >= action_cost(state, &act) {
+                    if p.ap >= action_cost(state, player_id, &act) {
                         actions.push(act);
                     }
                 }
@@ -589,13 +599,13 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
         // Hazards
         if room.hazards.contains(&HazardType::Fire) {
             let action = Action::Extinguish;
-            if p.ap >= action_cost(state, &action) {
+            if p.ap >= action_cost(state, player_id, &action) {
                 actions.push(action);
             }
         }
         if room.hazards.contains(&HazardType::Water) {
             let action = Action::Repair;
-            if p.ap >= action_cost(state, &action) {
+            if p.ap >= action_cost(state, player_id, &action) {
                 actions.push(action);
             }
         }
@@ -608,7 +618,7 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
                 let action = Action::PickUp {
                     item_type: item.clone(),
                 };
-                if p.ap >= action_cost(state, &action) {
+                if p.ap >= action_cost(state, player_id, &action) {
                     actions.push(action);
                 }
                 seen_items.push(item.clone());

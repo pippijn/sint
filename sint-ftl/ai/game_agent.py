@@ -113,10 +113,28 @@ class GameAgent:
                 print(f"Event Received: {desc}")
                 self.memory.add_log(desc)
                 
-                if pid == self.player_id and action_type not in ["Pass", "VoteReady", "Chat"]:
-                     self.schedule_think(delay=0.1)
+                # Smart Scheduling
+                me = self.state_json['players'].get(self.player_id, {})
+                is_ready = me.get('is_ready', False)
+
+                if pid == self.player_id:
+                    # My action
+                    if is_ready:
+                        print("I am Ready. Waiting for others/phase change.")
+                    elif action_type == "Chat":
+                        print("I chatted. Waiting for reply/events.")
+                    else:
+                        # I did something (Move/PickUp) and I'm not ready yet. Keep planning.
+                        self.schedule_think(delay=0.1)
                 else:
-                     self.schedule_think(delay=0.5)
+                    # Others' action
+                    if is_ready:
+                        # I'm ready, I usually don't care what others do until phase change.
+                        # Exception: Chat? For now, stay silent to avoid spam.
+                        pass
+                    else:
+                        # I'm not ready, their action might change my plan.
+                        self.schedule_think(delay=0.5)
                 
             except Exception as e:
                 print(f"Error applying action: {e}")
