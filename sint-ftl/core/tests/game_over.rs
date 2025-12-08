@@ -12,7 +12,7 @@ fn test_game_over_hull_destruction() {
     if let Some(r) = state.map.rooms.get_mut(&6) {
         r.hazards.push(HazardType::Fire);
     }
-    
+
     // Prepare player to finish execution
     if let Some(p) = state.players.get_mut("P1") {
         p.ap = 0;

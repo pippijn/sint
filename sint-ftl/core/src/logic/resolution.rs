@@ -297,6 +297,27 @@ pub fn resolve_proposal_queue(state: &mut GameState, simulation: bool) {
 
                         if roll >= threshold {
                             state.enemy.hp -= 1;
+
+                            // Check for Boss Death
+                            if state.enemy.hp <= 0 {
+                                state.boss_level += 1;
+                                if state.boss_level >= 4 {
+                                    state.phase = GamePhase::Victory;
+                                } else {
+                                    // Spawn next boss
+                                    state.enemy = crate::logic::get_boss(state.boss_level);
+
+                                    // Announce
+                                    state.chat_log.push(ChatMessage {
+                                        sender: "SYSTEM".to_string(),
+                                        text: format!(
+                                            "Enemy Defeated! approaching: {}",
+                                            state.enemy.name
+                                        ),
+                                        timestamp: 0,
+                                    });
+                                }
+                            }
                         }
                     } else {
                         // In simulation, we consume the ammo but don't roll dice or damage enemy.

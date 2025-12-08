@@ -14,6 +14,7 @@ fn PhaseTracker(phase: GamePhase) -> impl IntoView {
         (GamePhase::Execution, "EXECUTE"),
         (GamePhase::EnemyAction, "ENEMY"),
         (GamePhase::GameOver, "GAME OVER"),
+        (GamePhase::Victory, "VICTORY!"),
     ];
 
     view! {
@@ -118,12 +119,29 @@ pub fn GameView(room_id: String, player_id: String) -> impl IntoView {
                         if state.get().phase == GamePhase::GameOver {
                             view! {
                                 <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100;">
-                                    <h1 style="color: #f44336; font-size: 3em; margin: 0; text-shadow: 0 0 10px #f44336;">"GAME OVER"</h1>
+                                    <h1 style="color: #f44336; font-size: 3em; margin: 0; text-shadow: 0 0 10px #f44336;">
+                                        "GAME OVER"
+                                    </h1>
                                     <div style="color: white; font-size: 1.2em; margin-top: 10px;">
                                         "The Steamboat has fallen."
                                     </div>
                                     <div style="margin-top: 20px; color: #aaa;">
                                         "Refresh to try again."
+                                    </div>
+                                </div>
+                            }
+                                .into_view()
+                        } else if state.get().phase == GamePhase::Victory {
+                            view! {
+                                <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100;">
+                                    <h1 style="color: #4caf50; font-size: 3em; margin: 0; text-shadow: 0 0 10px #4caf50;">
+                                        "VICTORY!"
+                                    </h1>
+                                    <div style="color: white; font-size: 1.2em; margin-top: 10px;">
+                                        "The Steamboat is safe... for now."
+                                    </div>
+                                    <div style="margin-top: 20px; color: #aaa;">
+                                        "All Bosses Defeated."
                                     </div>
                                 </div>
                             }

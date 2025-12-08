@@ -22,6 +22,8 @@ pub struct GameState {
     pub turn_count: u32,
     /// Ship Health (starts at 20)
     pub hull_integrity: i32,
+    /// Current Boss Level (0-3)
+    pub boss_level: u32,
 
     /// The Map
     pub map: GameMap,
@@ -64,6 +66,7 @@ pub enum GamePhase {
     Execution,        // Actions resolve
     EnemyAction,      // Enemy attacks, fire spreads
     GameOver,
+    Victory,
 }
 
 // --- Map & Rooms ---

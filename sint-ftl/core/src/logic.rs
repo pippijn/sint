@@ -109,14 +109,10 @@ impl GameLogic {
             phase: GamePhase::Lobby,
             turn_count: 1,
             hull_integrity: 20,
+            boss_level: 0,
             map: GameMap { rooms },
             players,
-            enemy: Enemy {
-                name: "The Petty Thief".to_string(),
-                hp: 5,
-                max_hp: 5,
-                next_attack: None,
-            },
+            enemy: get_boss(0),
             chat_log: vec![],
             shields_active: false,
             evasion_active: false,
@@ -135,5 +131,40 @@ impl GameLogic {
         _hypothetical_seed: Option<u64>,
     ) -> Result<GameState, GameError> {
         actions::apply_action(state, player_id, action)
+    }
+}
+
+pub fn get_boss(level: u32) -> Enemy {
+    match level {
+        0 => Enemy {
+            name: "The Petty Thief".to_string(),
+            hp: 5,
+            max_hp: 5,
+            next_attack: None,
+        },
+        1 => Enemy {
+            name: "The Monster".to_string(),
+            hp: 10,
+            max_hp: 10,
+            next_attack: None,
+        },
+        2 => Enemy {
+            name: "The Armada".to_string(),
+            hp: 15,
+            max_hp: 15,
+            next_attack: None,
+        },
+        3 => Enemy {
+            name: "The Kraken".to_string(),
+            hp: 20,
+            max_hp: 20,
+            next_attack: None,
+        },
+        _ => Enemy {
+            name: "Unknown Threat".to_string(),
+            hp: 50,
+            max_hp: 50,
+            next_attack: None,
+        },
     }
 }
