@@ -273,6 +273,27 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
                     }
                 }
             }
+            Action::Lookout => {
+                let card = state.deck.last();
+                let msg = if let Some(c) = card {
+                    format!("LOOKOUT REPORT: The next event is '{}' ({})", c.title, c.description)
+                } else {
+                    "LOOKOUT REPORT: The horizon is clear (Deck Empty).".to_string()
+                };
+                
+                state.chat_log.push(ChatMessage {
+                    sender: "SYSTEM".to_string(),
+                    text: msg,
+                    timestamp: 0,
+                });
+            }
+            Action::FirstAid { target_player } => {
+                if let Some(target) = state.players.get_mut(target_player) {
+                    if target.hp < 3 {
+                        target.hp += 1;
+                    }
+                }
+            }
             Action::PickUp { item_type } => {
                 let room_id = state.players.get(player_id).unwrap().room_id;
                 if let Some(room) = state.map.rooms.get_mut(&room_id) {

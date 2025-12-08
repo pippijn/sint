@@ -208,6 +208,11 @@ pub enum Action {
     /// Revive a Fainted player in the same room (Costs 1 AP)
     Revive { target_player: PlayerId },
 
+    /// Bow: Reveal the next event card (Costs 1 AP)
+    Lookout,
+    /// Sickbay: Restore 1 HP to self or adjacent player (Costs 1 AP)
+    FirstAid { target_player: PlayerId },
+
     /// Send a chat message (Free)
     Chat { message: String },
     /// Toggle "Ready" status for the batch execution

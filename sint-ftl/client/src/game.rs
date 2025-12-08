@@ -702,6 +702,103 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                             .into_view(),
                                     );
                             }
+                            if room.system == Some(SystemType::Bow) {
+                                let c_lookout = ctx_action.clone();
+                                let disabled = player.ap < 1;
+                                let opacity = if disabled { "0.5" } else { "1.0" };
+                                let cursor = if disabled { "not-allowed" } else { "pointer" };
+                                buttons
+                                    .push(
+                                        view! {
+                                            <button
+                                                style=format!(
+                                                    "padding: 10px; background: #673ab7; border: none; color: white; border-radius: 4px; cursor: {}; opacity: {};",
+                                                    cursor,
+                                                    opacity,
+                                                )
+                                                disabled=disabled
+                                                on:click=move |_| {
+                                                    c_lookout.perform_action.call(Action::Lookout)
+                                                }
+                                            >
+                                                "Lookout (Next Event)"
+                                            </button>
+                                        }
+                                            .into_view(),
+                                    );
+                            }
+                            if room.system == Some(SystemType::Sickbay) {
+                                // Heal Self
+                                let c_heal_self = ctx_action.clone();
+                                let disabled = player.ap < 1;
+                                let opacity = if disabled { "0.5" } else { "1.0" };
+                                let cursor = if disabled { "not-allowed" } else { "pointer" };
+                                let pid_clone = pid.clone();
+                                buttons
+                                    .push(
+                                        view! {
+                                            <button
+                                                style=format!(
+                                                    "padding: 10px; background: #e91e63; border: none; color: white; border-radius: 4px; cursor: {}; opacity: {};",
+                                                    cursor,
+                                                    opacity,
+                                                )
+                                                disabled=disabled
+                                                on:click=move |_| {
+                                                    c_heal_self
+                                                        .perform_action
+                                                        .call(Action::FirstAid {
+                                                            target_player: pid_clone.clone(),
+                                                        })
+                                                }
+                                            >
+                                                "Heal Self"
+                                            </button>
+                                        }
+                                            .into_view(),
+                                    );
+
+                                // Heal Neighbors
+                                for other_p in s.players.values() {
+                                    if other_p.id == pid {
+                                        continue;
+                                    }
+                                    if room.neighbors.contains(&other_p.room_id)
+                                        || other_p.room_id == player.room_id
+                                    {
+                                        let c_heal_other = ctx_action.clone();
+                                        let target_id = other_p.id.clone();
+                                        let target_name = other_p.name.clone();
+                                        let disabled = player.ap < 1;
+                                        let opacity = if disabled { "0.5" } else { "1.0" };
+                                        let cursor = if disabled { "not-allowed" } else { "pointer" };
+                                        buttons
+                                            .push(
+                                                view! {
+                                                    <button
+                                                        style=format!(
+                                                            "padding: 10px; background: #e91e63; border: none; color: white; border-radius: 4px; cursor: {}; opacity: {};",
+                                                            cursor,
+                                                            opacity,
+                                                        )
+                                                        disabled=disabled
+                                                        on:click=move |_| {
+                                                            c_heal_other
+                                                                .perform_action
+                                                                .call(Action::FirstAid {
+                                                                    target_player: target_id.clone(),
+                                                                })
+                                                        }
+                                                    >
+                                                        "Heal "
+                                                        {target_name}
+                                                    </button>
+                                                }
+                                                    .into_view(),
+                                            );
+                                    }
+                                }
+                            }
                             if room.hazards.contains(&HazardType::Fire) {
                                 let c_ext = ctx_action.clone();
                                 let disabled = player.ap < 1;

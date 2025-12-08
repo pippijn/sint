@@ -261,6 +261,71 @@ pub fn apply_action(
             let p = state.players.get_mut(player_id).unwrap();
             p.ap -= base_cost;
         }
+        Action::Lookout => {
+            let room = projected_state
+                .map
+                .rooms
+                .get(&p_proj.room_id)
+                .ok_or(GameError::RoomNotFound)?;
+
+            if room.system != Some(SystemType::Bow) {
+                return Err(GameError::InvalidAction(format!(
+                    "Lookout requires being in The Bow (2), but you will be in {} ({})",
+                    room.name, room.id
+                )));
+            }
+            if !room.hazards.is_empty() {
+                return Err(GameError::RoomBlocked);
+            }
+            state.proposal_queue.push(ProposedAction {
+                id: Uuid::new_v4().to_string(),
+                player_id: player_id.to_string(),
+                action: action.clone(),
+            });
+            let p = state.players.get_mut(player_id).unwrap();
+            p.ap -= base_cost;
+        }
+        Action::FirstAid { target_player } => {
+            let room = projected_state
+                .map
+                .rooms
+                .get(&p_proj.room_id)
+                .ok_or(GameError::RoomNotFound)?;
+
+            if room.system != Some(SystemType::Sickbay) {
+                return Err(GameError::InvalidAction(format!(
+                    "First Aid requires being in Sickbay (10), but you will be in {} ({})",
+                    room.name, room.id
+                )));
+            }
+            if !room.hazards.is_empty() {
+                return Err(GameError::RoomBlocked);
+            }
+
+            // Validate Target Range (Self or Adjacent Room)
+            let target = projected_state
+                .players
+                .get(target_player)
+                .ok_or(GameError::PlayerNotFound)?;
+            
+            let is_self = target_player == player_id;
+            let is_adjacent = room.neighbors.contains(&target.room_id);
+            let is_here = target.room_id == p_proj.room_id;
+
+            if !is_self && !is_adjacent && !is_here {
+                 return Err(GameError::InvalidAction(
+                    "Target for First Aid must be self or in adjacent room".to_string(),
+                ));
+            }
+
+            state.proposal_queue.push(ProposedAction {
+                id: Uuid::new_v4().to_string(),
+                player_id: player_id.to_string(),
+                action: action.clone(),
+            });
+            let p = state.players.get_mut(player_id).unwrap();
+            p.ap -= base_cost;
+        }
         Action::PickUp { item_type } => {
             let room = projected_state
                 .map
@@ -488,6 +553,7 @@ pub fn action_cost(state: &GameState, player_id: &str, action: &Action) -> i32 {
         Action::Move { .. } => 1,
         Action::Interact => 1,
         Action::Bake | Action::Shoot | Action::Extinguish | Action::Repair => 1,
+        Action::Lookout | Action::FirstAid { .. } => 1,
         Action::Throw { .. } | Action::PickUp { .. } => 1,
         Action::Revive { .. } => 1,
         Action::RaiseShields | Action::EvasiveManeuvers => 2,
@@ -575,12 +641,31 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
                     SystemType::Cannons => Some(Action::Shoot),
                     SystemType::Engine => Some(Action::RaiseShields),
                     SystemType::Bridge => Some(Action::EvasiveManeuvers),
+                    SystemType::Bow => Some(Action::Lookout),
                     _ => None,
                 };
 
                 if let Some(act) = action {
                     if p.ap >= action_cost(&projected_state, player_id, &act) {
                         actions.push(act);
+                    }
+                }
+
+                // Sickbay (Targeted Action)
+                if sys == SystemType::Sickbay {
+                    if p.ap >= action_cost(&projected_state, player_id, &Action::FirstAid { target_player: "".to_string() }) {
+                        // Target Self
+                        actions.push(Action::FirstAid { target_player: player_id.to_string() });
+                        
+                        // Target Neighbors
+                        for other_p in projected_state.players.values() {
+                            if other_p.id == *player_id { continue; }
+                            
+                            // Check if in neighbor or same room
+                            if room.neighbors.contains(&other_p.room_id) || other_p.room_id == p.room_id {
+                                actions.push(Action::FirstAid { target_player: other_p.id.clone() });
+                            }
+                        }
                     }
                 }
             }
