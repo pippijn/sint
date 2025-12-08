@@ -520,6 +520,17 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
                 resolution::resolve_enemy_attack(&mut state);
                 resolution::resolve_hazards(&mut state);
 
+                // CHECK GAME OVER CONDITIONS
+                let hull_destroyed = state.hull_integrity <= 0;
+                let crew_wiped = state
+                    .players
+                    .values()
+                    .all(|p| p.status.contains(&PlayerStatus::Fainted));
+
+                if hull_destroyed || crew_wiped {
+                    state.phase = GamePhase::GameOver;
+                }
+
                 for p in state.players.values_mut() {
                     p.is_ready = false;
                 }
