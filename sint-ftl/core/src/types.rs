@@ -110,7 +110,7 @@ pub enum ItemType {
 
 // --- Player ---
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Player {
     pub id: PlayerId,
     pub name: String,
@@ -131,7 +131,7 @@ pub enum PlayerStatus {
 
 // --- Enemy ---
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Enemy {
     pub name: String,
     pub hp: i32,
@@ -140,7 +140,7 @@ pub struct Enemy {
     pub next_attack: Option<EnemyAttack>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct EnemyAttack {
     pub target_room: RoomId,
     pub effect: AttackEffect,
@@ -156,21 +156,21 @@ pub enum AttackEffect {
 
 // --- Actions & Events ---
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct ChatMessage {
     pub sender: PlayerId,
     pub text: String,
     pub timestamp: u64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct ProposedAction {
     pub id: String, // UUID
     pub player_id: PlayerId,
     pub action: Action,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "type", content = "payload")]
 pub enum Action {
     /// Move to an adjacent room (Costs 1 AP)
@@ -219,7 +219,7 @@ pub enum Action {
 
 // --- Cards ---
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Card {
     pub id: String,
     pub title: String,
@@ -238,13 +238,13 @@ pub enum CardType {
     Timebomb { rounds_left: u32 }, // Countdown
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct CardOption {
     pub text: String,
     pub effect: EffectType,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum EffectType {
     None,
     DamageHull(i32),
@@ -253,7 +253,7 @@ pub enum EffectType {
     SpawnHazard(RoomId, HazardType),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct CardSolution {
     pub room_id: Option<RoomId>, // Where to solve it
     pub ap_cost: u32,
