@@ -251,6 +251,85 @@ pub fn apply_action(
                 action: action.clone(),
             });
         }
+        // Queued Actions (System)
+        Action::Bake | Action::Shoot | Action::RaiseShields | Action::EvasiveManeuvers => {
+            let pid_string = player_id.to_string();
+            let room_id = get_player_projected_room(&state, &pid_string);
+            let room = state
+                .map
+                .rooms
+                .get(&room_id)
+                .ok_or(GameError::RoomNotFound)?;
+
+            let expected_sys = match action {
+                Action::Bake => SystemType::Kitchen,
+                Action::Shoot => SystemType::Cannons,
+                Action::RaiseShields => SystemType::Engine,
+                Action::EvasiveManeuvers => SystemType::Bridge,
+                _ => unreachable!(),
+            };
+
+            if room.system != Some(expected_sys) {
+                return Err(GameError::InvalidAction(format!(
+                    "Action {:?} requires being in {:?}, but you will be in {} ({})",
+                    action, expected_sys, room.name, room.id
+                )));
+            }
+
+            // Check Hazards (Room Functionality)
+            if !room.hazards.is_empty() {
+                return Err(GameError::RoomBlocked);
+            }
+
+            state.proposal_queue.push(ProposedAction {
+                id: Uuid::new_v4().to_string(),
+                player_id: player_id.to_string(),
+                action: action.clone(),
+            });
+        }
+        Action::Repair => {
+            let pid_string = player_id.to_string();
+            let room_id = get_player_projected_room(&state, &pid_string);
+            let room = state
+                .map
+                .rooms
+                .get(&room_id)
+                .ok_or(GameError::RoomNotFound)?;
+
+            if !room.hazards.contains(&HazardType::Water) {
+                return Err(GameError::InvalidAction("No water to repair".to_string()));
+            }
+
+            state.proposal_queue.push(ProposedAction {
+                id: Uuid::new_v4().to_string(),
+                player_id: player_id.to_string(),
+                action: action.clone(),
+            });
+        }
+        Action::PickUp { item_type } => {
+            let pid_string = player_id.to_string();
+            let room_id = get_player_projected_room(&state, &pid_string);
+            let room = state
+                .map
+                .rooms
+                .get(&room_id)
+                .ok_or(GameError::RoomNotFound)?;
+
+            if !room.items.contains(item_type) {
+                // Note: This check is imperfect as it ignores queue consumption,
+                // but prevents picking up from empty rooms.
+                return Err(GameError::InvalidAction(format!(
+                    "Item {:?} not in room",
+                    item_type
+                )));
+            }
+
+            state.proposal_queue.push(ProposedAction {
+                id: Uuid::new_v4().to_string(),
+                player_id: player_id.to_string(),
+                action: action.clone(),
+            });
+        }
         // Queued Actions (Everything else)
         _ => {
             // DEFERRED VALIDATION:
