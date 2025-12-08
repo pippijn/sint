@@ -7,7 +7,7 @@ fn test_shoot_mechanics() {
 
     // Setup: P1 in Cannons (8), Has Ammo
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = sint_core::logic::ROOM_CANNONS;
+        p.room_id = sint_core::types::SystemType::Cannons.as_u32();
         p.inventory.push(ItemType::Peppernut);
         p.ap = 2;
     }
@@ -41,7 +41,7 @@ fn test_shields_activation() {
 
     // Setup: P1 in Engine (5)
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = sint_core::logic::ROOM_ENGINE;
+        p.room_id = sint_core::types::SystemType::Engine.as_u32();
         p.ap = 2;
     }
 
@@ -69,7 +69,7 @@ fn test_evasion_activation() {
 
     // Setup: P1 in Bridge (9)
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = sint_core::logic::ROOM_BRIDGE;
+        p.room_id = sint_core::types::SystemType::Bridge.as_u32();
         p.ap = 2;
     }
 
@@ -100,7 +100,7 @@ fn test_shields_block_damage() {
     // Setup Enemy Attack
     use sint_core::{AttackEffect, EnemyAttack};
     state.enemy.next_attack = Some(EnemyAttack {
-        target_room: sint_core::logic::ROOM_KITCHEN,
+        target_room: sint_core::types::SystemType::Kitchen.as_u32(),
         effect: AttackEffect::Fireball,
     });
 
@@ -126,7 +126,7 @@ fn test_shields_block_damage() {
         "Shields should block damage"
     );
     // Check Hazard
-    if let Some(room) = state.map.rooms.get(&sint_core::logic::ROOM_KITCHEN) {
+    if let Some(room) = state.map.rooms.get(&sint_core::types::SystemType::Kitchen.as_u32()) {
         assert!(room.hazards.is_empty(), "Shields should prevent fire spawn");
     }
 }

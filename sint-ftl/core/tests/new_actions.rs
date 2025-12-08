@@ -7,7 +7,7 @@ fn test_lookout_action() {
 
     // Move P1 to Bow (2)
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = sint_core::logic::ROOM_BOW; // Bow
+        p.room_id = sint_core::types::SystemType::Bow.as_u32(); // Bow
         p.ap = 2;
     }
 
@@ -32,11 +32,11 @@ fn test_first_aid_action() {
 
     // Setup: P1 in Sickbay (10), P2 in Hallway (7) [Neighbor]. P2 injured.
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = sint_core::logic::ROOM_SICKBAY;
+        p.room_id = sint_core::types::SystemType::Sickbay.as_u32();
         p.ap = 2;
     }
     if let Some(p) = state.players.get_mut("P2") {
-        p.room_id = sint_core::logic::ROOM_HALLWAY;
+        p.room_id = sint_core::types::SystemType::Hallway.as_u32();
         p.hp = 1; // Injured
     }
 
@@ -67,11 +67,11 @@ fn test_first_aid_invalid_range() {
 
     // Setup: P1 in Sickbay (10), P2 in Kitchen (6) [Not Neighbor]
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = sint_core::logic::ROOM_SICKBAY;
+        p.room_id = sint_core::types::SystemType::Sickbay.as_u32();
         p.ap = 2;
     }
     if let Some(p) = state.players.get_mut("P2") {
-        p.room_id = sint_core::logic::ROOM_KITCHEN;
+        p.room_id = sint_core::types::SystemType::Kitchen.as_u32();
         p.hp = 1;
     }
 

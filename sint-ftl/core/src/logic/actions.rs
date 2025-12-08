@@ -25,7 +25,7 @@ pub fn apply_action(
             Player {
                 id: player_id.to_string(),
                 name: name.clone(),
-                room_id: crate::logic::ROOM_DORMITORY,
+                room_id: SystemType::Dormitory.as_u32(),
                 hp: 3,
                 ap: 2,
                 inventory: vec![],
@@ -560,7 +560,7 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
                 if p.status.contains(&PlayerStatus::Fainted) {
                     p.status.retain(|s| *s != PlayerStatus::Fainted);
                     p.hp = 3;
-                    p.room_id = crate::logic::ROOM_DORMITORY;
+                    p.room_id = SystemType::Dormitory.as_u32();
                 }
             }
 

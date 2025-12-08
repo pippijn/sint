@@ -25,7 +25,7 @@ fn test_can_evade_from_bridge() {
 
     // Teleport P1 to Bridge (9)
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = sint_core::logic::ROOM_BRIDGE;
+        p.room_id = sint_core::types::SystemType::Bridge.as_u32();
     }
 
     let res = GameLogic::apply_action(state, "P1", Action::EvasiveManeuvers, None);
@@ -58,7 +58,7 @@ fn test_move_then_evade_valid() {
         state,
         "P1",
         Action::Move {
-            to_room: sint_core::logic::ROOM_HALLWAY,
+            to_room: sint_core::types::SystemType::Hallway.as_u32(),
         },
         None,
     )
@@ -68,7 +68,7 @@ fn test_move_then_evade_valid() {
         state,
         "P1",
         Action::Move {
-            to_room: sint_core::logic::ROOM_BRIDGE,
+            to_room: sint_core::types::SystemType::Bridge.as_u32(),
         },
         None,
     )

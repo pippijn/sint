@@ -12,13 +12,13 @@ impl CardBehavior for MicePlagueCard {
             title: "Mice Plague".to_string(),
             description: format!(
                 "At end of round, lose 2 Peppernuts from Storage ({}).",
-                crate::logic::ROOM_STORAGE
+                crate::types::SystemType::Storage.as_u32()
             )
             .to_string(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(crate::logic::ROOM_STORAGE),
+                room_id: Some(crate::types::SystemType::Storage.as_u32()),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 1,
@@ -28,7 +28,7 @@ impl CardBehavior for MicePlagueCard {
 
     fn on_round_end(&self, state: &mut GameState) {
         // Effect: At end of round, lose 2 Peppernuts from Storage (11).
-        if let Some(room) = state.map.rooms.get_mut(&crate::logic::ROOM_STORAGE) {
+        if let Some(room) = state.map.rooms.get_mut(&crate::types::SystemType::Storage.as_u32()) {
             // Remove up to 2 peppernuts
             let mut removed = 0;
             room.items.retain(|item| {

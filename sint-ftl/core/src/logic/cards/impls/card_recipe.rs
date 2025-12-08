@@ -10,13 +10,13 @@ impl CardBehavior for RecipeCard {
             title: "Recipe".to_string(),
             description: format!(
                 "Mission: Go to The Bow ({}) . Reward: Super Peppernuts.",
-                crate::logic::ROOM_BOW
+                crate::types::SystemType::Bow.as_u32()
             )
             .to_string(),
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(crate::logic::ROOM_BOW),
+                room_id: Some(crate::types::SystemType::Bow.as_u32()),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 1,

@@ -51,7 +51,7 @@ fn test_seagull_attack_prevents_move_after_pickup() {
 
     // P1 in Room 11 (Storage, has nuts)
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = sint_core::logic::ROOM_STORAGE;
+        p.room_id = sint_core::types::SystemType::Storage.as_u32();
         p.ap = 2;
     }
 

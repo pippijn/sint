@@ -12,7 +12,7 @@ impl CardBehavior for StowawayCard {
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(crate::logic::ROOM_DORMITORY),
+                room_id: Some(crate::types::SystemType::Dormitory.as_u32()),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 1,

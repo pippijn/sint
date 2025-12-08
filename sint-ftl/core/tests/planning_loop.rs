@@ -22,7 +22,7 @@ fn test_planning_loop() {
         state,
         "P1",
         Action::Move {
-            to_room: sint_core::logic::ROOM_HALLWAY,
+            to_room: sint_core::types::SystemType::Hallway.as_u32(),
         },
         None,
     )
@@ -42,7 +42,7 @@ fn test_planning_loop() {
         state,
         "P1",
         Action::Move {
-            to_room: sint_core::logic::ROOM_KITCHEN,
+            to_room: sint_core::types::SystemType::Kitchen.as_u32(),
         },
         None,
     )

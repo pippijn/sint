@@ -11,15 +11,15 @@ impl CardBehavior for TheBookCard {
             description: format!(
                 "Mission: {} ({}) -> {} ({}) . Reward: Skip Enemy Attack.",
                 "Storage",
-                crate::logic::ROOM_STORAGE,
+                crate::types::SystemType::Storage.as_u32(),
                 "Bridge",
-                crate::logic::ROOM_BRIDGE
+                crate::types::SystemType::Bridge.as_u32()
             )
             .to_string(),
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(crate::logic::ROOM_BRIDGE),
+                room_id: Some(crate::types::SystemType::Bridge.as_u32()),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 1,

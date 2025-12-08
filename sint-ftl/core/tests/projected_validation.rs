@@ -17,9 +17,7 @@ fn test_projected_location_validation() {
     let has_move_7 = actions.iter().any(|a| {
         matches!(
             a,
-            Action::Move {
-                to_room: sint_core::logic::ROOM_HALLWAY
-            }
+            Action::Move { to_room } if *to_room == sint_core::types::SystemType::Hallway.as_u32()
         )
     });
     assert!(has_move_7, "Should be able to move to Room 7");
@@ -29,7 +27,7 @@ fn test_projected_location_validation() {
         state,
         "P1",
         Action::Move {
-            to_room: sint_core::logic::ROOM_HALLWAY,
+            to_room: sint_core::types::SystemType::Hallway.as_u32(),
         },
         None,
     )
@@ -43,9 +41,7 @@ fn test_projected_location_validation() {
     let has_move_7 = actions.iter().any(|a| {
         matches!(
             a,
-            Action::Move {
-                to_room: sint_core::logic::ROOM_HALLWAY
-            }
+            Action::Move { to_room } if *to_room == sint_core::types::SystemType::Hallway.as_u32()
         )
     });
     assert!(
@@ -57,9 +53,7 @@ fn test_projected_location_validation() {
     let has_move_6 = actions.iter().any(|a| {
         matches!(
             a,
-            Action::Move {
-                to_room: sint_core::logic::ROOM_KITCHEN
-            }
+            Action::Move { to_room } if *to_room == sint_core::types::SystemType::Kitchen.as_u32()
         )
     });
     assert!(has_move_6, "Should be able to move to Room 6 (Kitchen)");
@@ -84,7 +78,7 @@ fn test_projected_system_availability() {
         state,
         "P1",
         Action::Move {
-            to_room: sint_core::logic::ROOM_KITCHEN,
+            to_room: sint_core::types::SystemType::Kitchen.as_u32(),
         },
         None,
     )
@@ -107,7 +101,7 @@ fn test_projected_ap_exhaustion() {
         state,
         "P1",
         Action::Move {
-            to_room: sint_core::logic::ROOM_HALLWAY,
+            to_room: sint_core::types::SystemType::Hallway.as_u32(),
         },
         None,
     )
@@ -124,7 +118,7 @@ fn test_projected_ap_exhaustion() {
         state,
         "P1",
         Action::Move {
-            to_room: sint_core::logic::ROOM_KITCHEN,
+            to_room: sint_core::types::SystemType::Kitchen.as_u32(),
         },
         None,
     )
@@ -150,7 +144,7 @@ fn test_projected_item_pickup() {
 
     // Setup: P1 in Room 3. Room 3 has items? Default setup Room 3 has NO items.
     // Let's add an item to Room 3.
-    if let Some(r) = state.map.rooms.get_mut(&sint_core::logic::ROOM_DORMITORY) {
+    if let Some(r) = state.map.rooms.get_mut(&sint_core::types::SystemType::Dormitory.as_u32()) {
         r.items.push(ItemType::Peppernut);
     }
 

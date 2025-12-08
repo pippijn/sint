@@ -100,6 +100,39 @@ pub enum SystemType {
     Hallway,   // Room 7 (Transit only, usually)
 }
 
+impl SystemType {
+    pub fn as_u32(&self) -> u32 {
+        match self {
+            SystemType::Bow => 2,
+            SystemType::Dormitory => 3,
+            SystemType::Cargo => 4,
+            SystemType::Engine => 5,
+            SystemType::Kitchen => 6,
+            SystemType::Hallway => 7,
+            SystemType::Cannons => 8,
+            SystemType::Bridge => 9,
+            SystemType::Sickbay => 10,
+            SystemType::Storage => 11,
+        }
+    }
+
+    pub fn from_u32(id: u32) -> Option<Self> {
+        match id {
+            2 => Some(SystemType::Bow),
+            3 => Some(SystemType::Dormitory),
+            4 => Some(SystemType::Cargo),
+            5 => Some(SystemType::Engine),
+            6 => Some(SystemType::Kitchen),
+            7 => Some(SystemType::Hallway),
+            8 => Some(SystemType::Cannons),
+            9 => Some(SystemType::Bridge),
+            10 => Some(SystemType::Sickbay),
+            11 => Some(SystemType::Storage),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum HazardType {
     Fire,

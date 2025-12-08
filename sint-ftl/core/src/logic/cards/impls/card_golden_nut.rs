@@ -10,13 +10,13 @@ impl CardBehavior for GoldenNutCard {
             title: "Golden Nut".to_string(),
             description: format!(
                 "Mission: Go to Storage ({}) . Reward: Auto Hit.",
-                crate::logic::ROOM_STORAGE
+                crate::types::SystemType::Storage.as_u32()
             )
             .to_string(),
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(crate::logic::ROOM_STORAGE),
+                room_id: Some(crate::types::SystemType::Storage.as_u32()),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 1,

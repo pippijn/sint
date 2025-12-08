@@ -13,13 +13,13 @@ impl CardBehavior for BlockadeCard {
             title: "Blockade".to_string(),
             description: format!(
                 "Door to Cannons ({}) is closed.",
-                crate::logic::ROOM_CANNONS
+                crate::types::SystemType::Cannons.as_u32()
             )
             .to_string(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(crate::logic::ROOM_HALLWAY),
+                room_id: Some(crate::types::SystemType::Hallway.as_u32()),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 2,
@@ -36,19 +36,19 @@ impl CardBehavior for BlockadeCard {
         // Door to Cannons (8) is closed.
         // No one can enter or exit.
         if let Action::Move { to_room } = action {
-            if *to_room == crate::logic::ROOM_CANNONS {
+            if *to_room == crate::types::SystemType::Cannons.as_u32() {
                 return Err(GameError::InvalidAction(
                     format!(
                         "Blockade! Cannot enter Room {}.",
-                        crate::logic::ROOM_CANNONS
+                        crate::types::SystemType::Cannons.as_u32()
                     )
                     .to_string(),
                 ));
             }
             if let Some(p) = state.players.get(player_id) {
-                if p.room_id == crate::logic::ROOM_CANNONS {
+                if p.room_id == crate::types::SystemType::Cannons.as_u32() {
                     return Err(GameError::InvalidAction(
-                        format!("Blockade! Cannot exit Room {}.", crate::logic::ROOM_CANNONS)
+                        format!("Blockade! Cannot exit Room {}.", crate::types::SystemType::Cannons.as_u32())
                             .to_string(),
                     ));
                 }

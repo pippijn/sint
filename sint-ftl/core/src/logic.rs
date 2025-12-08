@@ -36,28 +36,17 @@ pub enum GameError {
 pub const MIN_ROOM_ID: u32 = 2;
 pub const MAX_ROOM_ID: u32 = 11;
 
-pub const ROOM_BOW: u32 = 2;
-pub const ROOM_DORMITORY: u32 = 3;
-pub const ROOM_CARGO: u32 = 4;
-pub const ROOM_ENGINE: u32 = 5;
-pub const ROOM_KITCHEN: u32 = 6;
-pub const ROOM_HALLWAY: u32 = 7;
-pub const ROOM_CANNONS: u32 = 8;
-pub const ROOM_BRIDGE: u32 = 9;
-pub const ROOM_SICKBAY: u32 = 10;
-pub const ROOM_STORAGE: u32 = 11;
-
-const ROOM_DEFINITIONS: &[(u32, &str, Option<SystemType>)] = &[
-    (ROOM_BOW, "The Bow", Some(SystemType::Bow)),
-    (ROOM_DORMITORY, "Dormitory", Some(SystemType::Dormitory)),
-    (ROOM_CARGO, "Cargo", Some(SystemType::Cargo)),
-    (ROOM_ENGINE, "Engine", Some(SystemType::Engine)),
-    (ROOM_KITCHEN, "Kitchen", Some(SystemType::Kitchen)),
-    (ROOM_HALLWAY, "Central Hallway", Some(SystemType::Hallway)),
-    (ROOM_CANNONS, "Cannons", Some(SystemType::Cannons)),
-    (ROOM_BRIDGE, "Bridge", Some(SystemType::Bridge)),
-    (ROOM_SICKBAY, "Sickbay", Some(SystemType::Sickbay)),
-    (ROOM_STORAGE, "Storage", Some(SystemType::Storage)),
+const ROOM_DEFINITIONS: &[(SystemType, &str)] = &[
+    (SystemType::Bow, "The Bow"),
+    (SystemType::Dormitory, "Dormitory"),
+    (SystemType::Cargo, "Cargo"),
+    (SystemType::Engine, "Engine"),
+    (SystemType::Kitchen, "Kitchen"),
+    (SystemType::Hallway, "Central Hallway"),
+    (SystemType::Cannons, "Cannons"),
+    (SystemType::Bridge, "Bridge"),
+    (SystemType::Sickbay, "Sickbay"),
+    (SystemType::Storage, "Storage"),
 ];
 
 pub struct GameLogic;
@@ -66,21 +55,22 @@ impl GameLogic {
     pub fn new_game(player_ids: Vec<String>, seed: u64) -> GameState {
         let mut rooms = HashMap::new();
 
-        for &(id, name, sys) in ROOM_DEFINITIONS {
+        for &(sys, name) in ROOM_DEFINITIONS {
+            let id = sys.as_u32();
             let mut neighbors = vec![];
-            if id != ROOM_HALLWAY {
-                neighbors.push(ROOM_HALLWAY);
+            if sys != SystemType::Hallway {
+                neighbors.push(SystemType::Hallway.as_u32());
             } else {
                 // Hallway connects to everything else
                 neighbors = ROOM_DEFINITIONS
                     .iter()
-                    .map(|(r_id, _, _)| *r_id)
-                    .filter(|&r_id| r_id != ROOM_HALLWAY)
+                    .map(|(s, _)| s.as_u32())
+                    .filter(|&r_id| r_id != SystemType::Hallway.as_u32())
                     .collect();
             }
 
             // Special items
-            let items = if id == ROOM_STORAGE {
+            let items = if sys == SystemType::Storage {
                 vec![ItemType::Peppernut; 5]
             } else {
                 vec![]
@@ -91,7 +81,7 @@ impl GameLogic {
                 Room {
                     id,
                     name: name.to_string(),
-                    system: sys,
+                    system: Some(sys),
                     hazards: vec![],
                     items,
                     neighbors,
@@ -106,7 +96,7 @@ impl GameLogic {
                 Player {
                     id: pid.clone(),
                     name: format!("Player {}", i + 1),
-                    room_id: ROOM_DORMITORY,
+                    room_id: SystemType::Dormitory.as_u32(),
                     hp: 3,
                     ap: 2,
                     inventory: vec![],

@@ -16,7 +16,7 @@ fn test_card_slippery_deck() {
 
     // Setup P1
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = sint_core::logic::ROOM_KITCHEN; // Kitchen
+        p.room_id = sint_core::types::SystemType::Kitchen.as_u32(); // Kitchen
         p.ap = 2;
     }
 
@@ -25,7 +25,7 @@ fn test_card_slippery_deck() {
         state,
         "P1",
         Action::Move {
-            to_room: sint_core::logic::ROOM_HALLWAY,
+            to_room: sint_core::types::SystemType::Hallway.as_u32(),
         },
         None,
     )
@@ -44,7 +44,7 @@ fn test_card_slippery_deck() {
         state,
         "P1",
         Action::Move {
-            to_room: sint_core::logic::ROOM_KITCHEN,
+            to_room: sint_core::types::SystemType::Kitchen.as_u32(),
         },
         None,
     )
@@ -112,14 +112,14 @@ fn test_card_sing_a_song() {
     state
         .map
         .rooms
-        .get_mut(&sint_core::logic::ROOM_KITCHEN)
+        .get_mut(&sint_core::types::SystemType::Kitchen.as_u32())
         .unwrap()
         .hazards
         .push(HazardType::Fire);
     state
         .map
         .rooms
-        .get_mut(&sint_core::logic::ROOM_CARGO)
+        .get_mut(&sint_core::types::SystemType::Cargo.as_u32())
         .unwrap()
         .hazards
         .push(HazardType::Water);
@@ -138,13 +138,13 @@ fn test_card_sing_a_song() {
 
     // Verify hazards removed
     assert!(
-        state.map.rooms[&sint_core::logic::ROOM_KITCHEN]
+        state.map.rooms[&sint_core::types::SystemType::Kitchen.as_u32()]
             .hazards
             .is_empty(),
         "Fire should be removed"
     );
     assert!(
-        state.map.rooms[&sint_core::logic::ROOM_CARGO]
+        state.map.rooms[&sint_core::types::SystemType::Cargo.as_u32()]
             .hazards
             .is_empty(),
         "Water should be removed"

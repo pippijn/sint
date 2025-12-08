@@ -20,7 +20,7 @@ impl CardBehavior for PanicCard {
     fn on_activate(&self, state: &mut GameState) {
         // All players move to Dormitory (3).
         for p in state.players.values_mut() {
-            p.room_id = crate::logic::ROOM_DORMITORY;
+            p.room_id = crate::types::SystemType::Dormitory.as_u32();
         }
     }
 }

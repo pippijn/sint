@@ -7,12 +7,12 @@ fn test_throw_item() {
 
     // Setup: P1 in 6 (Kitchen) with Peppernut. P2 in 7 (Hallway).
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = sint_core::logic::ROOM_KITCHEN;
+        p.room_id = sint_core::types::SystemType::Kitchen.as_u32();
         p.inventory.push(ItemType::Peppernut);
         p.ap = 2;
     }
     if let Some(p) = state.players.get_mut("P2") {
-        p.room_id = sint_core::logic::ROOM_HALLWAY;
+        p.room_id = sint_core::types::SystemType::Hallway.as_u32();
         p.inventory.clear();
     }
 
@@ -48,7 +48,7 @@ fn test_drop_item() {
 
     // Setup P1 in Room 6 with Nut
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = sint_core::logic::ROOM_KITCHEN;
+        p.room_id = sint_core::types::SystemType::Kitchen.as_u32();
         p.inventory.push(ItemType::Peppernut);
     }
 

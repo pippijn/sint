@@ -13,7 +13,7 @@ fn test_undo_middle_of_chain() {
         state,
         "P1",
         Action::Move {
-            to_room: sint_core::logic::ROOM_HALLWAY,
+            to_room: sint_core::types::SystemType::Hallway.as_u32(),
         },
         None,
     )
@@ -26,7 +26,7 @@ fn test_undo_middle_of_chain() {
         state,
         "P1",
         Action::Move {
-            to_room: sint_core::logic::ROOM_BRIDGE,
+            to_room: sint_core::types::SystemType::Bridge.as_u32(),
         },
         None,
     )
@@ -68,7 +68,7 @@ fn test_undo_middle_of_chain() {
     // Check Room
     assert_eq!(
         state.players["P1"].room_id,
-        sint_core::logic::ROOM_DORMITORY
+        sint_core::types::SystemType::Dormitory.as_u32()
     );
 
     // 5. Acknowledge Execution (Transition Execution -> TacticalPlanning)

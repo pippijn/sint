@@ -11,12 +11,12 @@ impl CardBehavior for JammedCannonCard {
         Card {
             id: CardId::JammedCannon,
             title: "Jammed Cannon".to_string(),
-            description: format!("Cannons ({}) are disabled.", crate::logic::ROOM_CANNONS)
+            description: format!("Cannons ({}) are disabled.", crate::types::SystemType::Cannons.as_u32())
                 .to_string(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(crate::logic::ROOM_CANNONS),
+                room_id: Some(crate::types::SystemType::Cannons.as_u32()),
                 ap_cost: 1,
                 item_cost: Some(ItemType::Peppernut),
                 required_players: 1,

@@ -12,13 +12,13 @@ impl CardBehavior for BigLeakCard {
             title: "The Big Leak".to_string(),
             description: format!(
                 "Flooding. Start of round: 1 Water in Hallway ({}).",
-                crate::logic::ROOM_HALLWAY
+                crate::types::SystemType::Hallway.as_u32()
             )
             .to_string(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(crate::logic::ROOM_HALLWAY),
+                room_id: Some(crate::types::SystemType::Hallway.as_u32()),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 2,
@@ -28,7 +28,7 @@ impl CardBehavior for BigLeakCard {
 
     fn on_round_end(&self, state: &mut GameState) {
         // Automatically 1 Water in Central Hallway (7).
-        if let Some(room) = state.map.rooms.get_mut(&crate::logic::ROOM_HALLWAY) {
+        if let Some(room) = state.map.rooms.get_mut(&crate::types::SystemType::Hallway.as_u32()) {
             room.hazards.push(HazardType::Water);
         }
     }

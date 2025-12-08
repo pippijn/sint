@@ -11,7 +11,7 @@ fn test_boss_progression() {
 
     // Give P1 ammo and put in Cannons
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = sint_core::logic::ROOM_CANNONS;
+        p.room_id = sint_core::types::SystemType::Cannons.as_u32();
         p.inventory = vec![ItemType::Peppernut; 100]; // Infinite ammo
         p.ap = 0;
         p.is_ready = true;
@@ -56,7 +56,7 @@ fn test_victory_condition() {
 
     // P1 Shoot setup
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = sint_core::logic::ROOM_CANNONS;
+        p.room_id = sint_core::types::SystemType::Cannons.as_u32();
         p.inventory = vec![ItemType::Peppernut; 100];
     }
 

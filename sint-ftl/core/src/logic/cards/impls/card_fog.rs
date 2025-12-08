@@ -13,7 +13,7 @@ impl CardBehavior for FogBankCard {
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(crate::logic::ROOM_BOW),
+                room_id: Some(crate::types::SystemType::Bow.as_u32()),
                 ap_cost: 2,
                 item_cost: None,
                 required_players: 1,
