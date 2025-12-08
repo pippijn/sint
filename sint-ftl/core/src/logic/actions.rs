@@ -16,6 +16,9 @@ pub fn apply_action(
         if state.players.contains_key(player_id) {
             return Ok(state);
         }
+        if state.players.values().any(|p| p.name == *name) {
+            return Err(GameError::InvalidAction("Name already taken".to_string()));
+        }
         state.players.insert(
             player_id.to_string(),
             Player {
@@ -47,6 +50,14 @@ pub fn apply_action(
                 "Cannot change name after game start".to_string(),
             ));
         }
+        if state
+            .players
+            .values()
+            .any(|p| p.name == *name && p.id != player_id)
+        {
+            return Err(GameError::InvalidAction("Name already taken".to_string()));
+        }
+
         if let Some(p) = state.players.get_mut(player_id) {
             p.name = name.clone();
         } else {
