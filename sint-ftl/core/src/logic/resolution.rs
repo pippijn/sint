@@ -6,19 +6,19 @@ pub fn resolve_enemy_attack(state: &mut GameState) {
     if let Some(attack) = &state.enemy.next_attack {
         // Check Evasion (TODO: Add Evasion Flag to State)
         // Check Shields (TODO: Add Shield Flag to State)
-        
+
         // Hit!
         if let Some(room) = state.map.rooms.get_mut(&attack.target_room) {
-             match attack.effect {
-                 AttackEffect::Fireball => {
-                     room.hazards.push(HazardType::Fire);
-                     state.hull_integrity -= 1; // Direct hit damage?
-                 },
-                 AttackEffect::Leak => {
-                     room.hazards.push(HazardType::Water);
-                 },
-                 _ => {}
-             }
+            match attack.effect {
+                AttackEffect::Fireball => {
+                    room.hazards.push(HazardType::Fire);
+                    state.hull_integrity -= 1; // Direct hit damage?
+                }
+                AttackEffect::Leak => {
+                    room.hazards.push(HazardType::Water);
+                }
+                _ => {}
+            }
         }
     }
     state.enemy.next_attack = None;
@@ -27,25 +27,32 @@ pub fn resolve_enemy_attack(state: &mut GameState) {
 pub fn resolve_hazards(state: &mut GameState) {
     let mut fire_spreads = vec![];
     let mut rng = StdRng::seed_from_u64(state.rng_seed);
-    
+
     // 1. Damage Players & Hull
     for room in state.map.rooms.values() {
         let has_fire = room.hazards.contains(&HazardType::Fire);
-        
+
         if has_fire {
             state.hull_integrity -= 1;
-            
+
             // Spread Chance? (Simple: if > 1 fire, spread to neighbors)
-            if room.hazards.iter().filter(|&h| *h == HazardType::Fire).count() >= 2 {
+            if room
+                .hazards
+                .iter()
+                .filter(|&h| *h == HazardType::Fire)
+                .count()
+                >= 2
+            {
                 for &neighbor in &room.neighbors {
-                    if rng.gen_bool(0.5) { // 50% chance to spread
+                    if rng.gen_bool(0.5) {
+                        // 50% chance to spread
                         fire_spreads.push(neighbor);
                     }
                 }
             }
         }
     }
-    
+
     // Apply Player Damage separately to avoid borrow issues
     for p in state.players.values_mut() {
         if let Some(room) = state.map.rooms.get(&p.room_id) {
@@ -66,7 +73,7 @@ pub fn resolve_hazards(state: &mut GameState) {
             }
         }
     }
-    
+
     state.rng_seed = rng.gen();
 }
 
@@ -77,35 +84,43 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
 
     for proposal in queue {
         let player_id = &proposal.player_id;
-        
+
         // Ensure player exists (sanity check)
-        if !state.players.contains_key(player_id) { continue; }
+        if !state.players.contains_key(player_id) {
+            continue;
+        }
 
         match proposal.action {
             Action::Move { to_room } => {
                 let p = state.players.get(player_id).unwrap();
                 let current_room_id = p.room_id;
-                
+
                 // VALIDATION:
                 if let Some(room) = state.map.rooms.get(&current_room_id) {
-                     if !room.neighbors.contains(&to_room) {
-                         // Invalid Move: Skip
-                         println!("Action Skipped: Player {} cannot move from {} to {}", player_id, current_room_id, to_room);
-                         continue;
-                     }
+                    if !room.neighbors.contains(&to_room) {
+                        // Invalid Move: Skip
+                        println!(
+                            "Action Skipped: Player {} cannot move from {} to {}",
+                            player_id, current_room_id, to_room
+                        );
+                        continue;
+                    }
                 }
-                
+
                 // C03: Seagull Attack
                 let seagull = state.active_situations.iter().any(|c| c.id == "C03");
                 if seagull && p.inventory.contains(&ItemType::Peppernut) {
-                    println!("Action Skipped: Player {} cannot move with Peppernut (Seagulls)", player_id);
+                    println!(
+                        "Action Skipped: Player {} cannot move with Peppernut (Seagulls)",
+                        player_id
+                    );
                     continue;
                 }
 
                 if let Some(p) = state.players.get_mut(player_id) {
                     p.room_id = to_room;
                 }
-            },
+            }
             Action::Interact => {
                 // Complex logic: depends on room state which might have changed?
                 // We'll re-run the logic to find what to solve.
@@ -114,17 +129,21 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
 
                 for (i, card) in state.active_situations.iter().enumerate() {
                     if let Some(sol) = &card.solution {
-                         if let Some(req_room) = sol.room_id {
-                             if req_room != p_copy.room_id { continue; }
-                         }
-                         if let Some(req_item) = &sol.item_cost {
-                             if !p_copy.inventory.contains(req_item) { continue; }
-                         }
-                         solved_idx = Some(i);
-                         break;
+                        if let Some(req_room) = sol.room_id {
+                            if req_room != p_copy.room_id {
+                                continue;
+                            }
+                        }
+                        if let Some(req_item) = &sol.item_cost {
+                            if !p_copy.inventory.contains(req_item) {
+                                continue;
+                            }
+                        }
+                        solved_idx = Some(i);
+                        break;
                     }
                 }
-                
+
                 if let Some(idx) = solved_idx {
                     let card = &state.active_situations[idx];
                     // Pay Cost (Item)
@@ -139,22 +158,26 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
                     }
                     state.active_situations.remove(idx);
                 }
-            },
+            }
             Action::Extinguish => {
-                 let room_id = state.players.get(player_id).unwrap().room_id;
-                 if let Some(room) = state.map.rooms.get_mut(&room_id) {
-                     if let Some(idx) = room.hazards.iter().position(|&h| h == HazardType::Fire) {
-                         room.hazards.remove(idx);
-                     }
-                 }
-            },
+                let room_id = state.players.get(player_id).unwrap().room_id;
+                if let Some(room) = state.map.rooms.get_mut(&room_id) {
+                    if let Some(idx) = room.hazards.iter().position(|&h| h == HazardType::Fire) {
+                        room.hazards.remove(idx);
+                    }
+                }
+            }
             Action::Bake => {
                 let room_id = state.players.get(player_id).unwrap().room_id;
-                
+
                 // Validation
                 if let Some(room) = state.map.rooms.get(&room_id) {
-                    if room.system != Some(SystemType::Kitchen) { continue; }
-                    if !room.hazards.is_empty() { continue; }
+                    if room.system != Some(SystemType::Kitchen) {
+                        continue;
+                    }
+                    if !room.hazards.is_empty() {
+                        continue;
+                    }
                 }
 
                 if let Some(room) = state.map.rooms.get_mut(&room_id) {
@@ -162,29 +185,31 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
                     room.items.push(ItemType::Peppernut);
                     room.items.push(ItemType::Peppernut);
                 }
-            },
+            }
             Action::Shoot => {
                 let p = state.players.get_mut(player_id).unwrap();
                 let room_id = p.room_id;
-                
+
                 // Validation
                 if let Some(room) = state.map.rooms.get(&room_id) {
-                    if room.system != Some(SystemType::Cannons) { continue; }
+                    if room.system != Some(SystemType::Cannons) {
+                        continue;
+                    }
                 }
-                
+
                 if let Some(idx) = p.inventory.iter().position(|i| *i == ItemType::Peppernut) {
-                     p.inventory.remove(idx);
-                     
-                     // Roll
-                     let mut rng = StdRng::seed_from_u64(state.rng_seed);
-                     let roll: u32 = rng.gen_range(1..=6);
-                     state.rng_seed = rng.gen();
-                     
-                     if roll >= 3 {
-                         state.enemy.hp -= 1;
-                     }
+                    p.inventory.remove(idx);
+
+                    // Roll
+                    let mut rng = StdRng::seed_from_u64(state.rng_seed);
+                    let roll: u32 = rng.gen_range(1..=6);
+                    state.rng_seed = rng.gen();
+
+                    if roll >= 3 {
+                        state.enemy.hp -= 1;
+                    }
                 }
-            },
+            }
             Action::PickUp { item_index } => {
                 let room_id = state.players.get(player_id).unwrap().room_id;
                 if let Some(room) = state.map.rooms.get_mut(&room_id) {
@@ -195,21 +220,24 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
                         }
                     }
                 }
-            },
-             Action::Throw { target_player, item_index } => {
-                 // Removed from source, added to target
-                 let mut item = None;
-                 if let Some(p) = state.players.get_mut(player_id) {
-                     if item_index < p.inventory.len() {
-                         item = Some(p.inventory.remove(item_index));
-                     }
-                 }
-                 if let Some(it) = item {
-                     if let Some(target) = state.players.get_mut(&target_player) {
-                         target.inventory.push(it);
-                     }
-                 }
-             },
+            }
+            Action::Throw {
+                target_player,
+                item_index,
+            } => {
+                // Removed from source, added to target
+                let mut item = None;
+                if let Some(p) = state.players.get_mut(player_id) {
+                    if item_index < p.inventory.len() {
+                        item = Some(p.inventory.remove(item_index));
+                    }
+                }
+                if let Some(it) = item {
+                    if let Some(target) = state.players.get_mut(&target_player) {
+                        target.inventory.push(it);
+                    }
+                }
+            }
             _ => {} // Other actions might be stubs or instant
         }
     }

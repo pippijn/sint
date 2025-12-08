@@ -1,14 +1,14 @@
-use leptos::*;
-use sint_core::{GameState, Action, ProposedAction, GameLogic};
-use std::collections::VecDeque;
-use uuid::Uuid;
 use crate::ws::{ClientMessage, ServerMessage};
-use gloo_net::websocket::{futures::WebSocket, Message};
-use futures::{StreamExt, SinkExt};
 use futures::channel::mpsc;
-use wasm_bindgen_futures::spawn_local;
-use std::rc::Rc;
+use futures::{SinkExt, StreamExt};
+use gloo_net::websocket::{futures::WebSocket, Message};
+use leptos::*;
+use sint_core::{Action, GameLogic, GameState, ProposedAction};
 use std::cell::RefCell;
+use std::collections::VecDeque;
+use std::rc::Rc;
+use uuid::Uuid;
+use wasm_bindgen_futures::spawn_local;
 
 #[derive(Clone)]
 pub struct GameContext {
@@ -40,7 +40,7 @@ pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
         verified_state: GameState,
         pending_actions: VecDeque<ProposedAction>,
     }
-    
+
     let internal = Rc::new(RefCell::new(InternalState {
         verified_state: initial_state.clone(),
         pending_actions: VecDeque::new(),
@@ -58,15 +58,19 @@ pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
 
     spawn_local(async move {
         let location = web_sys::window().unwrap().location();
-        let protocol = if location.protocol().unwrap() == "https:" { "wss:" } else { "ws:" };
+        let protocol = if location.protocol().unwrap() == "https:" {
+            "wss:"
+        } else {
+            "ws:"
+        };
         let host = location.host().unwrap();
-        
+
         let url = if host.contains(":8080") {
             "ws://localhost:3000/ws".to_string()
         } else {
             format!("{}//{}/ws", protocol, host)
         };
-        
+
         let ws = match WebSocket::open(&url) {
             Ok(ws) => ws,
             Err(e) => {
@@ -78,7 +82,7 @@ pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
 
         let (mut write, read) = ws.split();
         let mut read = read.fuse(); // Enable select! macro usage
-        
+
         set_connected.set(true);
 
         // Send Join (Network Room)
@@ -86,24 +90,34 @@ pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
             room_id: rid_ws.clone(),
             player_id: pid_ws.clone(),
         };
-        let _ = write.send(Message::Text(serde_json::to_string(&join_msg).unwrap())).await;
+        let _ = write
+            .send(Message::Text(serde_json::to_string(&join_msg).unwrap()))
+            .await;
 
         // Send Join Action (Game State)
         let join_action = ProposedAction {
             id: Uuid::new_v4().to_string(),
             player_id: pid_ws.clone(),
-            action: Action::Join { name: pid_ws.clone() },
+            action: Action::Join {
+                name: pid_ws.clone(),
+            },
         };
-        
+
         let event_msg = ClientMessage::Event {
             sequence_id: 0,
             data: serde_json::to_value(&join_action).unwrap(),
         };
-        let _ = write.send(Message::Text(serde_json::to_string(&event_msg).unwrap())).await;
+        let _ = write
+            .send(Message::Text(serde_json::to_string(&event_msg).unwrap()))
+            .await;
 
         // Request Sync from peers
-        let sync_req = ClientMessage::SyncRequest { requestor_id: pid_ws.clone() };
-        let _ = write.send(Message::Text(serde_json::to_string(&sync_req).unwrap())).await;
+        let sync_req = ClientMessage::SyncRequest {
+            requestor_id: pid_ws.clone(),
+        };
+        let _ = write
+            .send(Message::Text(serde_json::to_string(&sync_req).unwrap()))
+            .await;
 
         loop {
             futures::select! {
@@ -120,7 +134,7 @@ pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
                              match serde_json::from_str::<ServerMessage>(&text) {
                                 Ok(ServerMessage::Event { sequence_id, data }) => {
                                     let mut guard = internal_ws.borrow_mut();
-                                    
+
                                     if let Ok(proposed) = serde_json::from_value::<ProposedAction>(data) {
                                         leptos::logging::log!("Recv Seq: {}", sequence_id);
 
@@ -135,7 +149,7 @@ pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
                                         match res {
                                             Ok(new_state) => {
                                                 guard.verified_state = new_state;
-                                                
+
                                                 // 2. Prune Pending (Match UUID)
                                                 if let Some(front) = guard.pending_actions.front() {
                                                     if front.id == proposed.id {
@@ -146,7 +160,7 @@ pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
                                                 // 3. Replay Pending
                                                 let mut predicted = guard.verified_state.clone();
                                                 let mut valid_pending = VecDeque::new();
-                                                
+
                                                 for p in guard.pending_actions.iter() {
                                                     if let Ok(next) = GameLogic::apply_action(
                                                         predicted.clone(),
@@ -180,8 +194,8 @@ pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
                                             let sync_action = ProposedAction {
                                                 id: Uuid::new_v4().to_string(),
                                                 player_id: pid_ws.clone(),
-                                                action: Action::FullSync { 
-                                                    state_json: serde_json::to_string(&guard.verified_state).unwrap() 
+                                                action: Action::FullSync {
+                                                    state_json: serde_json::to_string(&guard.verified_state).unwrap()
                                                 },
                                             };
                                             let msg = ClientMessage::Event {
@@ -221,41 +235,41 @@ pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
     let internal_action = internal.clone();
     let pid_action = player_id.clone();
     let tx_cell = RefCell::new(tx); // Wrap sender in RefCell
-    
+
     let perform_action = ActionCallback(Rc::new(move |action: Action| {
         let mut guard = internal_action.borrow_mut();
-        
+
         // 1. Optimistic Apply to CURRENT Predicted State
         let mut current_predicted = guard.verified_state.clone();
         for p in &guard.pending_actions {
-            current_predicted = GameLogic::apply_action(current_predicted, &p.player_id, p.action.clone(), None).unwrap();
+            current_predicted =
+                GameLogic::apply_action(current_predicted, &p.player_id, p.action.clone(), None)
+                    .unwrap();
         }
-        
+
         // Now try new action
-        match GameLogic::apply_action(
-            current_predicted.clone(),
-            &pid_action,
-            action.clone(),
-            None
-        ) {
+        match GameLogic::apply_action(current_predicted.clone(), &pid_action, action.clone(), None)
+        {
             Ok(new_predicted) => {
                 // Success
                 set_state.set(new_predicted);
-                
+
                 let proposal = ProposedAction {
                     id: Uuid::new_v4().to_string(),
                     player_id: pid_action.clone(),
                     action: action.clone(),
                 };
-                
+
                 guard.pending_actions.push_back(proposal.clone());
-                
+
                 let msg = ClientMessage::Event {
                     sequence_id: 0,
                     data: serde_json::to_value(&proposal).unwrap(),
                 };
-                
-                let _ = tx_cell.borrow_mut().try_send(serde_json::to_string(&msg).unwrap());
+
+                let _ = tx_cell
+                    .borrow_mut()
+                    .try_send(serde_json::to_string(&msg).unwrap());
             }
             Err(e) => {
                 leptos::logging::warn!("Invalid Action: {:?}", e);

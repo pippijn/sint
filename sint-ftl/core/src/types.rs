@@ -22,28 +22,28 @@ pub struct GameState {
     pub turn_count: u32,
     /// Ship Health (starts at 20)
     pub hull_integrity: i32,
-    
+
     /// The Map
     pub map: GameMap,
-    
+
     /// The Players
     pub players: HashMap<PlayerId, Player>,
-    
+
     /// The Enemy (Boss)
     pub enemy: Enemy,
-    
+
     /// Chat History (Event Sourcing derived or stored)
     pub chat_log: Vec<ChatMessage>,
-    
+
     /// Proposed Actions (for Tactical Planning phase)
     pub proposal_queue: Vec<ProposedAction>,
-    
+
     /// Active "Situation" cards
     pub active_situations: Vec<Card>,
-    
+
     /// The card drawn this turn (Flash or Situation) for display in MorningReport
     pub latest_event: Option<Card>,
-    
+
     /// The Draw Deck
     pub deck: Vec<Card>,
     /// The Discard Pile
@@ -52,13 +52,13 @@ pub struct GameState {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum GamePhase {
-    Lobby,           // Waiting for players
+    Lobby, // Waiting for players
     Setup,
-    MorningReport,   // Card draw
-    EnemyTelegraph,  // Enemy reveals intent
+    MorningReport,    // Card draw
+    EnemyTelegraph,   // Enemy reveals intent
     TacticalPlanning, // Players propose/commit actions
-    Execution,       // Actions resolve
-    EnemyAction,     // Enemy attacks, fire spreads
+    Execution,        // Actions resolve
+    EnemyAction,      // Enemy attacks, fire spreads
     GameOver,
 }
 
@@ -81,16 +81,16 @@ pub struct Room {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum SystemType {
-    Bridge,     // Room 9
-    Engine,     // Room 5
-    Kitchen,    // Room 6
-    Cannons,    // Room 8
-    Sickbay,    // Room 10
-    Bow,        // Room 2
-    Cargo,      // Room 4
-    Dormitory,  // Room 3
-    Storage,    // Room 11
-    Hallway,    // Room 7 (Transit only, usually)
+    Bridge,    // Room 9
+    Engine,    // Room 5
+    Kitchen,   // Room 6
+    Cannons,   // Room 8
+    Sickbay,   // Room 10
+    Bow,       // Room 2
+    Cargo,     // Room 4
+    Dormitory, // Room 3
+    Storage,   // Room 11
+    Hallway,   // Room 7 (Transit only, usually)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -175,7 +175,7 @@ pub struct ProposedAction {
 pub enum Action {
     /// Move to an adjacent room (Costs 1 AP)
     Move { to_room: RoomId },
-    
+
     /// Kitchen: Create Peppernuts (Costs 1 AP)
     Bake,
     /// Cannons: Load & Fire at Enemy (Costs 1 AP + 1 Peppernut)
@@ -184,23 +184,26 @@ pub enum Action {
     RaiseShields,
     /// Engine: Dodge next attack (Costs 2 AP)
     EvasiveManeuvers,
-    
+
     /// Generic Interact (e.g. solve card, use button)
     Interact,
-    
+
     /// Remove 1 Fire token (Costs 1 AP)
     Extinguish,
     /// Remove 1 Water token (Costs 1 AP)
     Repair,
     /// Give an item to another player in the same/adjacent room (Costs 1 AP)
-    Throw { target_player: PlayerId, item_index: usize },
+    Throw {
+        target_player: PlayerId,
+        item_index: usize,
+    },
     /// Pick up an item from the floor (Costs 1 AP)
     PickUp { item_index: usize },
     /// Drop an item to the floor (Free)
     Drop { item_index: usize },
     /// Revive a Fainted player in the same room (Costs 1 AP)
     Revive { target_player: PlayerId },
-    
+
     /// Send a chat message (Free)
     Chat { message: String },
     /// Toggle "Ready" status for the batch execution
@@ -233,8 +236,8 @@ pub struct Card {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum CardType {
-    Flash,      // Instant effect
-    Situation,  // Persistent negative effect
+    Flash,                         // Instant effect
+    Situation,                     // Persistent negative effect
     Timebomb { rounds_left: u32 }, // Countdown
 }
 

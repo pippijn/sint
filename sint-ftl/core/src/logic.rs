@@ -1,13 +1,13 @@
+pub mod actions;
 pub mod cards;
 pub mod resolution;
-pub mod actions;
 
 pub use actions::apply_action;
 
 use crate::types::*;
-use std::collections::HashMap;
-use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
+use std::collections::HashMap;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -35,7 +35,7 @@ pub struct GameLogic;
 impl GameLogic {
     pub fn new_game(player_ids: Vec<String>, seed: u64) -> GameState {
         let mut rooms = HashMap::new();
-        
+
         // Define Rooms based on Rules
         let room_defs = vec![
             (2, "The Bow", Some(SystemType::Bow)),
@@ -66,28 +66,34 @@ impl GameLogic {
                 vec![]
             };
 
-            rooms.insert(id, Room {
+            rooms.insert(
                 id,
-                name: name.to_string(),
-                system: sys,
-                hazards: vec![],
-                items,
-                neighbors,
-            });
+                Room {
+                    id,
+                    name: name.to_string(),
+                    system: sys,
+                    hazards: vec![],
+                    items,
+                    neighbors,
+                },
+            );
         }
 
         let mut players = HashMap::new();
         for (i, pid) in player_ids.into_iter().enumerate() {
-            players.insert(pid.clone(), Player {
-                id: pid.clone(),
-                name: format!("Player {}", i + 1),
-                room_id: 3, 
-                hp: 3,
-                ap: 2,
-                inventory: vec![],
-                status: vec![],
-                is_ready: false,
-            });
+            players.insert(
+                pid.clone(),
+                Player {
+                    id: pid.clone(),
+                    name: format!("Player {}", i + 1),
+                    room_id: 3,
+                    hp: 3,
+                    ap: 2,
+                    inventory: vec![],
+                    status: vec![],
+                    is_ready: false,
+                },
+            );
         }
 
         // Initialize RNG for shuffling
@@ -115,15 +121,15 @@ impl GameLogic {
             deck: cards::initialize_deck(&mut rng),
             discard: vec![],
         };
-        
+
         state
     }
 
     pub fn apply_action(
-        state: GameState, 
-        player_id: &str, 
-        action: Action, 
-        _hypothetical_seed: Option<u64>
+        state: GameState,
+        player_id: &str,
+        action: Action,
+        _hypothetical_seed: Option<u64>,
     ) -> Result<GameState, GameError> {
         actions::apply_action(state, player_id, action)
     }

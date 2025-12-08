@@ -1,8 +1,8 @@
-use leptos::*;
-use crate::state::{provide_game_context, GameContext};
-use crate::map::MapView;
 use crate::chat::ChatView;
-use sint_core::{Action, SystemType, HazardType, GamePhase};
+use crate::map::MapView;
+use crate::state::{provide_game_context, GameContext};
+use leptos::*;
+use sint_core::{Action, GamePhase, HazardType, SystemType};
 
 #[component]
 fn PhaseTracker(phase: GamePhase) -> impl IntoView {
@@ -14,15 +14,15 @@ fn PhaseTracker(phase: GamePhase) -> impl IntoView {
         (GamePhase::Execution, "EXECUTE"),
         (GamePhase::EnemyAction, "ENEMY"),
     ];
-    
+
     view! {
         <div style="display: flex; gap: 5px; align-items: center; font-size: 0.8em; background: #222; padding: 5px; border-radius: 4px;">
             {phases.into_iter().map(|(p, label)| {
                 let active = p == phase;
                 let weight = if active { "bold" } else { "normal" };
                 view! {
-                    <div style=format!("color: {}; font-weight: {}; padding: 2px 6px; border-radius: 2px; background: {};", 
-                        if active { "#fff" } else { "#888" }, 
+                    <div style=format!("color: {}; font-weight: {}; padding: 2px 6px; border-radius: 2px; background: {};",
+                        if active { "#fff" } else { "#888" },
                         weight,
                         if active { "#4caf50" } else { "transparent" }
                     )>
@@ -42,7 +42,7 @@ pub fn GameView(room_id: String, player_id: String) -> impl IntoView {
     let state = ctx.state;
     let pid = ctx.player_id.clone();
     let is_connected = ctx.is_connected;
-    
+
     view! {
         <div style="display: flex; flex-direction: column; height: 100vh; background: #222; color: #eee; font-family: monospace; overflow: hidden;">
             // --- HEADER ---
@@ -55,7 +55,7 @@ pub fn GameView(room_id: String, player_id: String) -> impl IntoView {
                         view! { <span style="color: #f44336; font-size: 0.8em;">"⚠ OFFLINE"</span> }
                     }}
                 </div>
-                
+
                 {move || view! { <PhaseTracker phase=state.get().phase /> }}
 
                 <div style="text-align: right; font-size: 0.9em;">
@@ -64,39 +64,39 @@ pub fn GameView(room_id: String, player_id: String) -> impl IntoView {
                     <span title="Turn Number">"⏳ T" {move || state.get().turn_count}</span>
                 </div>
             </header>
-            
+
             // --- MAIN CONTENT (Grid) ---
             <div style="flex: 1; display: grid; grid-template-columns: 300px 1fr 300px; gap: 1px; background: #333; overflow: hidden;">
-                
+
                 // LEFT PANEL: Status & Actions
                 <div style="background: #2a2a2a; display: flex; flex-direction: column; overflow-y: auto; border-right: 1px solid #444;">
                     <div style="padding: 15px;">
                         <h3 style="margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 5px;">"Status Report"</h3>
                         <MyStatus ctx=ctx.clone() />
-                        
+
                         <div style="margin-top: 15px;">
                             <MorningReportView ctx=ctx.clone() />
                         </div>
                     </div>
-                    
+
                     <div style="flex: 1;"></div> // Spacer
-                    
+
                     <div style="padding: 15px; background: #222; border-top: 1px solid #444;">
                         <Actions ctx=ctx.clone() />
                     </div>
                 </div>
-                
+
                 // CENTER PANEL: Map & Space
                 <div style="background: #111; display: flex; flex-direction: column; padding: 20px; overflow: auto; position: relative;">
                     // Enemy View
                     <EnemyView ctx=ctx.clone() />
-                    
+
                     // Map (Center)
                     <div style="flex: 1; display: flex; align-items: center; justify-content: center;">
                         <MapView ctx=ctx.clone() />
                     </div>
                 </div>
-                
+
                 // RIGHT PANEL: Comms
                 <div style="background: #2a2a2a; border-left: 1px solid #444; display: flex; flex-direction: column;">
                     <div style="flex: 1; border-bottom: 1px solid #444; overflow: hidden; display: flex; flex-direction: column;">
@@ -107,7 +107,7 @@ pub fn GameView(room_id: String, player_id: String) -> impl IntoView {
                             <ProposalQueueView ctx=ctx.clone() />
                         </div>
                     </div>
-                    
+
                     <div style="height: 300px; display: flex; flex-direction: column;">
                         <div style="padding: 10px; background: #1a1a1a; font-weight: bold; border-bottom: 1px solid #444;">
                             "Comms Channel"
@@ -127,7 +127,7 @@ fn ProposalQueueView(ctx: GameContext) -> impl IntoView {
     let state = ctx.state;
     let pid = ctx.player_id.clone();
     let ctx_undo = ctx.clone();
-    
+
     view! {
         <div style="padding: 10px; font-size: 0.9em;">
             {move || {
@@ -140,14 +140,14 @@ fn ProposalQueueView(ctx: GameContext) -> impl IntoView {
                          let action_desc = format!("{:?}", p.action);
                          let c_undo = ctx_undo.clone();
                          let action_id = p.id.clone();
-                         
+
                          view! {
                              <div style="margin-bottom: 8px; background: #333; padding: 6px; border-radius: 4px; border-left: 3px solid #2196f3;">
                                  <div style="display: flex; justify-content: space-between; align-items: center;">
                                      <span style="font-weight: bold; color: #90caf9;">{&p.player_id}</span>
                                      {if is_mine {
                                          view! {
-                                             <button 
+                                             <button
                                                 style="background: #f44336; border: none; color: white; padding: 2px 6px; border-radius: 2px; font-size: 0.7em; cursor: pointer;"
                                                 on:click=move |_| c_undo.perform_action.call(Action::Undo { action_id: action_id.clone() })
                                              >
@@ -173,14 +173,14 @@ fn ProposalQueueView(ctx: GameContext) -> impl IntoView {
 #[component]
 fn EnemyView(ctx: GameContext) -> impl IntoView {
     let state = ctx.state;
-    
+
     view! {
         {move || {
             let s = state.get();
             let e = &s.enemy;
             let hp_percent = (e.hp as f32 / e.max_hp as f32) * 100.0;
             let hp_percent = if hp_percent < 0.0 { 0.0 } else { hp_percent };
-            
+
             view! {
                 <div style="flex: 0 0 100px; border-bottom: 1px solid #444; margin-bottom: 20px; padding: 10px; background: #221a1a; display: flex; justify-content: space-between; align-items: center;">
                     // Enemy Info
@@ -193,7 +193,7 @@ fn EnemyView(ctx: GameContext) -> impl IntoView {
                             {e.hp} " / " {e.max_hp} " HP"
                         </div>
                     </div>
-                    
+
                     // Attack Telegraph
                     <div style="text-align: right;">
                         {if let Some(attack) = &e.next_attack {
@@ -227,12 +227,12 @@ fn MorningReportView(ctx: GameContext) -> impl IntoView {
             let s = state.get();
             let has_event = s.latest_event.is_some();
             let has_situations = !s.active_situations.is_empty();
-            
+
             if has_event || has_situations {
                 view! {
                     <div style="background: #673ab7; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #9575cd;">
                         <h3 style="margin-top: 0;">"Morning Report"</h3>
-                        
+
                         // Latest Event (Just Drawn)
                         {if let Some(card) = &s.latest_event {
                             view! {
@@ -286,7 +286,7 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
     let pid = ctx.player_id.clone();
     let ctx_ready = ctx.clone();
     let ctx_update = ctx.clone();
-    
+
     let (name_input, set_name_input) = create_signal(pid.clone());
 
     view! {
@@ -308,7 +308,7 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                     let is_ready = p.is_ready;
                     let c_ready = ctx_ready.clone();
                     let is_lobby = s.phase == GamePhase::Lobby;
-                    
+
                     view! {
                         <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
                             // Name Input or Display
@@ -316,8 +316,8 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                                 let c_up = ctx_update.clone();
                                 view! {
                                     <div style="width: 100%; display: flex; gap: 5px; margin-bottom: 5px;">
-                                        <input 
-                                            type="text" 
+                                        <input
+                                            type="text"
                                             prop:value=name_input
                                             on:input=move |ev| set_name_input.set(event_target_value(&ev))
                                             style="flex: 1; padding: 6px; border-radius: 4px; border: 1px solid #555; background: #222; color: white; min-width: 0;"
@@ -341,9 +341,9 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                                     <span>"⚡ AP: " <strong>{p.ap}</strong> "/2"</span>
                                 </div>
                             </div>
-                            
+
                             <div style="width: 100%; display: flex; gap: 5px; align-items: center; background: #222; padding: 5px; border-radius: 4px;">
-                                "🎒 " 
+                                "🎒 "
                                 {if p.inventory.is_empty() {
                                     view! { <span style="color: #666; font-style: italic;">"Empty"</span> }.into_view()
                                 } else {
@@ -359,7 +359,7 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                                     }).collect::<Vec<_>>().into_view()
                                 }}
                             </div>
-                            
+
                             {if is_lobby {
                                 let c_ready_click = c_ready.clone();
                                 view! {
@@ -396,11 +396,11 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                         </div>
                     }.into_view()
                 } else {
-                    view! { 
+                    view! {
                         <div style="display: flex; flex-direction: column; gap: 10px; align-items: center; justify-content: center; height: 100px;">
                             <div style="color: #4caf50; font-weight: bold; font-size: 1.1em;">"⏳ Connecting to Ship..."</div>
                             <div style="font-size: 0.8em; color: #888;">"Syncing Neural Link for " {pid.clone()}</div>
-                        </div> 
+                        </div>
                     }.into_view()
                 }
             }}
@@ -413,7 +413,7 @@ fn Actions(ctx: GameContext) -> impl IntoView {
     let ctx_action = ctx.clone();
     let state = ctx.state;
     let pid = ctx.player_id.clone();
-    
+
     view! {
         <div>
             <h3>"Actions"</h3>
@@ -421,7 +421,7 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                 {move || {
                      let s = state.get();
                      let mut buttons = vec![];
-                     
+
                      if s.phase != GamePhase::TacticalPlanning {
                          return vec![view! { <div style="color: #888; font-style: italic;">"Waiting for Tactical Planning..."</div> }.into_view()];
                      }
@@ -438,7 +438,7 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                          }
 
                          if let Some(room) = s.map.rooms.get(&player.room_id) {
-                            
+
                             // Move Buttons
                             for &neighbor in &room.neighbors {
                                 let n_room = s.map.rooms.get(&neighbor);
@@ -447,9 +447,9 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                 let disabled = player.ap < 1;
                                 let opacity = if disabled { "0.5" } else { "1.0" };
                                 let cursor = if disabled { "not-allowed" } else { "pointer" };
-                                
+
                                 buttons.push(view! {
-                                    <button 
+                                    <button
                                         style=format!("padding: 10px; background: #2196f3; border: none; color: white; border-radius: 4px; cursor: {}; opacity: {};", cursor, opacity)
                                         disabled=disabled
                                         on:click=move |_| c_move.perform_action.call(Action::Move { to_room: neighbor })
@@ -458,7 +458,7 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                     </button>
                                 }.into_view());
                             }
-                            
+
                             // Contextual Actions
                             if room.system == Some(SystemType::Kitchen) {
                                 let c_bake = ctx_action.clone();
@@ -466,7 +466,7 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                 let opacity = if disabled { "0.5" } else { "1.0" };
                                 let cursor = if disabled { "not-allowed" } else { "pointer" };
                                 buttons.push(view! {
-                                    <button 
+                                    <button
                                         style=format!("padding: 10px; background: #ff9800; border: none; color: white; border-radius: 4px; cursor: {}; opacity: {};", cursor, opacity)
                                         disabled=disabled
                                         on:click=move |_| c_bake.perform_action.call(Action::Bake)
@@ -475,14 +475,14 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                     </button>
                                 }.into_view());
                             }
-                            
+
                             if room.system == Some(SystemType::Cannons) {
                                 let c_shoot = ctx_action.clone();
                                 let disabled = player.ap < 1;
                                 let opacity = if disabled { "0.5" } else { "1.0" };
                                 let cursor = if disabled { "not-allowed" } else { "pointer" };
                                 buttons.push(view! {
-                                     <button 
+                                     <button
                                         style=format!("padding: 10px; background: #f44336; border: none; color: white; border-radius: 4px; cursor: {}; opacity: {};", cursor, opacity)
                                         disabled=disabled
                                         on:click=move |_| c_shoot.perform_action.call(Action::Shoot)
@@ -491,14 +491,14 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                     </button>
                                 }.into_view());
                             }
-                            
+
                             if room.hazards.contains(&HazardType::Fire) {
                                 let c_ext = ctx_action.clone();
                                 let disabled = player.ap < 1;
                                 let opacity = if disabled { "0.5" } else { "1.0" };
                                 let cursor = if disabled { "not-allowed" } else { "pointer" };
                                 buttons.push(view! {
-                                     <button 
+                                     <button
                                         style=format!("padding: 10px; background: #607d8b; border: none; color: white; border-radius: 4px; cursor: {}; opacity: {};", cursor, opacity)
                                         disabled=disabled
                                         on:click=move |_| c_ext.perform_action.call(Action::Extinguish)
@@ -507,7 +507,7 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                     </button>
                                 }.into_view());
                             }
-                            
+
                             // Item Pickup
                             if !room.items.is_empty() {
                                  // Just pick up the first one for now (simplification)
@@ -517,7 +517,7 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                  let opacity = if disabled { "0.5" } else { "1.0" };
                                  let cursor = if disabled { "not-allowed" } else { "pointer" };
                                  buttons.push(view! {
-                                     <button 
+                                     <button
                                         style=format!("padding: 10px; background: #8bc34a; border: none; color: black; border-radius: 4px; cursor: {}; opacity: {};", cursor, opacity)
                                         disabled=disabled
                                         on:click=move |_| c_pick.perform_action.call(Action::PickUp { item_index: 0 })
@@ -527,12 +527,12 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                 }.into_view());
                             }
                          }
-                         
+
                          // Contextual Interact (Solve Situation)
                          for card in &s.active_situations {
                              if let Some(sol) = &card.solution {
                                  let room_match = sol.room_id.map_or(true, |rid| rid == player.room_id);
-                                 
+
                                  if room_match {
                                      let c_interact = ctx_action.clone();
                                      let title = card.title.clone();
@@ -540,9 +540,9 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                      let disabled = player.ap < cost as i32;
                                      let opacity = if disabled { "0.5" } else { "1.0" };
                                      let cursor = if disabled { "not-allowed" } else { "pointer" };
-                                     
+
                                      buttons.push(view! {
-                                         <button 
+                                         <button
                                             style=format!("padding: 10px; background: #9c27b0; border: none; color: white; border-radius: 4px; cursor: {}; border: 2px solid #e1bee7; opacity: {};", cursor, opacity)
                                             disabled=disabled
                                             on:click=move |_| c_interact.perform_action.call(Action::Interact)
@@ -553,11 +553,11 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                  }
                              }
                          }
-                         
+
                          // Pass
                          let c_pass = ctx_action.clone();
                          buttons.push(view! {
-                             <button 
+                             <button
                                 style="padding: 10px; background: #555; border: none; color: white; border-radius: 4px; cursor: pointer;"
                                 on:click=move |_| c_pass.perform_action.call(Action::Pass)
                             >
@@ -565,7 +565,7 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                             </button>
                          }.into_view());
                      }
-                     
+
                      buttons
                 }}
             </div>

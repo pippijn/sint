@@ -1,9 +1,9 @@
 mod app;
-mod ws;
-mod state;
-mod map;
 mod chat;
-mod lobby;
 mod game;
+mod lobby;
+mod map;
+mod state;
+mod ws;
 
 pub use app::App;

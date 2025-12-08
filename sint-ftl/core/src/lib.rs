@@ -1,9 +1,9 @@
-pub mod types;
-pub mod logic;
 mod bindings;
+pub mod logic;
+pub mod types;
 
+pub use logic::{GameError, GameLogic};
 pub use types::*;
-pub use logic::{GameLogic, GameError};
 
 #[cfg(feature = "schema")]
 pub fn export_schema() -> String {

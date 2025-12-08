@@ -1,5 +1,5 @@
-use leptos::*;
 use crate::state::GameContext;
+use leptos::*;
 use sint_core::Action;
 
 #[component]
@@ -7,7 +7,7 @@ pub fn ChatView(ctx: GameContext) -> impl IntoView {
     let state = ctx.state;
     let pid = ctx.player_id.clone();
     let ctx_send = ctx.clone();
-    
+
     let (input_value, set_input_value) = create_signal(String::new());
 
     let send_message = move || {
@@ -17,7 +17,7 @@ pub fn ChatView(ctx: GameContext) -> impl IntoView {
             set_input_value.set(String::new());
         }
     };
-    
+
     let send_on_enter = send_message.clone();
     let send_on_click = send_message.clone();
 
@@ -28,7 +28,7 @@ pub fn ChatView(ctx: GameContext) -> impl IntoView {
                     state.get().chat_log.into_iter().map(|msg| {
                         let is_me = msg.sender == pid;
                         let align = if is_me { "align-self: flex-end; background: #3f51b5;" } else { "align-self: flex-start; background: #444;" };
-                        
+
                         view! {
                             <div style=format!("padding: 8px 12px; border-radius: 12px; max-width: 80%; color: white; {}", align)>
                                 <div style="font-size: 0.7em; opacity: 0.7; margin-bottom: 2px;">
@@ -42,10 +42,10 @@ pub fn ChatView(ctx: GameContext) -> impl IntoView {
                     }).collect::<Vec<_>>()
                 }}
             </div>
-            
+
             <div style="padding: 10px; border-top: 1px solid #444; display: flex; gap: 10px;">
-                <input 
-                    type="text" 
+                <input
+                    type="text"
                     placeholder="Type a message..."
                     style="flex: 1; padding: 8px; border-radius: 4px; border: 1px solid #555; background: #333; color: white;"
                     prop:value=input_value
@@ -56,7 +56,7 @@ pub fn ChatView(ctx: GameContext) -> impl IntoView {
                         }
                     }
                 />
-                <button 
+                <button
                     style="padding: 8px 16px; background: #2196f3; border: none; color: white; border-radius: 4px; cursor: pointer;"
                     on:click=move |_| send_on_click()
                 >

@@ -1,6 +1,6 @@
 use crate::types::*;
-use rand::seq::SliceRandom;
 use rand::rngs::StdRng;
+use rand::seq::SliceRandom;
 
 pub fn initialize_deck(rng: &mut StdRng) -> Vec<Card> {
     let mut deck = vec![
@@ -13,10 +13,10 @@ pub fn initialize_deck(rng: &mut StdRng) -> Vec<Card> {
             options: vec![],
             solution: Some(CardSolution {
                 room_id: None, // Any room where the reader is? Simplified: Any room.
-                ap_cost: 1, 
+                ap_cost: 1,
                 item_cost: None,
-                required_players: 1
-            })
+                required_players: 1,
+            }),
         },
         // C02: Static Noise
         Card {
@@ -29,8 +29,8 @@ pub fn initialize_deck(rng: &mut StdRng) -> Vec<Card> {
                 room_id: Some(9), // Bridge
                 ap_cost: 1,
                 item_cost: None,
-                required_players: 1
-            })
+                required_players: 1,
+            }),
         },
         // C03: Seagull Attack
         Card {
@@ -43,8 +43,8 @@ pub fn initialize_deck(rng: &mut StdRng) -> Vec<Card> {
                 room_id: Some(2), // Bow
                 ap_cost: 1,
                 item_cost: None,
-                required_players: 1
-            })
+                required_players: 1,
+            }),
         },
         // C04: Slippery Deck (Simplified Effect)
         Card {
@@ -57,8 +57,8 @@ pub fn initialize_deck(rng: &mut StdRng) -> Vec<Card> {
                 room_id: Some(5), // Engine
                 ap_cost: 1,
                 item_cost: None,
-                required_players: 1
-            })
+                required_players: 1,
+            }),
         },
         // C05: Peppernut Rain
         Card {
@@ -67,10 +67,10 @@ pub fn initialize_deck(rng: &mut StdRng) -> Vec<Card> {
             description: "+2 Peppernuts for everyone.".to_string(),
             card_type: CardType::Flash,
             options: vec![],
-            solution: None
-        }
+            solution: None,
+        },
     ];
-    
+
     deck.shuffle(rng);
     deck
 }
@@ -81,20 +81,20 @@ pub fn draw_card(state: &mut GameState) {
         state.latest_event = Some(card.clone());
 
         match card.card_type {
-             CardType::Flash => {
-                 // C05: Peppernut Rain logic
-                 if card.id == "C05" {
-                     for p in state.players.values_mut() {
-                         p.inventory.push(ItemType::Peppernut);
-                         p.inventory.push(ItemType::Peppernut);
-                         // TODO: Handle overflow
-                     }
-                 }
-                 state.discard.push(card);
-             },
-             CardType::Situation | CardType::Timebomb { .. } => {
-                 state.active_situations.push(card);
-             }
+            CardType::Flash => {
+                // C05: Peppernut Rain logic
+                if card.id == "C05" {
+                    for p in state.players.values_mut() {
+                        p.inventory.push(ItemType::Peppernut);
+                        p.inventory.push(ItemType::Peppernut);
+                        // TODO: Handle overflow
+                    }
+                }
+                state.discard.push(card);
+            }
+            CardType::Situation | CardType::Timebomb { .. } => {
+                state.active_situations.push(card);
+            }
         }
     } else {
         // Reshuffle discard?

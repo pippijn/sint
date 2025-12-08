@@ -1,16 +1,19 @@
 use axum::{
-    extract::{ws::{Message, WebSocket, WebSocketUpgrade}, State},
+    extract::{
+        ws::{Message, WebSocket, WebSocketUpgrade},
+        State,
+    },
     response::{IntoResponse, Json},
     routing::get,
     Router,
 };
 use dashmap::DashMap;
 use futures::{sink::SinkExt, stream::StreamExt};
+use serde::{Deserialize, Serialize};
 use std::{net::SocketAddr, sync::Arc};
 use tokio::sync::broadcast;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use serde::{Deserialize, Serialize};
 use tower_http::cors::CorsLayer;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 // --- Types ---
 
@@ -28,18 +31,35 @@ struct AppState {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "type", content = "payload")]
 enum ClientMessage {
-    Join { room_id: String, player_id: String },
-    Event { sequence_id: u64, data: serde_json::Value },
-    SyncRequest { requestor_id: String },
+    Join {
+        room_id: String,
+        player_id: String,
+    },
+    Event {
+        sequence_id: u64,
+        data: serde_json::Value,
+    },
+    SyncRequest {
+        requestor_id: String,
+    },
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "type", content = "payload")]
 enum ServerMessage {
-    Welcome { room_id: String },
-    Event { sequence_id: u64, data: serde_json::Value },
-    SyncRequest { requestor_id: String },
-    Error { msg: String },
+    Welcome {
+        room_id: String,
+    },
+    Event {
+        sequence_id: u64,
+        data: serde_json::Value,
+    },
+    SyncRequest {
+        requestor_id: String,
+    },
+    Error {
+        msg: String,
+    },
 }
 
 // --- Main ---
@@ -48,7 +68,8 @@ enum ServerMessage {
 async fn main() {
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(
-            std::env::var("RUST_LOG").unwrap_or_else(|_| "sint_server=debug,tower_http=debug".into()),
+            std::env::var("RUST_LOG")
+                .unwrap_or_else(|_| "sint_server=debug,tower_http=debug".into()),
         ))
         .with(tracing_subscriber::fmt::layer())
         .init();
@@ -74,10 +95,7 @@ async fn list_rooms(State(state): State<AppState>) -> impl IntoResponse {
     Json(RoomList { rooms })
 }
 
-async fn ws_handler(
-    ws: WebSocketUpgrade,
-    State(state): State<AppState>,
-) -> impl IntoResponse {
+async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> impl IntoResponse {
     ws.on_upgrade(|socket| handle_socket(socket, state))
 }
 
@@ -94,7 +112,7 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
                     Some(Ok(Message::Text(text))) => {
                          // 1. Parse Message
                         let client_msg: Result<ClientMessage, _> = serde_json::from_str(&text);
-                        
+
                         match client_msg {
                             Ok(ClientMessage::Join { room_id, player_id: _ }) => {
                                 // Create room if not exists
@@ -102,18 +120,18 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
                                     let (tx, _rx) = broadcast::channel(100);
                                     tx
                                 });
-                                
+
                                 // Subscribe
                                 rx_broadcast = Some(tx.subscribe());
                                 my_room_id = Some(room_id.clone());
-                                
+
                                 // Send Welcome
                                 let welcome = serde_json::to_string(&ServerMessage::Welcome { room_id: room_id.clone() }).unwrap();
                                 let _ = sender.send(Message::Text(welcome)).await;
-                                
+
                                 tracing::info!("Player joined room {}", room_id);
                             }
-                            
+
                             Ok(ClientMessage::Event { sequence_id, data }) => {
                                 // Relay to Room
                                 if let Some(room_id) = &my_room_id {
@@ -125,7 +143,7 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
                                     }
                                 }
                             }
-                            
+
                             Ok(ClientMessage::SyncRequest { requestor_id }) => {
                                 // Broadcast SyncRequest to peers
                                 if let Some(room_id) = &my_room_id {
@@ -135,7 +153,7 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
                                     }
                                 }
                             }
-                            
+
                             Err(e) => {
                                 tracing::error!("Bad message: {:?}", e);
                             }
@@ -149,7 +167,7 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
             }
 
             // B. Receive from Room (Broadcast)
-            Ok(msg) = async { 
+            Ok(msg) = async {
                 match rx_broadcast.as_mut() {
                     Some(rx) => rx.recv().await,
                     None => futures::future::pending().await,
