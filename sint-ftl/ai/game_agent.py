@@ -55,7 +55,7 @@ class GameAgent:
                 }))
                 
                 # Kickstart
-                self.schedule_think(delay=2.0)
+                self.schedule_think(delay=0.1)
 
                 async for message in ws:
                     data = json.loads(message)
@@ -118,6 +118,8 @@ class GameAgent:
                 
             except Exception as e:
                 print(f"Error applying action: {e}")
+                self.memory.add_log(f"ACTION ERROR: {e}")
+                self.schedule_think(delay=0.5)
 
     def schedule_think(self, delay: float) -> None:
         if self.debounce_task:
@@ -225,6 +227,7 @@ class GameAgent:
                     
         except Exception as e:
             print(f"AI Generation Error: {e}")
+            self.schedule_think(delay=0.5)
 
         # Check exit condition after turn completion
         if self.max_turns > 0 and self.turns_taken >= self.max_turns:
