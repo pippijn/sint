@@ -1,6 +1,6 @@
 use leptos::*;
 use crate::state::GameContext;
-use sint_core::{Room, Player, ItemType, HazardType, Action, GameMap, RoomId};
+use sint_core::{Room, Player, ItemType, HazardType, Action, GameMap, RoomId, GamePhase};
 use std::collections::{VecDeque, HashSet};
 
 #[derive(Clone, Copy, PartialEq)]
@@ -145,7 +145,7 @@ fn RoomCard(
         let mut path = None;
         let mut can_move = false;
         
-        if predicted_room_id != 0 && predicted_room_id != room.id {
+        if s.phase == GamePhase::TacticalPlanning && predicted_room_id != 0 && predicted_room_id != room.id {
             if let Some(p) = find_path(&s.map, predicted_room_id, room.id) {
                 let slippery = s.active_situations.iter().any(|c| c.id == "C04");
                 let cost = if slippery { 0 } else { p.len() as i32 };
