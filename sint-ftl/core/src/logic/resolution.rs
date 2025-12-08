@@ -1,6 +1,6 @@
-use crate::types::*;
-use super::cards::get_behavior;
 use super::actions::action_cost;
+use super::cards::get_behavior;
+use crate::types::*;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
@@ -10,7 +10,9 @@ pub fn resolve_enemy_attack(state: &mut GameState) {
         let mut count = 1;
         for card in &state.active_situations {
             let c = get_behavior(card.id).get_enemy_attack_count(state);
-            if c > count { count = c; }
+            if c > count {
+                count = c;
+            }
         }
 
         for _ in 0..count {
@@ -110,22 +112,24 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
         // 1. Card Resolution Hook (RNG / Dynamic Blocks)
         let mut blocked_by_card = false;
         let active_ids: Vec<CardId> = state.active_situations.iter().map(|c| c.id).collect();
-        
+
         for card_id in active_ids {
-             if let Err(e) = get_behavior(card_id).check_resolution(state, player_id, &proposal.action) {
-                 println!("Action Skipped: Blocked by card {:?}: {}", card_id, e);
-                 blocked_by_card = true;
-                 break;
-             }
+            if let Err(e) =
+                get_behavior(card_id).check_resolution(state, player_id, &proposal.action)
+            {
+                println!("Action Skipped: Blocked by card {:?}: {}", card_id, e);
+                blocked_by_card = true;
+                break;
+            }
         }
 
         if blocked_by_card {
-             // Refund Logic (Generic)
-             let cost = action_cost(state, player_id, &proposal.action);
-             if let Some(p) = state.players.get_mut(player_id) {
-                 p.ap += cost;
-             }
-             continue;
+            // Refund Logic (Generic)
+            let cost = action_cost(state, player_id, &proposal.action);
+            if let Some(p) = state.players.get_mut(player_id) {
+                p.ap += cost;
+            }
+            continue;
         }
 
         match &proposal.action {
@@ -140,10 +144,10 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
                             "Action Skipped: Player {} cannot move from {} to {}",
                             player_id, current_room_id, to_room
                         );
-                        
+
                         let cost = action_cost(state, player_id, &proposal.action);
                         if let Some(p) = state.players.get_mut(player_id) {
-                             p.ap += cost;
+                            p.ap += cost;
                         }
                         continue;
                     }
@@ -227,8 +231,12 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
             Action::Bake => {
                 let room_id = state.players.get(player_id).unwrap().room_id;
                 if let Some(room) = state.map.rooms.get(&room_id) {
-                    if room.system != Some(SystemType::Kitchen) { continue; }
-                    if !room.hazards.is_empty() { continue; }
+                    if room.system != Some(SystemType::Kitchen) {
+                        continue;
+                    }
+                    if !room.hazards.is_empty() {
+                        continue;
+                    }
                 }
                 if let Some(room) = state.map.rooms.get_mut(&room_id) {
                     room.items.push(ItemType::Peppernut);
@@ -240,7 +248,9 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
                 let p = state.players.get_mut(player_id).unwrap();
                 let room_id = p.room_id;
                 if let Some(room) = state.map.rooms.get(&room_id) {
-                    if room.system != Some(SystemType::Cannons) { continue; }
+                    if room.system != Some(SystemType::Cannons) {
+                        continue;
+                    }
                 }
 
                 if let Some(idx) = p.inventory.iter().position(|i| *i == ItemType::Peppernut) {
@@ -250,10 +260,12 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
                     let roll: u32 = rng.gen_range(1..=6);
                     state.rng_seed = rng.gen();
 
-                    let mut threshold = 3; 
+                    let mut threshold = 3;
                     for card in &state.active_situations {
                         let t = get_behavior(card.id).get_hit_threshold(state);
-                        if t > threshold { threshold = t; }
+                        if t > threshold {
+                            threshold = t;
+                        }
                     }
 
                     if roll >= threshold {
@@ -276,12 +288,15 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
                         );
                         let cost = action_cost(state, player_id, &proposal.action);
                         if let Some(p) = state.players.get_mut(player_id) {
-                             p.ap += cost;
+                            p.ap += cost;
                         }
                     }
                 }
             }
-            Action::Throw { target_player, item_index } => {
+            Action::Throw {
+                target_player,
+                item_index,
+            } => {
                 let mut item = None;
                 if let Some(p) = state.players.get_mut(player_id) {
                     if *item_index < p.inventory.len() {
@@ -313,13 +328,13 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
                 // Check if target is in same room and Fainted
                 let mut valid = false;
                 let room_id = state.players.get(player_id).unwrap().room_id;
-                
+
                 if let Some(target) = state.players.get(target_player) {
                     if target.room_id == room_id && target.status.contains(&PlayerStatus::Fainted) {
                         valid = true;
                     }
                 }
-                
+
                 if valid {
                     if let Some(target) = state.players.get_mut(target_player) {
                         target.status.retain(|s| *s != PlayerStatus::Fainted);

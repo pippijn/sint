@@ -5,7 +5,25 @@ use rand::{Rng, SeedableRng};
 
 pub struct C28AnchorLoose;
 
+use crate::types::{Card, CardId, CardSolution, CardType};
+
 impl CardBehavior for C28AnchorLoose {
+    fn get_struct(&self) -> Card {
+        Card {
+            id: CardId::AnchorLoose,
+            title: "Anchor Loose".to_string(),
+            description: "Start of round: 1 Water token on random spot.".to_string(),
+            card_type: CardType::Situation,
+            options: vec![],
+            solution: Some(CardSolution {
+                room_id: Some(2),
+                ap_cost: 1,
+                item_cost: None,
+                required_players: 2,
+            }),
+        }
+    }
+
     fn on_round_end(&self, state: &mut GameState) {
         // Start of every round (handled here as end of previous round + 1).
         // Place 1 Water token on random spot.

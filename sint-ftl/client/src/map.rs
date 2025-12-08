@@ -46,24 +46,37 @@ pub fn MapView(ctx: GameContext) -> impl IntoView {
 
     view! {
         <div style="
-            display: grid; 
-            grid-template-rows: auto auto auto; 
-            gap: 15px; 
-            background: #111; 
-            padding: 20px; 
-            border-radius: 12px;
-            border: 2px solid #333;
-            width: 100%;
-            max-width: 100%;
-            box-sizing: border-box;
+        display: grid; 
+        grid-template-rows: auto auto auto; 
+        gap: 15px; 
+        background: #111; 
+        padding: 20px; 
+        border-radius: 12px;
+        border: 2px solid #333;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
         ">
             // Top Row
             <div style="display: flex; gap: 15px; width: 100%;">
                 {{
                     let ctx_top = ctx.clone();
-                    move || layout.get().1.into_iter().map(|r| {
-                         view! { <RoomCard room=r.clone() ctx=ctx_top.clone() door_dir=DoorDirection::Bottom /> }
-                    }).collect::<Vec<_>>()
+                    move || {
+                        layout
+                            .get()
+                            .1
+                            .into_iter()
+                            .map(|r| {
+                                view! {
+                                    <RoomCard
+                                        room=r.clone()
+                                        ctx=ctx_top.clone()
+                                        door_dir=DoorDirection::Bottom
+                                    />
+                                }
+                            })
+                            .collect::<Vec<_>>()
+                    }
                 }}
             </div>
 
@@ -71,13 +84,20 @@ pub fn MapView(ctx: GameContext) -> impl IntoView {
             <div style="display: flex; width: 100%;">
                 {{
                     let ctx_mid = ctx.clone();
-                    move || layout.get().0.into_iter().map(|r| {
-                        view! {
-                            <div style="width: 100%; display: flex;">
-                                <RoomCard room=r.clone() ctx=ctx_mid.clone() />
-                            </div>
-                        }
-                    }).collect::<Vec<_>>()
+                    move || {
+                        layout
+                            .get()
+                            .0
+                            .into_iter()
+                            .map(|r| {
+                                view! {
+                                    <div style="width: 100%; display: flex;">
+                                        <RoomCard room=r.clone() ctx=ctx_mid.clone() />
+                                    </div>
+                                }
+                            })
+                            .collect::<Vec<_>>()
+                    }
                 }}
             </div>
 
@@ -85,9 +105,22 @@ pub fn MapView(ctx: GameContext) -> impl IntoView {
             <div style="display: flex; gap: 15px; width: 100%;">
                 {{
                     let ctx_bot = ctx.clone();
-                    move || layout.get().2.into_iter().map(|r| {
-                         view! { <RoomCard room=r.clone() ctx=ctx_bot.clone() door_dir=DoorDirection::Top /> }
-                    }).collect::<Vec<_>>()
+                    move || {
+                        layout
+                            .get()
+                            .2
+                            .into_iter()
+                            .map(|r| {
+                                view! {
+                                    <RoomCard
+                                        room=r.clone()
+                                        ctx=ctx_bot.clone()
+                                        door_dir=DoorDirection::Top
+                                    />
+                                }
+                            })
+                            .collect::<Vec<_>>()
+                    }
                 }}
             </div>
         </div>
@@ -153,7 +186,11 @@ fn RoomCard(
             if let Some(p) = find_path(&s.map, predicted_room_id, room.id) {
                 let mut cost = 0;
                 for step in &p {
-                    cost += sint_core::logic::actions::action_cost(&s, my_pid, &Action::Move { to_room: *step });
+                    cost += sint_core::logic::actions::action_cost(
+                        &s,
+                        my_pid,
+                        &Action::Move { to_room: *step },
+                    );
                 }
 
                 if cost <= predicted_ap {
@@ -201,11 +238,25 @@ fn RoomCard(
     // VIEW
     view! {
         {move || {
-            let (players_here, is_here, can_move, path, has_fire, has_water, is_targeted, ghosts) = calc.get();
+            let (players_here, is_here, can_move, path, has_fire, has_water, is_targeted, ghosts) = calc
+                .get();
             let ctx_click_inner = ctx_click.clone();
-
-            let bg_color = if has_fire { "#3e1a1a" } else if has_water { "#1a2a3e" } else { "#2a2a2a" };
-            let border_color = if is_here { "#4caf50" } else if is_targeted { "#f44336" } else if can_move { "#2196f3" } else { "#555" };
+            let bg_color = if has_fire {
+                "#3e1a1a"
+            } else if has_water {
+                "#1a2a3e"
+            } else {
+                "#2a2a2a"
+            };
+            let border_color = if is_here {
+                "#4caf50"
+            } else if is_targeted {
+                "#f44336"
+            } else if can_move {
+                "#2196f3"
+            } else {
+                "#555"
+            };
             let border_style = if is_targeted { "dashed" } else { "solid" };
             let min_height = "120px";
             let cursor = if can_move { "pointer" } else { "default" };
@@ -214,7 +265,8 @@ fn RoomCard(
 
             view! {
                 <div
-                    style=format!("
+                    style=format!(
+                        "
                         background: {}; 
                         border: 2px {} {}; 
                         border-radius: 8px; 
@@ -227,14 +279,24 @@ fn RoomCard(
                         min-width: 80px;
                         width: auto;
                         cursor: {};
-                        {}", bg_color, border_style, border_color, min_height, shadow, cursor, hover_style)
+                        {}",
+                        bg_color,
+                        border_style,
+                        border_color,
+                        min_height,
+                        shadow,
+                        cursor,
+                        hover_style,
+                    )
                     on:click=move |_| {
                         if can_move {
-                             if let Some(steps) = path.clone() {
-                                 for step in steps {
-                                     ctx_click_inner.perform_action.call(Action::Move { to_room: step });
-                                 }
-                             }
+                            if let Some(steps) = path.clone() {
+                                for step in steps {
+                                    ctx_click_inner
+                                        .perform_action
+                                        .call(Action::Move { to_room: step });
+                                }
+                            }
                         }
                     }
                 >
@@ -243,15 +305,31 @@ fn RoomCard(
                     {
                         let d_style = "position: absolute; left: 50%; transform: translateX(-50%); width: 40px; height: 10px; z-index: 10;";
                         let d_border = format!("2px {} {}", border_style, border_color);
-
                         match door_dir {
-                            Some(DoorDirection::Top) => view! {
-                                <div style=format!("{}; background: {}; top: -12px; border: {}; border-bottom: none; border-radius: 4px 4px 0 0;", d_style, bg_color, d_border)></div>
-                            }.into_view(),
-                            Some(DoorDirection::Bottom) => view! {
-                                 <div style=format!("{}; background: {}; bottom: -12px; border: {}; border-top: none; border-radius: 0 0 4px 4px;", d_style, bg_color, d_border)></div>
-                            }.into_view(),
-                            _ => view! {}.into_view()
+                            Some(DoorDirection::Top) => {
+
+                                view! {
+                                    <div style=format!(
+                                        "{}; background: {}; top: -12px; border: {}; border-bottom: none; border-radius: 4px 4px 0 0;",
+                                        d_style,
+                                        bg_color,
+                                        d_border,
+                                    )></div>
+                                }
+                                    .into_view()
+                            }
+                            Some(DoorDirection::Bottom) => {
+                                view! {
+                                    <div style=format!(
+                                        "{}; background: {}; bottom: -12px; border: {}; border-top: none; border-radius: 0 0 4px 4px;",
+                                        d_style,
+                                        bg_color,
+                                        d_border,
+                                    )></div>
+                                }
+                                    .into_view()
+                            }
+                            _ => view! {}.into_view(),
                         }
                     }
 
@@ -261,14 +339,17 @@ fn RoomCard(
                             <div style="position: absolute; top: -10px; right: -10px; background: #f44336; color: white; padding: 2px 8px; border-radius: 10px; font-weight: bold; font-size: 0.8em; box-shadow: 0 2px 4px rgba(0,0,0,0.5);">
                                 "TARGET"
                             </div>
-                        }.into_view()
+                        }
+                            .into_view()
                     } else {
                         view! {}.into_view()
                     }}
 
                     // Header
                     <div style="border-bottom: 1px solid #444; padding-bottom: 5px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-weight: bold;">{format!("{} {}", room.id, room.name)}</span>
+                        <span style="font-weight: bold;">
+                            {format!("{} {}", room.id, room.name)}
+                        </span>
                         <span style="font-size: 0.7em; color: #888; text-transform: uppercase;">
                             {format!("{:?}", room.system).replace("Some(", "").replace(")", "")}
                         </span>
@@ -278,51 +359,74 @@ fn RoomCard(
                     <div style="font-size: 0.9em;">
                         // Hazards
                         <div style="display: flex; gap: 5px; margin-bottom: 5px;">
-                            {room.hazards.iter().map(|h| {
-                                match h {
-                                    HazardType::Fire => view! { <span title="Fire">"🔥"</span> },
-                                    HazardType::Water => view! { <span title="Water">"💧"</span> },
-                                }
-                            }).collect::<Vec<_>>()}
+                            {room
+                                .hazards
+                                .iter()
+                                .map(|h| {
+                                    match h {
+                                        HazardType::Fire => {
+                                            view! { <span title="Fire">"🔥"</span> }
+                                        }
+                                        HazardType::Water => {
+                                            view! { <span title="Water">"💧"</span> }
+                                        }
+                                    }
+                                })
+                                .collect::<Vec<_>>()}
                         </div>
 
                         // Items
                         <div style="display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 5px;">
-                            {room.items.iter().map(|i| {
-                                match i {
-                                    ItemType::Peppernut => view! { <span title="Peppernut">"🍪"</span> },
-                                    _ => view! { <span title="Item">"📦"</span> },
-                                }
-                            }).collect::<Vec<_>>()}
+                            {room
+                                .items
+                                .iter()
+                                .map(|i| {
+                                    match i {
+                                        ItemType::Peppernut => {
+                                            view! { <span title="Peppernut">"🍪"</span> }
+                                        }
+                                        _ => view! { <span title="Item">"📦"</span> },
+                                    }
+                                })
+                                .collect::<Vec<_>>()}
                         </div>
 
                         // Players
                         <div style="display: flex; flex-direction: column; gap: 2px;">
-                            {players_here.into_iter().map(|p| {
-                                let is_me = p.id == my_pid;
-                                let color = if is_me { "#81c784" } else { "#ddd" };
-                                let fainted = p.status.contains(&sint_core::PlayerStatus::Fainted);
-                                let icon = if fainted { "💀" } else { "👤" };
-                                let ready_mark = if p.is_ready { " ✅" } else { "" };
+                            {players_here
+                                .into_iter()
+                                .map(|p| {
+                                    let is_me = p.id == my_pid;
+                                    let color = if is_me { "#81c784" } else { "#ddd" };
+                                    let fainted = p
+                                        .status
+                                        .contains(&sint_core::PlayerStatus::Fainted);
+                                    let icon = if fainted { "💀" } else { "👤" };
+                                    let ready_mark = if p.is_ready { " ✅" } else { "" };
 
-                                view! {
-                                    <div style=format!("color: {}; font-size: 0.85em;", color)>
-                                        {icon} " " {p.name} {ready_mark}
-                                    </div>
-                                }
-                            }).collect::<Vec<_>>()}
-
+                                    view! {
+                                        <div style=format!(
+                                            "color: {}; font-size: 0.85em;",
+                                            color,
+                                        )>{icon} " " {p.name} {ready_mark}</div>
+                                    }
+                                })
+                                .collect::<Vec<_>>()}
                             // Ghosts
-                            {ghosts.into_iter().map(|pid| {
-                                let is_me = pid == my_pid;
-                                let color = if is_me { "#81c784" } else { "#aaa" };
+                            {ghosts
+                                .into_iter()
+                                .map(|pid| {
+                                    let is_me = pid == my_pid;
+                                    let color = if is_me { "#81c784" } else { "#aaa" };
 
-                                view! {
-                                    <div style=format!("color: {}; font-size: 0.85em; opacity: 0.6; font-style: italic;", color)>
-                                        "👻 " {pid} " (Moving)"
-                                    </div>
-                                }
-                            }).collect::<Vec<_>>()}
+                                    view! {
+                                        <div style=format!(
+                                            "color: {}; font-size: 0.85em; opacity: 0.6; font-style: italic;",
+                                            color,
+                                        )>"👻 " {pid} " (Moving)"</div>
+                                    }
+                                })
+                                .collect::<Vec<_>>()}
                         </div>
                     </div>
                 </div>

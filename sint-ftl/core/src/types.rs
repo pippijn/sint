@@ -271,6 +271,14 @@ pub enum CardId {
     SugarRush,
     WheelClamp,
     ShoeSetting,
+    Amerigo,
+    Tantrum,
+    SilentForce,
+    FallingGift,
+    Overheating,
+    FalseNote,
+    HighPressure,
+    LightsOut,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

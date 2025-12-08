@@ -88,9 +88,11 @@ pub fn apply_action(
 
     // 2. Validate AP (unless it's free)
     let base_cost = action_cost(&state, player_id, &action);
-    
+
     // Read-only check for AP
-    let current_ap = state.players.get(player_id)
+    let current_ap = state
+        .players
+        .get(player_id)
         .ok_or(GameError::PlayerNotFound)?
         .ap;
 
@@ -378,7 +380,7 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
             state.phase = GamePhase::MorningReport;
             state.shields_active = false;
             state.evasion_active = false;
-            
+
             // Round Start Hook
             let active_ids: Vec<CardId> = state.active_situations.iter().map(|c| c.id).collect();
             for id in active_ids {
@@ -461,9 +463,10 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
             for id in active_ids {
                 get_behavior(id).on_round_end(&mut state);
             }
-            
+
             // Round Start Hook (New Round)
-            let active_ids_new: Vec<CardId> = state.active_situations.iter().map(|c| c.id).collect();
+            let active_ids_new: Vec<CardId> =
+                state.active_situations.iter().map(|c| c.id).collect();
             for id in active_ids_new {
                 get_behavior(id).on_round_start(&mut state);
             }

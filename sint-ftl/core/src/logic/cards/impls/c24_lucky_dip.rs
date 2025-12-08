@@ -3,22 +3,37 @@ use crate::types::{GameState, ItemType};
 
 pub struct C24LuckyDip;
 
+use crate::types::{Card, CardId, CardType};
+
 impl CardBehavior for C24LuckyDip {
+    fn get_struct(&self) -> Card {
+        Card {
+            id: CardId::LuckyDip,
+            title: "Lucky Dip".to_string(),
+            description: "Tool Swap! All players pass their Special Item to the left.".to_string(),
+            card_type: CardType::Flash,
+            options: vec![],
+            solution: None,
+        }
+    }
+
     fn on_activate(&self, state: &mut GameState) {
         // Swap Special Items to LEFT.
         // Sorted IDs
         let mut sorted_ids: Vec<String> = state.players.keys().cloned().collect();
         sorted_ids.sort();
-        
+
         let len = sorted_ids.len();
-        if len < 2 { return; }
+        if len < 2 {
+            return;
+        }
 
         // Extract special items
         let special_types = vec![
-            ItemType::Extinguisher, 
-            ItemType::Keychain, 
-            ItemType::Wheelbarrow, 
-            ItemType::Mitre
+            ItemType::Extinguisher,
+            ItemType::Keychain,
+            ItemType::Wheelbarrow,
+            ItemType::Mitre,
         ];
 
         let mut extracted_items = vec![None; len];
@@ -39,7 +54,7 @@ impl CardBehavior for C24LuckyDip {
         // Usually Left means index - 1 or + 1 depending on view.
         // Let's assume P1 -> P2 -> P3 -> P1.
         // So i receives from i-1.
-        
+
         for (i, pid) in sorted_ids.iter().enumerate() {
             let source_idx = if i == 0 { len - 1 } else { i - 1 };
             if let Some(item) = &extracted_items[source_idx] {

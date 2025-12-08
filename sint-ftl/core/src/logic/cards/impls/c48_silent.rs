@@ -1,16 +1,16 @@
 use crate::logic::cards::behavior::CardBehavior;
 use crate::types::{GameState, HazardType};
 
-pub struct C21SingASong;
+pub struct C48SilentForce;
 
 use crate::types::{Card, CardId, CardType};
 
-impl CardBehavior for C21SingASong {
+impl CardBehavior for C48SilentForce {
     fn get_struct(&self) -> Card {
         Card {
-            id: CardId::SingASong,
-            title: "Sing a Song".to_string(),
-            description: "Morale boost! Removes 2 Fire/Water tokens.".to_string(),
+            id: CardId::SilentForce,
+            title: "Silent Force".to_string(),
+            description: "Remove 3 Tokens (Fire or Water) from the board.".to_string(),
             card_type: CardType::Flash,
             options: vec![],
             solution: None,
@@ -18,29 +18,28 @@ impl CardBehavior for C21SingASong {
     }
 
     fn on_activate(&self, state: &mut GameState) {
-        // Remove 2 Water OR 2 Fire.
-        // Heuristic: Prioritize Fire (Damage) then Water.
-        let mut removed_count = 0;
-        let limit = 2;
+        // Effect: Remove 3 Tokens (Fire or Water) from the board.
+        let mut removed = 0;
+        let limit = 3;
 
-        // Remove Fire
+        // 1. Remove Fire (Priority)
         for room in state.map.rooms.values_mut() {
-            while removed_count < limit {
+            while removed < limit {
                 if let Some(idx) = room.hazards.iter().position(|h| *h == HazardType::Fire) {
                     room.hazards.remove(idx);
-                    removed_count += 1;
+                    removed += 1;
                 } else {
                     break;
                 }
             }
         }
 
-        // If still quota, remove Water
+        // 2. Remove Water
         for room in state.map.rooms.values_mut() {
-            while removed_count < limit {
+            while removed < limit {
                 if let Some(idx) = room.hazards.iter().position(|h| *h == HazardType::Water) {
                     room.hazards.remove(idx);
-                    removed_count += 1;
+                    removed += 1;
                 } else {
                     break;
                 }

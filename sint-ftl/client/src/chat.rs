@@ -25,21 +25,31 @@ pub fn ChatView(ctx: GameContext) -> impl IntoView {
         <div style="background: #222; border: 1px solid #444; border-radius: 8px; display: flex; flex-direction: column; height: 100%; box-sizing: border-box;">
             <div style="flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
                 {move || {
-                    state.get().chat_log.into_iter().map(|msg| {
-                        let is_me = msg.sender == pid;
-                        let align = if is_me { "align-self: flex-end; background: #3f51b5;" } else { "align-self: flex-start; background: #444;" };
+                    state
+                        .get()
+                        .chat_log
+                        .into_iter()
+                        .map(|msg| {
+                            let is_me = msg.sender == pid;
+                            let align = if is_me {
+                                "align-self: flex-end; background: #3f51b5;"
+                            } else {
+                                "align-self: flex-start; background: #444;"
+                            };
 
-                        view! {
-                            <div style=format!("padding: 8px 12px; border-radius: 12px; max-width: 80%; color: white; {}", align)>
-                                <div style="font-size: 0.7em; opacity: 0.7; margin-bottom: 2px;">
-                                    {msg.sender}
+                            view! {
+                                <div style=format!(
+                                    "padding: 8px 12px; border-radius: 12px; max-width: 80%; color: white; {}",
+                                    align,
+                                )>
+                                    <div style="font-size: 0.7em; opacity: 0.7; margin-bottom: 2px;">
+                                        {msg.sender}
+                                    </div>
+                                    <div>{msg.text}</div>
                                 </div>
-                                <div>
-                                    {msg.text}
-                                </div>
-                            </div>
-                        }
-                    }).collect::<Vec<_>>()
+                            }
+                        })
+                        .collect::<Vec<_>>()
                 }}
             </div>
 

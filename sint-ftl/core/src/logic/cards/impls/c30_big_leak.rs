@@ -3,7 +3,25 @@ use crate::types::{GameState, HazardType};
 
 pub struct C30BigLeak;
 
+use crate::types::{Card, CardId, CardSolution, CardType};
+
 impl CardBehavior for C30BigLeak {
+    fn get_struct(&self) -> Card {
+        Card {
+            id: CardId::BigLeak,
+            title: "The Big Leak".to_string(),
+            description: "Flooding. Start of round: 1 Water in Hallway (7).".to_string(),
+            card_type: CardType::Situation,
+            options: vec![],
+            solution: Some(CardSolution {
+                room_id: Some(7),
+                ap_cost: 1,
+                item_cost: None,
+                required_players: 2,
+            }),
+        }
+    }
+
     fn on_round_end(&self, state: &mut GameState) {
         // Automatically 1 Water in Central Hallway (7).
         if let Some(room) = state.map.rooms.get_mut(&7) {

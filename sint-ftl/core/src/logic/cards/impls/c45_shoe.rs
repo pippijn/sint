@@ -1,9 +1,20 @@
 use crate::logic::cards::behavior::CardBehavior;
-use crate::types::{GameState, CardType, CardId};
+use crate::types::{Card, CardId, CardSolution, CardType, GameState, ItemType};
 
 pub struct C45ShoeSetting;
 
 impl CardBehavior for C45ShoeSetting {
+    fn get_struct(&self) -> Card {
+        Card {
+            id: CardId::ShoeSetting,
+            title: "Shoe Setting".to_string(),
+            description: "Boom: All players lose their next turn.".to_string(),
+            card_type: CardType::Timebomb { rounds_left: 3 },
+            options: vec![],
+            solution: Some(CardSolution { room_id: Some(5), ap_cost: 1, item_cost: Some(ItemType::Peppernut), required_players: 1 }),
+        }
+    }
+
     fn on_round_end(&self, state: &mut GameState) {
         let mut triggered = false;
         for card in state.active_situations.iter_mut() {
@@ -18,7 +29,7 @@ impl CardBehavior for C45ShoeSetting {
                 }
             }
         }
-        
+
         if triggered {
             // Boom: All players lose their next turn.
             // We set a flag or just reduce AP to 0?
@@ -29,10 +40,10 @@ impl CardBehavior for C45ShoeSetting {
             // If we remove it, effect is lost unless we apply state.
             // Let's keep it active with 0 rounds.
         } else {
-             // Remove if solved?
+            // Remove if solved?
         }
     }
-    
+
     // We need `on_round_start` to enforce AP loss if triggered.
     fn on_round_start(&self, state: &mut GameState) {
         let mut triggered = false;
@@ -45,13 +56,15 @@ impl CardBehavior for C45ShoeSetting {
                 }
             }
         }
-        
+
         if triggered {
             for p in state.players.values_mut() {
                 p.ap = 0;
             }
             // Now remove it so it only affects one turn
-            state.active_situations.retain(|c| c.id != CardId::ShoeSetting);
+            state
+                .active_situations
+                .retain(|c| c.id != CardId::ShoeSetting);
         }
     }
 }

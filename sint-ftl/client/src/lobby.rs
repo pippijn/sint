@@ -89,33 +89,49 @@ pub fn LobbyBrowser() -> impl IntoView {
                 // Join Existing
                 <div style="flex: 1; min-width: 300px; border: 1px solid #444; padding: 15px; border-radius: 8px;">
                     <h3>"Existing Games"</h3>
-                    <Suspense fallback=move || view! { "Loading..." }>
+                    <Suspense fallback=move || {
+                        view! { "Loading..." }
+                    }>
                         {move || {
-                            rooms_resource.get().map(|data| {
-                                match data {
-                                    Some(list) => {
-                                        if list.rooms.is_empty() {
-                                            view! { <div style="color: #888;">"No active games found."</div> }.into_view()
-                                        } else {
-                                            list.rooms.into_iter().map(|r| {
-                                                let r_clone = r.clone();
+                            rooms_resource
+                                .get()
+                                .map(|data| {
+                                    match data {
+                                        Some(list) => {
+                                            if list.rooms.is_empty() {
                                                 view! {
-                                                    <div style="margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; background: #333; padding: 8px; border-radius: 4px;">
-                                                        <span>{r.clone()}</span>
-                                                        <button
-                                                            on:click=move |_| join_game(r_clone.clone())
-                                                            style="padding: 4px 10px; background: #2196f3; color: white; border: none; border-radius: 4px; cursor: pointer;"
-                                                        >
-                                                            "JOIN"
-                                                        </button>
-                                                    </div>
+                                                    <div style="color: #888;">"No active games found."</div>
                                                 }
-                                            }).collect::<Vec<_>>().into_view()
+                                                    .into_view()
+                                            } else {
+                                                list.rooms
+                                                    .into_iter()
+                                                    .map(|r| {
+                                                        let r_clone = r.clone();
+                                                        view! {
+                                                            <div style="margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; background: #333; padding: 8px; border-radius: 4px;">
+                                                                <span>{r.clone()}</span>
+                                                                <button
+                                                                    on:click=move |_| join_game(r_clone.clone())
+                                                                    style="padding: 4px 10px; background: #2196f3; color: white; border: none; border-radius: 4px; cursor: pointer;"
+                                                                >
+                                                                    "JOIN"
+                                                                </button>
+                                                            </div>
+                                                        }
+                                                    })
+                                                    .collect::<Vec<_>>()
+                                                    .into_view()
+                                            }
                                         }
-                                    },
-                                    None => view! { <div style="color: #f44336;">"Failed to load rooms."</div> }.into_view()
-                                }
-                            })
+                                        None => {
+                                            view! {
+                                                <div style="color: #f44336;">"Failed to load rooms."</div>
+                                            }
+                                                .into_view()
+                                        }
+                                    }
+                                })
                         }}
                     </Suspense>
                     <button

@@ -3,7 +3,20 @@ use crate::types::{GameState, ItemType};
 
 pub struct C05PeppernutRain;
 
+use crate::types::{Card, CardId, CardType};
+
 impl CardBehavior for C05PeppernutRain {
+    fn get_struct(&self) -> Card {
+        Card {
+            id: CardId::PeppernutRain,
+            title: "Peppernut Rain".to_string(),
+            description: "+2 Peppernuts dropped in every occupied room.".to_string(),
+            card_type: CardType::Flash,
+            options: vec![],
+            solution: None,
+        }
+    }
+
     fn on_activate(&self, state: &mut GameState) {
         // Effect: +2 Peppernuts dropped in every occupied room.
         let occupied_rooms: Vec<u32> = state

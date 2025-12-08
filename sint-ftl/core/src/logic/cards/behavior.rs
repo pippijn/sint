@@ -1,16 +1,30 @@
-use crate::types::{Action, GameState};
+use crate::types::{Action, Card, CardId, CardType, GameState};
 use crate::GameError;
 
 pub trait CardBehavior: Send + Sync {
+    /// Returns the static definition of the card (Title, Description, etc.)
+    fn get_struct(&self) -> Card;
+
     /// Modify the AP cost of an action.
     /// Default: return base_cost unmodified.
-    fn modify_action_cost(&self, _state: &GameState, _player_id: &str, _action: &Action, base_cost: i32) -> i32 {
+    fn modify_action_cost(
+        &self,
+        _state: &GameState,
+        _player_id: &str,
+        _action: &Action,
+        base_cost: i32,
+    ) -> i32 {
         base_cost
     }
 
     /// Validate if an action is allowed.
     /// Default: return Ok(()).
-    fn validate_action(&self, _state: &GameState, _player_id: &str, _action: &Action) -> Result<(), GameError> {
+    fn validate_action(
+        &self,
+        _state: &GameState,
+        _player_id: &str,
+        _action: &Action,
+    ) -> Result<(), GameError> {
         Ok(())
     }
 
@@ -39,11 +53,28 @@ pub trait CardBehavior: Send + Sync {
     /// Hook called during execution phase, before the action is applied.
     /// Can be used for RNG checks (Sticky Floor) or late validation.
     /// Returns Ok(()) to proceed, or Err to skip action.
-    fn check_resolution(&self, _state: &mut GameState, _player_id: &str, _action: &Action) -> Result<(), GameError> {
+    fn check_resolution(
+        &self,
+        _state: &mut GameState,
+        _player_id: &str,
+        _action: &Action,
+    ) -> Result<(), GameError> {
         Ok(())
     }
 }
 
 // A default behavior that does nothing
 pub struct NoOpBehavior;
-impl CardBehavior for NoOpBehavior {}
+impl CardBehavior for NoOpBehavior {
+    fn get_struct(&self) -> Card {
+        // Fallback for missing behaviors
+        Card {
+            id: CardId::AfternoonNap, // Dummy ID
+            title: "Unknown Card".to_string(),
+            description: "Missing implementation.".to_string(),
+            card_type: CardType::Situation,
+            options: vec![],
+            solution: None,
+        }
+    }
+}

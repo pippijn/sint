@@ -1,52 +1,26 @@
-use std::collections::HashMap;
-use std::sync::OnceLock;
-use crate::types::CardId;
 use super::behavior::{CardBehavior, NoOpBehavior};
 use super::impls::{
-    c01_afternoon::C01AfternoonNap,
-    c02_static::C02StaticNoise,
-    c03_seagull::C03SeagullAttack,
-    c04_slippery::C04SlipperyDeck,
-    c05_rain::C05PeppernutRain,
-    c06_waves::C06HighWaves,
-    c07_costume::C07CostumeParty,
-    c08_mice::C08MicePlague,
-    c09_short_circuit::C09ShortCircuit,
-    c10_leak::C10Leak,
-    c11_mutiny::C11Mutiny,
-    c12_fog::C12FogBank,
-    c13_anchor::C13AnchorStuck,
-    c14_jammed::C14JammedCannon,
-    c15_man_overboard::C15ManOverboard,
-    c16_headwind::C16StrongHeadwind,
-    c17_listing::C17Listing,
-    c18_clogged::C18CloggedPipe,
-    c19_attack_wave::C19AttackWave,
-    c21_sing::C21SingASong,
-    c23_no_light::C23NoLight,
-    c24_lucky_dip::C24LuckyDip,
-    c25_panic::C25Panic,
-    c26_seasick::C26Seasick,
-    c27_alarm::C27WailingAlarm,
-    c28_anchor_loose::C28AnchorLoose,
-    c29_rudderless::C29Rudderless,
-    c30_big_leak::C30BigLeak,
-    c31_blockade::C31Blockade,
-    c32_weird_gifts::C32WeirdGifts,
-    c33_flu::C33FluWave,
-    c34_dough::C34MonsterDough,
-    c35_stowaway::C35Stowaway,
-    c36_turbo::C36TurboMode,
-    c37_recipe::C37Recipe,
-    c38_golden_nut::C38GoldenNut,
-    c39_staff::C39TheStaff,
-    c40_sticky::C40StickyFloor,
-    c41_present::C41Present,
-    c42_book::C42TheBook,
-    c43_sugar::C43SugarRush,
-    c44_clamp::C44WheelClamp,
-    c45_shoe::C45ShoeSetting,
+    c01_afternoon::C01AfternoonNap, c02_static::C02StaticNoise, c03_seagull::C03SeagullAttack,
+    c04_slippery::C04SlipperyDeck, c05_rain::C05PeppernutRain, c06_waves::C06HighWaves,
+    c07_costume::C07CostumeParty, c08_mice::C08MicePlague, c09_short_circuit::C09ShortCircuit,
+    c10_leak::C10Leak, c11_mutiny::C11Mutiny, c12_fog::C12FogBank, c13_anchor::C13AnchorStuck,
+    c14_jammed::C14JammedCannon, c15_man_overboard::C15ManOverboard,
+    c16_headwind::C16StrongHeadwind, c17_listing::C17Listing, c18_clogged::C18CloggedPipe,
+    c19_attack_wave::C19AttackWave, c21_sing::C21SingASong, c23_no_light::C23NoLight,
+    c24_lucky_dip::C24LuckyDip, c25_panic::C25Panic, c26_seasick::C26Seasick,
+    c27_alarm::C27WailingAlarm, c28_anchor_loose::C28AnchorLoose, c29_rudderless::C29Rudderless,
+    c30_big_leak::C30BigLeak, c31_blockade::C31Blockade, c32_weird_gifts::C32WeirdGifts,
+    c33_flu::C33FluWave, c34_dough::C34MonsterDough, c35_stowaway::C35Stowaway,
+    c36_turbo::C36TurboMode, c37_recipe::C37Recipe, c38_golden_nut::C38GoldenNut,
+    c39_staff::C39TheStaff, c40_sticky::C40StickyFloor, c41_present::C41Present,
+    c42_book::C42TheBook, c43_sugar::C43SugarRush, c44_clamp::C44WheelClamp,
+    c45_shoe::C45ShoeSetting, c46_amerigo::C46Amerigo, c47_tantrum::C47Tantrum,
+    c48_silent::C48SilentForce, c49_falling::C49FallingGift, c50_overheating::C50Overheating,
+    c51_falsenote::C51FalseNote, c52_pressure::C52HighPressure, c53_lightsout::C53LightsOut,
 };
+use crate::types::CardId;
+use std::collections::HashMap;
+use std::sync::OnceLock;
 
 // Registry Type
 type BehaviorMap = HashMap<CardId, Box<dyn CardBehavior>>;
@@ -54,11 +28,22 @@ type BehaviorMap = HashMap<CardId, Box<dyn CardBehavior>>;
 // Global Registry
 static REGISTRY: OnceLock<BehaviorMap> = OnceLock::new();
 
+use crate::types::Card;
+
 pub fn get_behavior(card_id: CardId) -> &'static dyn CardBehavior {
-    REGISTRY.get_or_init(init_registry)
+    REGISTRY
+        .get_or_init(init_registry)
         .get(&card_id)
         .map(|b| b.as_ref())
         .unwrap_or(&NoOpBehavior)
+}
+
+pub fn get_all_cards() -> Vec<Card> {
+    REGISTRY
+        .get_or_init(init_registry)
+        .values()
+        .map(|b| b.get_struct())
+        .collect()
 }
 
 fn init_registry() -> BehaviorMap {
@@ -106,5 +91,13 @@ fn init_registry() -> BehaviorMap {
     m.insert(CardId::SugarRush, Box::new(C43SugarRush));
     m.insert(CardId::WheelClamp, Box::new(C44WheelClamp));
     m.insert(CardId::ShoeSetting, Box::new(C45ShoeSetting));
+    m.insert(CardId::Amerigo, Box::new(C46Amerigo));
+    m.insert(CardId::Tantrum, Box::new(C47Tantrum));
+    m.insert(CardId::SilentForce, Box::new(C48SilentForce));
+    m.insert(CardId::FallingGift, Box::new(C49FallingGift));
+    m.insert(CardId::Overheating, Box::new(C50Overheating));
+    m.insert(CardId::FalseNote, Box::new(C51FalseNote));
+    m.insert(CardId::HighPressure, Box::new(C52HighPressure));
+    m.insert(CardId::LightsOut, Box::new(C53LightsOut));
     m
 }

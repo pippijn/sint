@@ -1,16 +1,16 @@
 use crate::logic::cards::behavior::CardBehavior;
 use crate::types::GameState;
 
-pub struct C25Panic;
+pub struct C51FalseNote;
 
 use crate::types::{Card, CardId, CardType};
 
-impl CardBehavior for C25Panic {
+impl CardBehavior for C51FalseNote {
     fn get_struct(&self) -> Card {
         Card {
-            id: CardId::Panic,
-            title: "Panic!".to_string(),
-            description: "Everyone runs away screaming to Dormitory (3).".to_string(),
+            id: CardId::FalseNote,
+            title: "False Note".to_string(),
+            description: "Everyone in Cannons (8) flees to Hallway (7).".to_string(),
             card_type: CardType::Flash,
             options: vec![],
             solution: None,
@@ -18,9 +18,11 @@ impl CardBehavior for C25Panic {
     }
 
     fn on_activate(&self, state: &mut GameState) {
-        // All players move to Dormitory (3).
+        // Effect: Everyone in Cannons (8) flees to Hallway (7).
         for p in state.players.values_mut() {
-            p.room_id = 3;
+            if p.room_id == 8 {
+                p.room_id = 7;
+            }
         }
     }
 }
