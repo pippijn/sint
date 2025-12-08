@@ -4,8 +4,23 @@ use rand::{Rng, SeedableRng};
 
 pub fn resolve_enemy_attack(state: &mut GameState) {
     if let Some(attack) = &state.enemy.next_attack {
-        // Check Evasion (TODO: Add Evasion Flag to State)
-        // Check Shields (TODO: Add Shield Flag to State)
+        // Check Evasion
+        if state.evasion_active {
+            // Attack Misses!
+            println!("Attack Missed due to Evasive Maneuvers!");
+            state.enemy.next_attack = None;
+            return;
+        }
+
+        // Check Shields (Blocks Damage Only)
+        // For simplicity: Shields block ALL effects for now, or just hull damage?
+        // Rules say: "Blocks the next incoming Damage event."
+        // We'll treat it as blocking the hit entirely for this version.
+        if state.shields_active {
+            println!("Shields Blocked the Attack!");
+            state.enemy.next_attack = None;
+            return;
+        }
 
         // Hit!
         if let Some(room) = state.map.rooms.get_mut(&attack.target_room) {
@@ -119,6 +134,28 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
 
                 if let Some(p) = state.players.get_mut(player_id) {
                     p.room_id = to_room;
+                }
+            }
+            Action::RaiseShields => {
+                let p = state.players.get_mut(player_id).unwrap();
+                let room_id = p.room_id;
+
+                if let Some(room) = state.map.rooms.get(&room_id) {
+                    // Room 5 (Engine) now handles Shields
+                    if room.system == Some(SystemType::Engine) {
+                        state.shields_active = true;
+                    }
+                }
+            }
+            Action::EvasiveManeuvers => {
+                let p = state.players.get_mut(player_id).unwrap();
+                let room_id = p.room_id;
+
+                if let Some(room) = state.map.rooms.get(&room_id) {
+                    // Room 9 (Bridge) now handles Evasion
+                    if room.system == Some(SystemType::Bridge) {
+                        state.evasion_active = true;
+                    }
                 }
             }
             Action::Interact => {

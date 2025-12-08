@@ -197,6 +197,61 @@ pub fn apply_action(
             }
         }
         // Queued Actions (Other than Move)
+        Action::Extinguish => {
+            // Simulate queue to check if fire will still exist
+            let mut room_fire_counts: std::collections::HashMap<u32, usize> = state
+                .map
+                .rooms
+                .iter()
+                .map(|(id, r)| {
+                    (
+                        *id,
+                        r.hazards.iter().filter(|&&h| h == HazardType::Fire).count(),
+                    )
+                })
+                .collect();
+
+            let mut player_positions: std::collections::HashMap<String, u32> = state
+                .players
+                .iter()
+                .map(|(id, p)| (id.clone(), p.room_id))
+                .collect();
+
+            for prop in &state.proposal_queue {
+                if let Action::Move { to_room } = &prop.action {
+                    if let Some(pos) = player_positions.get_mut(&prop.player_id) {
+                        *pos = *to_room;
+                    }
+                }
+                if let Action::Extinguish = &prop.action {
+                    if let Some(pos) = player_positions.get(&prop.player_id) {
+                        if let Some(count) = room_fire_counts.get_mut(pos) {
+                            if *count > 0 {
+                                *count -= 1;
+                            }
+                        }
+                    }
+                }
+            }
+
+            let my_pos = player_positions
+                .get(player_id)
+                .ok_or(GameError::PlayerNotFound)?;
+            let fires_left = room_fire_counts.get(my_pos).unwrap_or(&0);
+
+            if *fires_left == 0 {
+                return Err(GameError::InvalidAction(
+                    "No fire to extinguish (or already targeted)".to_string(),
+                ));
+            }
+
+            state.proposal_queue.push(ProposedAction {
+                id: Uuid::new_v4().to_string(),
+                player_id: player_id.to_string(),
+                action: action.clone(),
+            });
+        }
+        // Queued Actions (Everything else)
         _ => {
             // DEFERRED VALIDATION:
             // We do NOT check neighbors, systems, or inventory here.
@@ -242,6 +297,8 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
     match state.phase {
         GamePhase::Lobby => {
             state.phase = GamePhase::MorningReport;
+            state.shields_active = false;
+            state.evasion_active = false;
             cards::draw_card(&mut state);
             for p in state.players.values_mut() {
                 p.is_ready = false;
@@ -310,6 +367,8 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
         GamePhase::EnemyAction => {
             state.turn_count += 1;
             state.phase = GamePhase::MorningReport;
+            state.shields_active = false;
+            state.evasion_active = false;
 
             // Respawn Logic
             for p in state.players.values_mut() {

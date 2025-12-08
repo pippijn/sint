@@ -30,11 +30,11 @@ The ship is divided into numbered rooms. Each room houses a specific system.
 | **2** | **The Bow** | *Lookout.* Reveals the top card of the Enemy Deck (Forecasting). |
 | **3** | **Dormitory** | *Respawn Point.* Fainted players revive here at the start of the next round. |
 | **4** | **Cargo** | *Fuel.* Contains flammable gifts. Fire spreads 2x faster here. |
-| **5** | **Engine** | *Evasion.* Action: **"Evasive Maneuvers"** (2 AP). Forces the next enemy attack to **MISS**. |
+| **5** | **Engine** | *Power.* Action: **"Raise Shields"** (2 AP). Blocks the next incoming **Damage** event. |
 | **6** | **Kitchen** | *Ammo.* Action: **"Bake"** (1 AP). Create 3 Peppernuts (placed in room). |
 | **7** | **Hallway** | *Transit.* Connects all rooms. Central hub. |
 | **8** | **Cannons** | *Attack.* Action: **"Load & Fire"** (1 AP + 1 Nut). Deals 1 Dmg to Enemy (Chance to Hit). |
-| **9** | **Bridge** | *Defense.* Action: **"Raise Shields"** (2 AP). Blocks the next incoming **Damage** event. |
+| **9** | **Bridge** | *Steering.* Action: **"Evasive Maneuvers"** (2 AP). Forces the next enemy attack to **MISS**. |
 | **10** | **Sickbay** | *Heal.* Action: **"First Aid"** (1 AP). Restore 1 HP to self or adjacent player. |
 | **11** | **Storage** | *Vault.* Secure storage. Items here are safe from Water damage. |
 

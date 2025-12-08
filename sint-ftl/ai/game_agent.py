@@ -273,7 +273,7 @@ class GameAgent:
         
         if phase == "Lobby":
             allowed_names = {"action_chat", "action_setname", "action_voteready", "action_join", "action_fullsync"}
-        elif phase in ["MorningReport", "EnemyTelegraph"]:
+        elif phase in ["MorningReport", "EnemyTelegraph", "Execution", "EnemyAction"]:
             allowed_names = {"action_chat", "action_voteready", "action_fullsync"}
         else:
             allowed_names = {fn.name for fn in all_funcs}

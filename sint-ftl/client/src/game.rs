@@ -492,6 +492,38 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                 }.into_view());
                             }
 
+                            if room.system == Some(SystemType::Engine) {
+                                let c_shields = ctx_action.clone();
+                                let disabled = player.ap < 2;
+                                let opacity = if disabled { "0.5" } else { "1.0" };
+                                let cursor = if disabled { "not-allowed" } else { "pointer" };
+                                buttons.push(view! {
+                                     <button
+                                        style=format!("padding: 10px; background: #3f51b5; border: none; color: white; border-radius: 4px; cursor: {}; opacity: {};", cursor, opacity)
+                                        disabled=disabled
+                                        on:click=move |_| c_shields.perform_action.call(Action::RaiseShields)
+                                    >
+                                        "Raise Shields (2 AP)"
+                                    </button>
+                                }.into_view());
+                            }
+
+                            if room.system == Some(SystemType::Bridge) {
+                                let c_evade = ctx_action.clone();
+                                let disabled = player.ap < 2;
+                                let opacity = if disabled { "0.5" } else { "1.0" };
+                                let cursor = if disabled { "not-allowed" } else { "pointer" };
+                                buttons.push(view! {
+                                     <button
+                                        style=format!("padding: 10px; background: #00bcd4; border: none; color: white; border-radius: 4px; cursor: {}; opacity: {};", cursor, opacity)
+                                        disabled=disabled
+                                        on:click=move |_| c_evade.perform_action.call(Action::EvasiveManeuvers)
+                                    >
+                                        "Evasive Maneuvers (2 AP)"
+                                    </button>
+                                }.into_view());
+                            }
+
                             if room.hazards.contains(&HazardType::Fire) {
                                 let c_ext = ctx_action.clone();
                                 let disabled = player.ap < 1;

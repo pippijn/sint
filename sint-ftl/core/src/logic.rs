@@ -116,6 +116,8 @@ impl GameLogic {
                 next_attack: None,
             },
             chat_log: vec![],
+            shields_active: false,
+            evasion_active: false,
             proposal_queue: vec![],
             active_situations: vec![],
             latest_event: None,

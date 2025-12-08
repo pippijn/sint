@@ -35,6 +35,10 @@ pub struct GameState {
     /// Chat History (Event Sourcing derived or stored)
     pub chat_log: Vec<ChatMessage>,
 
+    // --- Temporary Status Flags (Reset each round) ---
+    pub shields_active: bool,
+    pub evasion_active: bool,
+
     /// Proposed Actions (for Tactical Planning phase)
     pub proposal_queue: Vec<ProposedAction>,
 
