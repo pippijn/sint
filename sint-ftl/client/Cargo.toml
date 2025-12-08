@@ -26,4 +26,6 @@ features = [
     "MessageEvent",
     "ErrorEvent",
     "CloseEvent",
+    "Window",
+    "Location",
 ]

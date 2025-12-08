@@ -60,8 +60,17 @@ pub fn provide_game_context() -> GameContext {
     let mut tx_inner = tx.clone(); // Clone for internal use
 
     spawn_local(async move {
-        let url = "ws://localhost:3000/ws";
-        let ws = match WebSocket::open(url) {
+        let location = web_sys::window().unwrap().location();
+        let protocol = if location.protocol().unwrap() == "https:" { "wss:" } else { "ws:" };
+        let host = location.host().unwrap();
+        
+        let url = if host.contains(":8080") {
+            "ws://localhost:3000/ws".to_string()
+        } else {
+            format!("{}//{}/ws", protocol, host)
+        };
+        
+        let ws = match WebSocket::open(&url) {
             Ok(ws) => ws,
             Err(e) => {
                 leptos::logging::error!("Failed to connect: {:?}", e);

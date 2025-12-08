@@ -3,6 +3,13 @@ use crate::state::GameContext;
 use sint_core::{Room, Player, ItemType, HazardType, Action, GameMap, RoomId};
 use std::collections::{VecDeque, HashSet};
 
+#[derive(Clone, Copy, PartialEq)]
+pub enum DoorDirection {
+    Top,
+    Bottom,
+    None
+}
+
 #[component]
 pub fn MapView(ctx: GameContext) -> impl IntoView {
     let state = ctx.state;
@@ -56,7 +63,7 @@ pub fn MapView(ctx: GameContext) -> impl IntoView {
                 {{
                     let ctx_top = ctx.clone();
                     move || layout.get().1.into_iter().map(|r| {
-                         view! { <RoomCard room=r.clone() ctx=ctx_top.clone() /> }
+                         view! { <RoomCard room=r.clone() ctx=ctx_top.clone() door_dir=DoorDirection::Bottom /> }
                     }).collect::<Vec<_>>()
                 }}
             </div>
@@ -80,7 +87,7 @@ pub fn MapView(ctx: GameContext) -> impl IntoView {
                 {{
                     let ctx_bot = ctx.clone();
                     move || layout.get().2.into_iter().map(|r| {
-                         view! { <RoomCard room=r.clone() ctx=ctx_bot.clone() /> }
+                         view! { <RoomCard room=r.clone() ctx=ctx_bot.clone() door_dir=DoorDirection::Top /> }
                     }).collect::<Vec<_>>()
                 }}
             </div>
@@ -92,6 +99,8 @@ pub fn MapView(ctx: GameContext) -> impl IntoView {
 fn RoomCard(
     room: Room, 
     ctx: GameContext,
+    #[prop(optional)]
+    door_dir: Option<DoorDirection>,
 ) -> impl IntoView {
     let state_sig = ctx.state;
     let my_pid = ctx.player_id.clone();
@@ -210,6 +219,22 @@ fn RoomCard(
                     }
                 >
                     
+                    // Door Connector
+                    {
+                        let d_style = "position: absolute; left: 50%; transform: translateX(-50%); width: 40px; height: 10px; z-index: 10;";
+                        let d_border = format!("2px {} {}", border_style, border_color);
+                        
+                        match door_dir {
+                            Some(DoorDirection::Top) => view! {
+                                <div style=format!("{}; background: {}; top: -12px; border: {}; border-bottom: none; border-radius: 4px 4px 0 0;", d_style, bg_color, d_border)></div>
+                            }.into_view(),
+                            Some(DoorDirection::Bottom) => view! {
+                                 <div style=format!("{}; background: {}; bottom: -12px; border: {}; border-top: none; border-radius: 0 0 4px 4px;", d_style, bg_color, d_border)></div>
+                            }.into_view(),
+                            _ => view! {}.into_view()
+                        }
+                    }
+
                     // Target Indicator
                     {if is_targeted {
                         view! {

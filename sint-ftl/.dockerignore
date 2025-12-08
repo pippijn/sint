@@ -1,0 +1,27 @@
+# Git
+.git
+.gitignore
+
+# Rust
+target/
+**/*.rs.bk
+
+# Client
+client/dist/
+client/node_modules/
+
+# Python / AI
+.venv/
+ai/__pycache__/
+ai/log.txt
+*.pyc
+
+# Docker
+Dockerfile
+.dockerignore
+
+
+# IDEs
+.idea/
+.vscode/
+*.swp
