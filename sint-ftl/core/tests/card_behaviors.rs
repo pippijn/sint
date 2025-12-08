@@ -1,7 +1,7 @@
 use sint_core::{Action, CardId, CardType, GameLogic, GamePhase};
 
 #[test]
-fn test_card_c04_slippery_deck() {
+fn test_card_slippery_deck() {
     let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
@@ -40,7 +40,7 @@ fn test_card_c04_slippery_deck() {
 }
 
 #[test]
-fn test_card_c11_mutiny_explosion() {
+fn test_card_mutiny_explosion() {
     let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
 
     // Inject C11 Mutiny with 1 round left
@@ -88,7 +88,7 @@ fn test_card_c11_mutiny_explosion() {
 }
 
 #[test]
-fn test_card_c21_sing_a_song() {
+fn test_card_sing_a_song() {
     let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
 
     // Setup Hazards

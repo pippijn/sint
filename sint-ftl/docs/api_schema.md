@@ -93,17 +93,6 @@ The AI Agent receives these Function Declarations (generated from the Schema).
 ### **`get_state()`**
 *   **Returns:** Full `GameState` JSON (sanitized: no hidden info).
 
-### **`simulate_plan(actions: List[Action])`**
-*   **Input:** `["Move(6)", "Extinguish"]`
-*   **Returns:**
-    ```json
-    {
-      "valid": true,
-      "outcome_description": "You moved to Kitchen. You extinguished 1 Fire. 0 AP Remaining.",
-      "stopped_at_rng": false
-    }
-    ```
-
 ### **`propose_action(action: Action)`**
 *   **Input:** `Move { to_room: 6 }`
 *   **Effect:** Adds action to the global `proposal_queue`.

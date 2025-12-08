@@ -5,7 +5,7 @@ fn test_seagull_attack_validation_in_planning() {
     let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
-    // Inject C03 Seagull Attack
+    // Inject Seagull Attack
     let seagull_card = state
         .deck
         .iter()
@@ -40,7 +40,7 @@ fn test_seagull_attack_prevents_move_after_pickup() {
     let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
-    // Inject C03
+    // Inject
     let seagull_card = state
         .deck
         .iter()
