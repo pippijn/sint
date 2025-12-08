@@ -1,5 +1,6 @@
 use crate::types::*;
 use super::cards::get_behavior;
+use super::actions::action_cost;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
@@ -120,40 +121,36 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
 
         if blocked_by_card {
              // Refund Logic (Generic)
-             let slippery = state.active_situations.iter().any(|c| c.id == CardId::SlipperyDeck);
-             if !slippery {
-                 if let Some(p) = state.players.get_mut(player_id) {
-                     p.ap += 1;
-                 }
+             let cost = action_cost(state, player_id, &proposal.action);
+             if let Some(p) = state.players.get_mut(player_id) {
+                 p.ap += cost;
              }
              continue;
         }
 
-        match proposal.action {
+        match &proposal.action {
             Action::Move { to_room } => {
                 let p = state.players.get(player_id).unwrap();
                 let current_room_id = p.room_id;
 
                 // VALIDATION:
                 if let Some(room) = state.map.rooms.get(&current_room_id) {
-                    if !room.neighbors.contains(&to_room) {
+                    if !room.neighbors.contains(to_room) {
                         println!(
                             "Action Skipped: Player {} cannot move from {} to {}",
                             player_id, current_room_id, to_room
                         );
                         
-                        let slippery = state.active_situations.iter().any(|c| c.id == CardId::SlipperyDeck);
-                        if !slippery {
-                             if let Some(p) = state.players.get_mut(player_id) {
-                                 p.ap += 1;
-                             }
+                        let cost = action_cost(state, player_id, &proposal.action);
+                        if let Some(p) = state.players.get_mut(player_id) {
+                             p.ap += cost;
                         }
                         continue;
                     }
                 }
 
                 if let Some(p) = state.players.get_mut(player_id) {
-                    p.room_id = to_room;
+                    p.room_id = *to_room;
                 }
             }
             Action::RaiseShields => {
@@ -267,7 +264,7 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
             Action::PickUp { item_type } => {
                 let room_id = state.players.get(player_id).unwrap().room_id;
                 if let Some(room) = state.map.rooms.get_mut(&room_id) {
-                    if let Some(pos) = room.items.iter().position(|x| *x == item_type) {
+                    if let Some(pos) = room.items.iter().position(|x| x == item_type) {
                         let item = room.items.remove(pos);
                         if let Some(p) = state.players.get_mut(player_id) {
                             p.inventory.push(item);
@@ -277,8 +274,9 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
                             "Action Skipped: Player {} cannot pick up {:?} (Not in room)",
                             player_id, item_type
                         );
+                        let cost = action_cost(state, player_id, &proposal.action);
                         if let Some(p) = state.players.get_mut(player_id) {
-                             p.ap += 1;
+                             p.ap += cost;
                         }
                     }
                 }
@@ -286,12 +284,12 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
             Action::Throw { target_player, item_index } => {
                 let mut item = None;
                 if let Some(p) = state.players.get_mut(player_id) {
-                    if item_index < p.inventory.len() {
-                        item = Some(p.inventory.remove(item_index));
+                    if *item_index < p.inventory.len() {
+                        item = Some(p.inventory.remove(*item_index));
                     }
                 }
                 if let Some(it) = item {
-                    if let Some(target) = state.players.get_mut(&target_player) {
+                    if let Some(target) = state.players.get_mut(target_player) {
                         target.inventory.push(it);
                     }
                 }
@@ -301,8 +299,8 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
                 let mut room_id = 0;
                 if let Some(p) = state.players.get_mut(player_id) {
                     room_id = p.room_id;
-                    if item_index < p.inventory.len() {
-                        item = Some(p.inventory.remove(item_index));
+                    if *item_index < p.inventory.len() {
+                        item = Some(p.inventory.remove(*item_index));
                     }
                 }
                 if let Some(it) = item {
@@ -316,14 +314,14 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
                 let mut valid = false;
                 let room_id = state.players.get(player_id).unwrap().room_id;
                 
-                if let Some(target) = state.players.get(&target_player) {
+                if let Some(target) = state.players.get(target_player) {
                     if target.room_id == room_id && target.status.contains(&PlayerStatus::Fainted) {
                         valid = true;
                     }
                 }
                 
                 if valid {
-                    if let Some(target) = state.players.get_mut(&target_player) {
+                    if let Some(target) = state.players.get_mut(target_player) {
                         target.status.retain(|s| *s != PlayerStatus::Fainted);
                         target.hp = 1;
                     }

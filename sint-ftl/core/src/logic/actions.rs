@@ -487,7 +487,7 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
     Ok(state)
 }
 
-fn action_cost(state: &GameState, player_id: &str, action: &Action) -> i32 {
+pub fn action_cost(state: &GameState, player_id: &str, action: &Action) -> i32 {
     let base = match action {
         Action::Chat { .. } | Action::VoteReady { .. } => 0,
         Action::Move { .. } => 1,

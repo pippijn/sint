@@ -1,6 +1,6 @@
 use crate::state::GameContext;
 use leptos::*;
-use sint_core::{Action, GameMap, GamePhase, HazardType, ItemType, Player, Room, RoomId, CardId};
+use sint_core::{Action, GameMap, GamePhase, HazardType, ItemType, Player, Room, RoomId};
 use std::collections::{HashSet, VecDeque};
 
 #[derive(Clone, Copy, PartialEq)]
@@ -151,8 +151,10 @@ fn RoomCard(
             && predicted_room_id != room.id
         {
             if let Some(p) = find_path(&s.map, predicted_room_id, room.id) {
-                let slippery = s.active_situations.iter().any(|c| c.id == CardId::SlipperyDeck);
-                let cost = if slippery { 0 } else { p.len() as i32 };
+                let mut cost = 0;
+                for step in &p {
+                    cost += sint_core::logic::actions::action_cost(&s, my_pid, &Action::Move { to_room: *step });
+                }
 
                 if cost <= predicted_ap {
                     can_move = true;
