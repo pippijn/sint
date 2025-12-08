@@ -94,10 +94,10 @@ impl GameLogic {
         let mut rng = StdRng::seed_from_u64(seed);
         let next_seed = rng.gen();
 
-        let mut state = GameState {
+        let state = GameState {
             sequence_id: 0,
             rng_seed: next_seed,
-            phase: GamePhase::MorningReport,
+            phase: GamePhase::Lobby,
             turn_count: 1,
             hull_integrity: 20,
             map: GameMap { rooms },
@@ -116,8 +116,6 @@ impl GameLogic {
             discard: vec![],
         };
         
-        // Draw initial card
-        cards::draw_card(&mut state);
         state
     }
 

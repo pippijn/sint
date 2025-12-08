@@ -52,6 +52,7 @@ pub struct GameState {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum GamePhase {
+    Lobby,           // Waiting for players
     Setup,
     MorningReport,   // Card draw
     EnemyTelegraph,  // Enemy reveals intent
@@ -208,6 +209,8 @@ pub enum Action {
     Pass,
     /// Join the game dynamically
     Join { name: String },
+    /// Start the game (Transition from Lobby to MorningReport)
+    StartGame,
     /// Receive a full state dump from a peer
     FullSync { state_json: String },
 }

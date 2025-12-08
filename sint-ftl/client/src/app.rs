@@ -7,6 +7,7 @@ use sint_core::{Action, SystemType, HazardType, GamePhase};
 #[component]
 fn PhaseTracker(phase: GamePhase) -> impl IntoView {
     let phases = vec![
+        (GamePhase::Lobby, "LOBBY"),
         (GamePhase::MorningReport, "MORNING"),
         (GamePhase::EnemyTelegraph, "TELEGRAPH"),
         (GamePhase::TacticalPlanning, "PLANNING"),
@@ -88,10 +89,8 @@ pub fn App() -> impl IntoView {
                 
                 // CENTER PANEL: Map & Space
                 <div style="background: #111; display: flex; flex-direction: column; padding: 20px; overflow: auto; position: relative;">
-                    // Enemy Placeholder (Top)
-                    <div style="flex: 0 0 100px; border-bottom: 1px dashed #444; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; color: #555;">
-                        "[ ENEMY SHIP VIEW ]"
-                    </div>
+                    // Enemy View
+                    <EnemyView ctx=ctx.clone() />
                     
                     // Map (Center)
                     <div style="flex: 1; display: flex; align-items: center; justify-content: center;">
@@ -110,6 +109,55 @@ pub fn App() -> impl IntoView {
                 </div>
             </div>
         </div>
+    }
+}
+
+#[component]
+fn EnemyView(ctx: GameContext) -> impl IntoView {
+    let state = ctx.state;
+    
+    view! {
+        {move || {
+            let s = state.get();
+            let e = &s.enemy;
+            let hp_percent = (e.hp as f32 / e.max_hp as f32) * 100.0;
+            let hp_percent = if hp_percent < 0.0 { 0.0 } else { hp_percent };
+            
+            view! {
+                <div style="flex: 0 0 100px; border-bottom: 1px solid #444; margin-bottom: 20px; padding: 10px; background: #221a1a; display: flex; justify-content: space-between; align-items: center;">
+                    // Enemy Info
+                    <div>
+                        <h2 style="margin: 0; color: #ff5252; font-size: 1.1em;">{&e.name}</h2>
+                        <div style="margin-top: 5px; width: 200px; height: 10px; background: #444; border-radius: 5px; overflow: hidden;">
+                            <div style=format!("width: {}%; height: 100%; background: #ff5252;", hp_percent)></div>
+                        </div>
+                        <div style="font-size: 0.8em; margin-top: 2px; color: #aaa;">
+                            {e.hp} " / " {e.max_hp} " HP"
+                        </div>
+                    </div>
+                    
+                    // Attack Telegraph
+                    <div style="text-align: right;">
+                        {if let Some(attack) = &e.next_attack {
+                             let room_name = s.map.rooms.get(&attack.target_room).map(|r| r.name.clone()).unwrap_or("Unknown".to_string());
+                             view! {
+                                 <div style="color: #ff9800; font-weight: bold;">"⚠ WARNING: ATTACK IMMINENT"</div>
+                                 <div style="font-size: 0.9em; margin-top: 5px;">
+                                     "Target: " <span style="color: #fff;">{room_name} " (" {attack.target_room} ")"</span>
+                                 </div>
+                                 <div style="font-size: 0.8em; color: #ccc;">
+                                     "Effect: " {format!("{:?}", attack.effect)}
+                                 </div>
+                             }.into_view()
+                        } else {
+                            view! {
+                                <div style="color: #81c784;">"No active threat detected."</div>
+                            }.into_view()
+                        }}
+                    </div>
+                </div>
+            }
+        }}
     }
 }
 
@@ -191,25 +239,55 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                     let room_name = s.map.rooms.get(&p.room_id).map(|r| r.name.clone()).unwrap_or("Unknown".to_string());
                     let is_ready = p.is_ready;
                     let c_ready = ctx_ready.clone();
+                    let c_start = ctx_ready.clone(); // Clone for start button
+                    let is_lobby = s.phase == GamePhase::Lobby;
                     
                     view! {
                         <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: center;">
                             <div>"📍 Location: " <strong>{room_name}</strong> " (" {p.room_id} ")"</div>
                             <div>"❤ HP: " <strong>{p.hp}</strong> "/3"</div>
                             <div>"⚡ AP: " <strong>{p.ap}</strong> "/2"</div>
-                            <div>"🎒 Inventory: " {format!("{:?}", p.inventory)}</div>
-                            <button
-                                on:click=move |_| {
-                                    c_ready.perform_action.call(Action::VoteReady { ready: !is_ready });
-                                }
-                                style=move || if is_ready {
-                                    "background: #4caf50; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;"
-                                } else {
-                                    "background: #555; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;"
-                                }
-                            >
-                                {if is_ready { "✅ READY" } else { "❌ NOT READY" }}
-                            </button>
+                            <div style="display: flex; gap: 5px; align-items: center;">
+                                "🎒 Inventory: " 
+                                {p.inventory.iter().map(|item| {
+                                    let (emoji, name) = match item {
+                                        sint_core::ItemType::Peppernut => ("🍪", "Peppernut"),
+                                        sint_core::ItemType::Extinguisher => ("🧯", "Extinguisher"),
+                                        sint_core::ItemType::Keychain => ("🔑", "Keychain"),
+                                        sint_core::ItemType::Wheelbarrow => ("🛒", "Wheelbarrow"),
+                                        sint_core::ItemType::Mitre => ("🧢", "Mitre"),
+                                    };
+                                    view! { <span title=name style="font-size: 1.2em; cursor: help;">{emoji}</span> }
+                                }).collect::<Vec<_>>()}
+                            </div>
+                            
+                            {if is_lobby {
+                                view! {
+                                     <button
+                                        on:click=move |_| {
+                                            c_start.perform_action.call(Action::StartGame);
+                                        }
+                                        style="background: #e91e63; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; box-shadow: 0 0 10px #e91e63;"
+                                    >
+                                        "🚀 START GAME"
+                                    </button>
+                                }.into_view()
+                            } else {
+                                view! {
+                                    <button
+                                        on:click=move |_| {
+                                            c_ready.perform_action.call(Action::VoteReady { ready: !is_ready });
+                                        }
+                                        style=move || if is_ready {
+                                            "background: #4caf50; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;"
+                                        } else {
+                                            "background: #555; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;"
+                                        }
+                                    >
+                                        {if is_ready { "✅ READY" } else { "❌ NOT READY" }}
+                                    </button>
+                                }.into_view()
+                            }}
                         </div>
                     }.into_view()
                 } else {
@@ -247,6 +325,10 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                      let p = s.players.get(&pid);
                      let mut buttons = vec![];
                      
+                     if s.phase != GamePhase::TacticalPlanning {
+                         return vec![view! { <div style="color: #888; font-style: italic;">"Waiting for Tactical Planning..."</div> }.into_view()];
+                     }
+
                      if let Some(player) = p {
                          if let Some(room) = s.map.rooms.get(&player.room_id) {
                             

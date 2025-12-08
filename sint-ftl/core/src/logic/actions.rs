@@ -32,6 +32,29 @@ pub fn apply_action(
             Err(e) => return Err(GameError::InvalidAction(format!("Bad Sync: {}", e))),
         }
     }
+    
+    // Start Game Special Case
+    if let Action::StartGame = &action {
+        if state.phase != GamePhase::Lobby {
+            return Err(GameError::InvalidAction("Game already started".to_string()));
+        }
+        if state.players.is_empty() {
+            return Err(GameError::InvalidAction("No players".to_string()));
+        }
+        
+        state.phase = GamePhase::MorningReport;
+        cards::draw_card(&mut state);
+        state.sequence_id += 1;
+        return Ok(state);
+    }
+
+    // Phase Restriction: Gameplay actions only in TacticalPlanning
+    if state.phase != GamePhase::TacticalPlanning {
+        match action {
+            Action::Chat { .. } | Action::VoteReady { .. } => {},
+            _ => return Err(GameError::InvalidAction(format!("Cannot act during {:?}", state.phase))),
+        }
+    }
 
     // 2. Validate AP (unless it's free)
     let cost = action_cost(&state, &action);
@@ -236,12 +259,22 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
              for p in state.players.values_mut() { p.is_ready = false; }
         },
         GamePhase::Execution => {
-            state.phase = GamePhase::EnemyAction;
-            // Run Logic
-            resolution::resolve_enemy_attack(&mut state);
-            resolution::resolve_hazards(&mut state);
+            // Check if any player still has AP
+            let any_ap_left = state.players.values().any(|p| p.ap > 0);
             
-            for p in state.players.values_mut() { p.is_ready = false; }
+            if any_ap_left {
+                // Back to Planning
+                state.phase = GamePhase::TacticalPlanning;
+                for p in state.players.values_mut() { p.is_ready = false; }
+            } else {
+                // Proceed to End of Round
+                state.phase = GamePhase::EnemyAction;
+                // Run Logic
+                resolution::resolve_enemy_attack(&mut state);
+                resolution::resolve_hazards(&mut state);
+                
+                for p in state.players.values_mut() { p.is_ready = false; }
+            }
         },
         GamePhase::EnemyAction => {
             state.turn_count += 1;
@@ -281,6 +314,7 @@ fn action_cost(state: &GameState, action: &Action) -> i32 {
         Action::Pass => 0,
         Action::Join { .. } => 0,
         Action::FullSync { .. } => 0,
+        Action::StartGame => 0,
     };
     
     if slippery && base > 0 && !matches!(action, Action::Move { .. }) {
