@@ -49,6 +49,19 @@ pub fn apply_action(
         return Ok(state);
     }
 
+    if let Action::SetName { name } = &action {
+        if state.phase != GamePhase::Lobby {
+             return Err(GameError::InvalidAction("Cannot change name after game start".to_string()));
+        }
+        if let Some(p) = state.players.get_mut(player_id) {
+            p.name = name.clone();
+        } else {
+            return Err(GameError::PlayerNotFound);
+        }
+        state.sequence_id += 1;
+        return Ok(state);
+    }
+
     // Phase Restriction: Gameplay actions only in TacticalPlanning
     if state.phase != GamePhase::TacticalPlanning {
         match action {
@@ -268,6 +281,7 @@ fn action_cost(state: &GameState, action: &Action) -> i32 {
         Action::Pass => 0,
         Action::Undo { .. } => 0,
         Action::Join { .. } => 0,
+        Action::SetName { .. } => 0,
         Action::FullSync { .. } => 0,
         Action::StartGame => 0,
     };

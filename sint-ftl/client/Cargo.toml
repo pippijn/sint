@@ -28,4 +28,5 @@ features = [
     "CloseEvent",
     "Window",
     "Location",
+    "UrlSearchParams",
 ]

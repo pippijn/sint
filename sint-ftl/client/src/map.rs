@@ -7,7 +7,6 @@ use std::collections::{VecDeque, HashSet};
 pub enum DoorDirection {
     Top,
     Bottom,
-    None
 }
 
 #[component]

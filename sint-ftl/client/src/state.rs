@@ -28,8 +28,15 @@ impl ActionCallback {
 }
 
 pub fn provide_game_context() -> GameContext {
-    let player_id = "Player_1".to_string(); 
-    let room_id = "Room_A".to_string();
+    let location = web_sys::window().unwrap().location();
+    let search = location.search().unwrap_or_default();
+    let params = web_sys::UrlSearchParams::new_with_str(&search).unwrap();
+    
+    let room_id = params.get("room").unwrap_or_else(|| "Room_A".to_string());
+    let player_id = params.get("player").unwrap_or_else(|| {
+        let uuid = Uuid::new_v4();
+        format!("Player_{}", &uuid.to_string()[..8])
+    });
 
     // Start empty, let Join actions populate players
     let initial_state = GameLogic::new_game(vec![], 12345);

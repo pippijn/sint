@@ -285,10 +285,12 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
     let state = ctx.state;
     let pid = ctx.player_id.clone();
     let ctx_join = ctx.clone();
-    let pid_join = pid.clone();
     let ctx_ready = ctx.clone();
     let c_start = ctx_ready.clone(); 
+    let ctx_update = ctx.clone();
     
+    let (name_input, set_name_input) = create_signal(pid.clone());
+
     view! {
         <div style="background: #333; padding: 15px; border-radius: 8px;">
             {move || {
@@ -310,22 +312,54 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                     let is_lobby = s.phase == GamePhase::Lobby;
                     
                     view! {
-                        <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: center;">
-                            <div>"📍 Location: " <strong>{room_name}</strong> " (" {p.room_id} ")"</div>
-                            <div>"❤ HP: " <strong>{p.hp}</strong> "/3"</div>
-                            <div>"⚡ AP: " <strong>{p.ap}</strong> "/2"</div>
-                            <div style="display: flex; gap: 5px; align-items: center;">
-                                "🎒 Inventory: " 
-                                {p.inventory.iter().map(|item| {
-                                    let (emoji, name) = match item {
-                                        sint_core::ItemType::Peppernut => ("🍪", "Peppernut"),
-                                        sint_core::ItemType::Extinguisher => ("🧯", "Extinguisher"),
-                                        sint_core::ItemType::Keychain => ("🔑", "Keychain"),
-                                        sint_core::ItemType::Wheelbarrow => ("🛒", "Wheelbarrow"),
-                                        sint_core::ItemType::Mitre => ("🧢", "Mitre"),
-                                    };
-                                    view! { <span title=name style="font-size: 1.2em; cursor: help;">{emoji}</span> }
-                                }).collect::<Vec<_>>()}
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                            // Name Input or Display
+                            {if is_lobby {
+                                let c_up = ctx_update.clone();
+                                view! {
+                                    <div style="width: 100%; display: flex; gap: 5px; margin-bottom: 5px;">
+                                        <input 
+                                            type="text" 
+                                            prop:value=name_input
+                                            on:input=move |ev| set_name_input.set(event_target_value(&ev))
+                                            style="flex: 1; padding: 6px; border-radius: 4px; border: 1px solid #555; background: #222; color: white; min-width: 0;"
+                                        />
+                                        <button
+                                            on:click=move |_| c_up.perform_action.call(Action::SetName { name: name_input.get() })
+                                            style="padding: 6px 12px; background: #2196f3; color: white; border: none; border-radius: 4px; cursor: pointer;"
+                                        >
+                                            "UPDATE"
+                                        </button>
+                                    </div>
+                                }.into_view()
+                            } else {
+                                view! { <div style="width: 100%; margin-bottom: 5px; font-size: 1.1em;">"👤 " <strong>{p.name}</strong></div> }.into_view()
+                            }}
+
+                            <div style="width: 100%; display: flex; flex-direction: column; gap: 5px;">
+                                <div>"📍 Location: " <strong>{room_name}</strong> " (" {p.room_id} ")"</div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span>"❤ HP: " <strong>{p.hp}</strong> "/3"</span>
+                                    <span>"⚡ AP: " <strong>{p.ap}</strong> "/2"</span>
+                                </div>
+                            </div>
+                            
+                            <div style="width: 100%; display: flex; gap: 5px; align-items: center; background: #222; padding: 5px; border-radius: 4px;">
+                                "🎒 " 
+                                {if p.inventory.is_empty() {
+                                    view! { <span style="color: #666; font-style: italic;">"Empty"</span> }.into_view()
+                                } else {
+                                    p.inventory.iter().map(|item| {
+                                        let (emoji, name) = match item {
+                                            sint_core::ItemType::Peppernut => ("🍪", "Peppernut"),
+                                            sint_core::ItemType::Extinguisher => ("🧯", "Extinguisher"),
+                                            sint_core::ItemType::Keychain => ("🔑", "Keychain"),
+                                            sint_core::ItemType::Wheelbarrow => ("🛒", "Wheelbarrow"),
+                                            sint_core::ItemType::Mitre => ("🧢", "Mitre"),
+                                        };
+                                        view! { <span title=name style="font-size: 1.2em; cursor: help;">{emoji}</span> }
+                                    }).collect::<Vec<_>>().into_view()
+                                }}
                             </div>
                             
                             {if is_lobby {
@@ -335,7 +369,7 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                                         on:click=move |_| {
                                             c_start_click.perform_action.call(Action::StartGame);
                                         }
-                                        style="background: #e91e63; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; box-shadow: 0 0 10px #e91e63;"
+                                        style="width: 100%; background: #e91e63; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; box-shadow: 0 0 10px rgba(233, 30, 99, 0.4); margin-top: 5px;"
                                     >
                                         "🚀 START GAME"
                                     </button>
@@ -348,9 +382,9 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                                             c_ready_click.perform_action.call(Action::VoteReady { ready: !is_ready });
                                         }
                                         style=move || if is_ready {
-                                            "background: #4caf50; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;"
+                                            "width: 100%; background: #4caf50; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; margin-top: 5px;"
                                         } else {
-                                            "background: #555; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;"
+                                            "width: 100%; background: #555; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; margin-top: 5px;"
                                         }
                                     >
                                         {if is_ready { "✅ READY" } else { "❌ NOT READY" }}
@@ -361,13 +395,20 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                     }.into_view()
                 } else {
                     let c_join = ctx_join.clone();
-                    let p_join = pid_join.clone();
+                    // Use input for initial join name
                     view! { 
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <span style="color: #f44336;">"⚠ Not Joined"</span>
+                        <div style="display: flex; flex-direction: column; gap: 10px; align-items: stretch;">
+                            <div style="color: #f44336; font-weight: bold; text-align: center;">"⚠ Not Joined"</div>
+                            <input 
+                                type="text" 
+                                prop:value=name_input
+                                on:input=move |ev| set_name_input.set(event_target_value(&ev))
+                                placeholder="Enter Name..."
+                                style="padding: 10px; border-radius: 4px; border: 1px solid #555; background: #222; color: white;"
+                            />
                             <button 
-                                style="padding: 8px 16px; background: #4caf50; border: none; color: white; border-radius: 4px; cursor: pointer; font-weight: bold;"
-                                on:click=move |_| c_join.perform_action.call(Action::Join { name: p_join.clone() })
+                                style="padding: 10px; background: #4caf50; border: none; color: white; border-radius: 4px; cursor: pointer; font-weight: bold;"
+                                on:click=move |_| c_join.perform_action.call(Action::Join { name: name_input.get() })
                             >
                                 "JOIN GAME"
                             </button>
