@@ -1,5 +1,6 @@
 pub mod actions;
 pub mod cards;
+pub mod pathfinding;
 pub mod resolution;
 
 pub use actions::apply_action;

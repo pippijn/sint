@@ -1,4 +1,5 @@
 use super::cards;
+use super::pathfinding::{find_path, get_player_projected_room};
 use super::resolution;
 use crate::logic::GameError;
 use crate::types::*;
@@ -81,18 +82,19 @@ pub fn apply_action(
     }
 
     // 2. Validate AP (unless it's free)
-    let cost = action_cost(&state, &action);
+    let base_cost = action_cost(&state, &action);
     let player = state
         .players
         .get_mut(player_id)
         .ok_or(GameError::PlayerNotFound)?;
 
-    if player.ap < cost {
+    if player.ap < base_cost {
         return Err(GameError::NotEnoughAP);
     }
 
     // 3. Execute OR Queue Logic
     let mut is_immediate = false;
+    let mut ap_deducted = false;
 
     match &action {
         Action::Chat { message } => {
@@ -164,7 +166,37 @@ pub fn apply_action(
                 ));
             }
         }
-        // Queued Actions
+        Action::Move { to_room } => {
+            // Pathfinding Logic
+            let pid_string = player_id.to_string();
+            let start_room = get_player_projected_room(&state, &pid_string);
+
+            if let Some(path) = find_path(&state.map, start_room, *to_room) {
+                let step_cost = base_cost;
+                let total_cost = step_cost * (path.len() as i32);
+
+                if state.players.get(player_id).unwrap().ap < total_cost {
+                    return Err(GameError::NotEnoughAP);
+                }
+
+                // Queue all steps
+                for step_room in path {
+                    state.proposal_queue.push(ProposedAction {
+                        id: Uuid::new_v4().to_string(),
+                        player_id: player_id.to_string(),
+                        action: Action::Move { to_room: step_room },
+                    });
+                }
+
+                // Deduct AP
+                let p = state.players.get_mut(player_id).unwrap();
+                p.ap -= total_cost;
+                ap_deducted = true;
+            } else {
+                return Err(GameError::InvalidMove);
+            }
+        }
+        // Queued Actions (Other than Move)
         _ => {
             // DEFERRED VALIDATION:
             // We do NOT check neighbors, systems, or inventory here.
@@ -181,7 +213,7 @@ pub fn apply_action(
     }
 
     // 3. Deduct AP (Paid immediately)
-    if !is_immediate || matches!(action, Action::Pass) {
+    if (!is_immediate && !ap_deducted) || matches!(action, Action::Pass) {
         // Re-borrow because VoteReady/Pass modified player or state passed to advance_phase might have consumed it?
         // Actually `advance_phase` takes ownership of `state`.
         // If `VoteReady` triggered advance_phase, `state` is already new state.
@@ -196,7 +228,7 @@ pub fn apply_action(
 
         if !is_immediate {
             let player = state.players.get_mut(player_id).unwrap();
-            player.ap -= cost;
+            player.ap -= base_cost;
         }
     }
 
