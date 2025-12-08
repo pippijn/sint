@@ -167,11 +167,24 @@ class GameAgent:
         # Chat Log (Source of Truth)
         chat_log = state.get('chat_log', [])
         recent_chat = chat_log[-10:] # Last 10 messages
-        chat_text = "\n".join([f"CHAT: {msg['sender']}: {msg['text']}" for msg in recent_chat])
+        chat_lines = []
+        for msg in recent_chat:
+            sender = msg['sender']
+            text = msg['text']
+            if sender == self.player_id:
+                chat_lines.append(f"CHAT: YOU ({sender}): {text}")
+            else:
+                chat_lines.append(f"CHAT: {sender}: {text}")
+        chat_text = "\n".join(chat_lines)
         
         status_desc = f"YOU ARE: {me['name']} (ID: {self.player_id})\nSTATUS: HP {me['hp']}/3, AP {me['ap']}/2. Inventory: {me['inventory']}"
         room_desc = f"Room {room_id} ({room.get('name')}). Items={room.get('items', [])}, Hazards={room.get('hazards', [])}, ConnectsTo={room.get('neighbors')}. People: {[p['name'] for p in state['players'].values() if p['room_id'] == room_id]}"
         
+        team_status = "TEAM STATUS:\n"
+        for pid, p in state['players'].items():
+            ready_mark = "[READY]" if p.get('is_ready') else "[WAITING]"
+            team_status += f"- {p['name']} (ID: {pid}): Room {p['room_id']}, HP {p['hp']}/3 {ready_mark}\n"
+
         queue_desc = "PLANNED ACTIONS:\n"
         queue = state.get('proposal_queue', [])
         if queue:
@@ -240,13 +253,13 @@ class GameAgent:
             "CHAT HISTORY:",
             chat_text,
             "",
+            team_status,
             queue_desc,
             "CURRENT SITUATION:",
             room_desc,
             status_desc,
             f"Hull: {state['hull_integrity']}. Turn: {state['turn_count']}.",
-            "",
-            "What is your next move? (If you are waiting, do not call any tool)."
+            ""
         ]
         
         prompt = "\n".join(prompt_parts)
