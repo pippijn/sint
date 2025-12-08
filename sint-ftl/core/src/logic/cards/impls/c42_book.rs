@@ -8,10 +8,16 @@ impl CardBehavior for C42TheBook {
         Card {
             id: CardId::TheBook,
             title: "The Book".to_string(),
-            description: "Mission: Storage (11) -> Bridge (9). Reward: Skip Enemy Attack.".to_string(),
+            description: "Mission: Storage (11) -> Bridge (9). Reward: Skip Enemy Attack."
+                .to_string(),
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
-            solution: Some(CardSolution { room_id: Some(9), ap_cost: 1, item_cost: None, required_players: 1 }),
+            solution: Some(CardSolution {
+                room_id: Some(9),
+                ap_cost: 1,
+                item_cost: None,
+                required_players: 1,
+            }),
         }
     }
 

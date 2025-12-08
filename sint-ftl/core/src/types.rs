@@ -226,7 +226,9 @@ pub enum Action {
 
 // --- Cards ---
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema, PartialOrd, Ord,
+)]
 pub enum CardId {
     AfternoonNap,
     StaticNoise,

@@ -3,7 +3,7 @@ use crate::types::{Action, GameState};
 
 pub struct C53LightsOut;
 
-use crate::types::{Card, CardId, CardType, CardSolution};
+use crate::types::{Card, CardId, CardSolution, CardType};
 
 impl CardBehavior for C53LightsOut {
     fn get_struct(&self) -> Card {
@@ -13,7 +13,12 @@ impl CardBehavior for C53LightsOut {
             description: "Walking costs DOUBLE (2 AP).".to_string(),
             card_type: CardType::Situation,
             options: vec![],
-            solution: Some(CardSolution { room_id: Some(5), ap_cost: 1, item_cost: None, required_players: 1 }),
+            solution: Some(CardSolution {
+                room_id: Some(5),
+                ap_cost: 1,
+                item_cost: None,
+                required_players: 1,
+            }),
         }
     }
 

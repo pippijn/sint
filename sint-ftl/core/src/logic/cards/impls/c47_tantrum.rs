@@ -13,7 +13,12 @@ impl CardBehavior for C47Tantrum {
             description: "Max Chaos. Random events every turn.".to_string(),
             card_type: CardType::Situation,
             options: vec![],
-            solution: Some(CardSolution { room_id: None, ap_cost: 1, item_cost: Some(ItemType::Peppernut), required_players: 1 }),
+            solution: Some(CardSolution {
+                room_id: None,
+                ap_cost: 1,
+                item_cost: Some(ItemType::Peppernut),
+                required_players: 1,
+            }),
         }
     }
 

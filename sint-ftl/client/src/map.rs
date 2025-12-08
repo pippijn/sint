@@ -207,7 +207,7 @@ fn RoomCard(
             .enemy
             .next_attack
             .as_ref()
-            .map_or(false, |a| a.target_room == room.id);
+            .is_some_and(|a| a.target_room == room.id);
 
         // 5. Ghosts
         let ghosts: Vec<String> = s

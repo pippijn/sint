@@ -1,4 +1,4 @@
-use crate::types::{Action, GameMap, GameState, PlayerId, RoomId};
+use crate::types::{GameMap, RoomId};
 use std::collections::{HashSet, VecDeque};
 
 pub fn find_path(map: &GameMap, start: RoomId, end: RoomId) -> Option<Vec<RoomId>> {
@@ -36,17 +36,4 @@ pub fn find_path(map: &GameMap, start: RoomId, end: RoomId) -> Option<Vec<RoomId
         }
     }
     None
-}
-
-pub fn get_player_projected_room(state: &GameState, player_id: &PlayerId) -> RoomId {
-    let mut current_room = state.players.get(player_id).map(|p| p.room_id).unwrap_or(3); // Default to 3 if not found (shouldn't happen)
-
-    for proposal in &state.proposal_queue {
-        if proposal.player_id == *player_id {
-            if let Action::Move { to_room } = proposal.action {
-                current_room = to_room;
-            }
-        }
-    }
-    current_room
 }

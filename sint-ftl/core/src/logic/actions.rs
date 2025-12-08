@@ -1,5 +1,5 @@
 use super::cards::{self, get_behavior};
-use super::pathfinding::{find_path, get_player_projected_room};
+use super::pathfinding::find_path;
 use super::resolution;
 use crate::logic::GameError;
 use crate::types::*;
@@ -12,7 +12,7 @@ pub fn apply_action(
     player_id: &str,
     action: Action,
 ) -> Result<GameState, GameError> {
-    // 1. Handle Join & FullSync (Special Cases)
+    // 1. Handle Join & FullSync & SetName (Special Cases - Lobby/Sync)
     if let Action::Join { name } = &action {
         if state.players.contains_key(player_id) {
             return Ok(state);
@@ -38,7 +38,6 @@ pub fn apply_action(
     }
 
     if let Action::FullSync { state_json } = &action {
-        // Replace state completely
         match serde_json::from_str::<GameState>(state_json) {
             Ok(new_state) => return Ok(new_state),
             Err(e) => return Err(GameError::InvalidAction(format!("Bad Sync: {}", e))),
@@ -58,7 +57,6 @@ pub fn apply_action(
         {
             return Err(GameError::InvalidAction("Name already taken".to_string()));
         }
-
         if let Some(p) = state.players.get_mut(player_id) {
             p.name = name.clone();
         } else {
@@ -81,81 +79,68 @@ pub fn apply_action(
         }
     }
 
-    // CARD VALIDATION HOOK
-    for card in &state.active_situations {
-        get_behavior(card.id).validate_action(&state, player_id, &action)?;
-    }
+    // --- ROBUST PROJECTION START ---
+    // For validation, we project the state forward by executing the current queue.
+    let mut projected_state = state.clone();
+    super::resolution::resolve_proposal_queue(&mut projected_state);
 
-    // 2. Validate AP (unless it's free)
-    let base_cost = action_cost(&state, player_id, &action);
-
-    // Read-only check for AP
-    let current_ap = state
-        .players
-        .get(player_id)
-        .ok_or(GameError::PlayerNotFound)?
-        .ap;
-
-    if current_ap < base_cost {
-        return Err(GameError::NotEnoughAP);
-    }
-
-    // 3. Execute OR Queue Logic
-    let mut is_immediate = false;
-    let mut ap_deducted = false;
-
+    // 0. Handle Immediate Actions (Bypass Projection)
     match &action {
         Action::Chat { message } => {
-            is_immediate = true;
-            // C02: Static Noise handled by CARD VALIDATION HOOK above.
+            // CARD VALIDATION (Immediate)
+            for card in &state.active_situations {
+                get_behavior(card.id).validate_action(&state, player_id, &action)?;
+            }
+
             state.chat_log.push(ChatMessage {
                 sender: player_id.to_string(),
                 text: message.clone(),
                 timestamp: 0,
             });
+            state.sequence_id += 1;
+            return Ok(state);
         }
         Action::VoteReady { ready } => {
-            is_immediate = true;
-            let p = state.players.get_mut(player_id).unwrap();
+            for card in &state.active_situations {
+                get_behavior(card.id).validate_action(&state, player_id, &action)?;
+            }
+            let p = state
+                .players
+                .get_mut(player_id)
+                .ok_or(GameError::PlayerNotFound)?;
             p.is_ready = *ready;
-
-            // Check Consensus
-            let all_ready = state.players.values().all(|p| p.is_ready);
-            if all_ready {
+            if state.players.values().all(|p| p.is_ready) {
                 state = advance_phase(state)?;
             }
+            state.sequence_id += 1;
+            return Ok(state);
         }
         Action::Pass => {
-            is_immediate = true;
-            let p = state.players.get_mut(player_id).unwrap();
+            for card in &state.active_situations {
+                get_behavior(card.id).validate_action(&state, player_id, &action)?;
+            }
+            let p = state
+                .players
+                .get_mut(player_id)
+                .ok_or(GameError::PlayerNotFound)?;
             p.ap = 0;
             p.is_ready = true;
-
-            // Check Consensus (Same as VoteReady)
-            let all_ready = state.players.values().all(|p| p.is_ready);
-            if all_ready {
+            if state.players.values().all(|p| p.is_ready) {
                 state = advance_phase(state)?;
             }
+            state.sequence_id += 1;
+            return Ok(state);
         }
         Action::Undo { action_id } => {
-            is_immediate = true;
-            // 1. Find index
             let idx = state.proposal_queue.iter().position(|p| p.id == *action_id);
-
             if let Some(i) = idx {
                 let proposal = &state.proposal_queue[i];
-
-                // 2. Verify Owner
                 if proposal.player_id != player_id {
                     return Err(GameError::InvalidAction(
                         "Cannot undo another player's action".to_string(),
                     ));
                 }
-
-                // 3. Remove
                 let removed = state.proposal_queue.remove(i);
-
-                // 4. Refund AP
                 let refund = action_cost(&state, player_id, &removed.action);
                 if let Some(p) = state.players.get_mut(player_id) {
                     p.ap += refund;
@@ -165,14 +150,34 @@ pub fn apply_action(
                     "Action not found to undo".to_string(),
                 ));
             }
+            state.sequence_id += 1;
+            return Ok(state);
         }
+        _ => {} // Fallthrough
+    }
+
+    // 1. CARD VALIDATION (Projected)
+    for card in &projected_state.active_situations {
+        get_behavior(card.id).validate_action(&projected_state, player_id, &action)?;
+    }
+
+    // 2. Validate AP (Projected)
+    // `projected_state` has remaining AP because it was cloned from `state` (where AP was deducted).
+    let p_proj = projected_state
+        .players
+        .get(player_id)
+        .ok_or(GameError::PlayerNotFound)?;
+    let current_ap = p_proj.ap;
+    let base_cost = action_cost(&projected_state, player_id, &action);
+
+    if current_ap < base_cost {
+        return Err(GameError::NotEnoughAP);
+    }
+
+    // 3. Queue Logic (using Projected Context)
+    match &action {
         Action::Move { to_room } => {
-            // Pathfinding Logic
-            let pid_string = player_id.to_string();
-            let start_room = get_player_projected_room(&state, &pid_string);
-
-            // C03 Check moved to registry validation.
-
+            let start_room = p_proj.room_id;
             if let Some(path) = find_path(&state.map, start_room, *to_room) {
                 let step_cost = base_cost;
                 let total_cost = step_cost * (path.len() as i32);
@@ -181,7 +186,6 @@ pub fn apply_action(
                     return Err(GameError::NotEnoughAP);
                 }
 
-                // Queue all steps
                 for step_room in path {
                     state.proposal_queue.push(ProposedAction {
                         id: Uuid::new_v4().to_string(),
@@ -189,80 +193,50 @@ pub fn apply_action(
                         action: Action::Move { to_room: step_room },
                     });
                 }
-
-                // Deduct AP
                 let p = state.players.get_mut(player_id).unwrap();
                 p.ap -= total_cost;
-                ap_deducted = true;
             } else {
                 return Err(GameError::InvalidMove);
             }
         }
-        // Queued Actions (Other than Move)
         Action::Extinguish => {
-            // Simulate queue to check if fire will still exist
-            let mut room_fire_counts: std::collections::HashMap<u32, usize> = state
-                .map
-                .rooms
-                .iter()
-                .map(|(id, r)| {
-                    (
-                        *id,
-                        r.hazards.iter().filter(|&&h| h == HazardType::Fire).count(),
-                    )
-                })
-                .collect();
-
-            let mut player_positions: std::collections::HashMap<String, u32> = state
-                .players
-                .iter()
-                .map(|(id, p)| (id.clone(), p.room_id))
-                .collect();
-
-            for prop in &state.proposal_queue {
-                if let Action::Move { to_room } = &prop.action {
-                    if let Some(pos) = player_positions.get_mut(&prop.player_id) {
-                        *pos = *to_room;
-                    }
-                }
-                if let Action::Extinguish = &prop.action {
-                    if let Some(pos) = player_positions.get(&prop.player_id) {
-                        if let Some(count) = room_fire_counts.get_mut(pos) {
-                            if *count > 0 {
-                                *count -= 1;
-                            }
-                        }
-                    }
+            if let Some(room) = projected_state.map.rooms.get(&p_proj.room_id) {
+                if !room.hazards.contains(&HazardType::Fire) {
+                    return Err(GameError::InvalidAction(
+                        "No fire to extinguish (or already targeted)".to_string(),
+                    ));
                 }
             }
-
-            let my_pos = player_positions
-                .get(player_id)
-                .ok_or(GameError::PlayerNotFound)?;
-            let fires_left = room_fire_counts.get(my_pos).unwrap_or(&0);
-
-            if *fires_left == 0 {
-                return Err(GameError::InvalidAction(
-                    "No fire to extinguish (or already targeted)".to_string(),
-                ));
-            }
-
             state.proposal_queue.push(ProposedAction {
                 id: Uuid::new_v4().to_string(),
                 player_id: player_id.to_string(),
                 action: action.clone(),
             });
+            let p = state.players.get_mut(player_id).unwrap();
+            p.ap -= base_cost;
         }
-        // Queued Actions (System)
+        Action::Repair => {
+            if let Some(room) = projected_state.map.rooms.get(&p_proj.room_id) {
+                if !room.hazards.contains(&HazardType::Water) {
+                    return Err(GameError::InvalidAction(
+                        "No water to repair (or already targeted)".to_string(),
+                    ));
+                }
+            }
+            state.proposal_queue.push(ProposedAction {
+                id: Uuid::new_v4().to_string(),
+                player_id: player_id.to_string(),
+                action: action.clone(),
+            });
+            let p = state.players.get_mut(player_id).unwrap();
+            p.ap -= base_cost;
+        }
         Action::Bake | Action::Shoot | Action::RaiseShields | Action::EvasiveManeuvers => {
-            let pid_string = player_id.to_string();
-            let room_id = get_player_projected_room(&state, &pid_string);
-            let room = state
+            let room = projected_state
                 .map
                 .rooms
-                .get(&room_id)
+                .get(&p_proj.room_id)
                 .ok_or(GameError::RoomNotFound)?;
-
             let expected_sys = match action {
                 Action::Bake => SystemType::Kitchen,
                 Action::Shoot => SystemType::Cannons,
@@ -270,107 +244,125 @@ pub fn apply_action(
                 Action::EvasiveManeuvers => SystemType::Bridge,
                 _ => unreachable!(),
             };
-
             if room.system != Some(expected_sys) {
                 return Err(GameError::InvalidAction(format!(
                     "Action {:?} requires being in {:?}, but you will be in {} ({})",
                     action, expected_sys, room.name, room.id
                 )));
             }
-
-            // Check Hazards (Room Functionality)
             if !room.hazards.is_empty() {
                 return Err(GameError::RoomBlocked);
             }
-
             state.proposal_queue.push(ProposedAction {
                 id: Uuid::new_v4().to_string(),
                 player_id: player_id.to_string(),
                 action: action.clone(),
             });
-        }
-        Action::Repair => {
-            let pid_string = player_id.to_string();
-            let room_id = get_player_projected_room(&state, &pid_string);
-            let room = state
-                .map
-                .rooms
-                .get(&room_id)
-                .ok_or(GameError::RoomNotFound)?;
-
-            if !room.hazards.contains(&HazardType::Water) {
-                return Err(GameError::InvalidAction("No water to repair".to_string()));
-            }
-
-            state.proposal_queue.push(ProposedAction {
-                id: Uuid::new_v4().to_string(),
-                player_id: player_id.to_string(),
-                action: action.clone(),
-            });
+            let p = state.players.get_mut(player_id).unwrap();
+            p.ap -= base_cost;
         }
         Action::PickUp { item_type } => {
-            let pid_string = player_id.to_string();
-            let room_id = get_player_projected_room(&state, &pid_string);
-            let room = state
+            let room = projected_state
                 .map
                 .rooms
-                .get(&room_id)
+                .get(&p_proj.room_id)
                 .ok_or(GameError::RoomNotFound)?;
-
             if !room.items.contains(item_type) {
-                // Note: This check is imperfect as it ignores queue consumption,
-                // but prevents picking up from empty rooms.
                 return Err(GameError::InvalidAction(format!(
-                    "Item {:?} not in room",
+                    "Item {:?} not in room (or already picked up)",
                     item_type
                 )));
             }
+            state.proposal_queue.push(ProposedAction {
+                id: Uuid::new_v4().to_string(),
+                player_id: player_id.to_string(),
+                action: action.clone(),
+            });
+            let p = state.players.get_mut(player_id).unwrap();
+            p.ap -= base_cost;
+        }
+        Action::Throw {
+            target_player,
+            item_index,
+        } => {
+            if *item_index >= p_proj.inventory.len() {
+                return Err(GameError::InvalidItem);
+            }
+            let target = projected_state
+                .players
+                .get(target_player)
+                .ok_or(GameError::PlayerNotFound)?;
+            let my_room = p_proj.room_id;
+            let target_room = target.room_id;
+
+            let is_adjacent = if my_room == target_room {
+                true
+            } else if let Some(r) = projected_state.map.rooms.get(&my_room) {
+                r.neighbors.contains(&target_room)
+            } else {
+                false
+            };
+
+            if !is_adjacent {
+                return Err(GameError::InvalidAction("Target not in range".to_string()));
+            }
 
             state.proposal_queue.push(ProposedAction {
                 id: Uuid::new_v4().to_string(),
                 player_id: player_id.to_string(),
                 action: action.clone(),
             });
+            let p = state.players.get_mut(player_id).unwrap();
+            p.ap -= base_cost;
         }
-        // Queued Actions (Everything else)
+        Action::Drop { item_index } => {
+            if *item_index >= p_proj.inventory.len() {
+                return Err(GameError::InvalidItem);
+            }
+            state.proposal_queue.push(ProposedAction {
+                id: Uuid::new_v4().to_string(),
+                player_id: player_id.to_string(),
+                action: action.clone(),
+            });
+            let p = state.players.get_mut(player_id).unwrap();
+            p.ap -= base_cost;
+        }
+        Action::Revive { target_player } => {
+            let target = projected_state
+                .players
+                .get(target_player)
+                .ok_or(GameError::PlayerNotFound)?;
+            if target.room_id != p_proj.room_id {
+                return Err(GameError::InvalidAction(
+                    "Target not in same room".to_string(),
+                ));
+            }
+            if !target.status.contains(&PlayerStatus::Fainted) {
+                return Err(GameError::InvalidAction(
+                    "Target is not Fainted".to_string(),
+                ));
+            }
+            state.proposal_queue.push(ProposedAction {
+                id: Uuid::new_v4().to_string(),
+                player_id: player_id.to_string(),
+                action: action.clone(),
+            });
+            let p = state.players.get_mut(player_id).unwrap();
+            p.ap -= base_cost;
+        }
+
         _ => {
-            // DEFERRED VALIDATION:
-            // We do NOT check neighbors, systems, or inventory here.
-            // This allows queuing "Move to Hallway" -> "Move to Kitchen" even if currently in Engine.
-            // Validation happens in `resolution::resolve_proposal_queue`.
-
-            // Queue it
             state.proposal_queue.push(ProposedAction {
                 id: Uuid::new_v4().to_string(),
                 player_id: player_id.to_string(),
                 action: action.clone(),
             });
+            let p = state.players.get_mut(player_id).unwrap();
+            p.ap -= base_cost;
         }
     }
 
-    // 3. Deduct AP (Paid immediately)
-    if (!is_immediate && !ap_deducted) || matches!(action, Action::Pass) {
-        // Re-borrow because VoteReady/Pass modified player or state passed to advance_phase might have consumed it?
-        // Actually `advance_phase` takes ownership of `state`.
-        // If `VoteReady` triggered advance_phase, `state` is already new state.
-        // Wait, `VoteReady` logic above: `state = advance_phase(state)?;`
-        // So if we advanced phase, we are fine.
-
-        // Only deduct AP if we didn't just advance phase/Pass?
-        // Pass sets AP=0 manually.
-        // VoteReady costs 0.
-        // Chat costs 0.
-        // So we only deduct for Queued actions.
-
-        if !is_immediate {
-            let player = state.players.get_mut(player_id).unwrap();
-            player.ap -= base_cost;
-        }
-    }
-
-    // 4. Update Sequence
     state.sequence_id += 1;
-
     Ok(state)
 }
 
@@ -515,15 +507,26 @@ pub fn action_cost(state: &GameState, player_id: &str, action: &Action) -> i32 {
 }
 
 pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
+    // ROBUST IMPLEMENTATION: State Projection
+    // We must validate actions against the *projected* state (after the queue executes),
+    // not the current state. This allows chaining (e.g., Move -> Shoot).
+
+    let mut projected_state = state.clone();
+
+    // Replay the queue using the official resolution logic to determine
+    // the final position, inventory, and status of the player.
+    // This correctly updates room_id, inventory, etc. based on the queued actions.
+    resolution::resolve_proposal_queue(&mut projected_state);
+
     let mut actions = Vec::new();
 
     // Always allowed (technically)
     actions.push(Action::Chat {
         message: "".to_string(),
-    }); // Placeholder, client handles text input
+    });
 
     // Phase-specific checks
-    match state.phase {
+    match projected_state.phase {
         GamePhase::Lobby => {
             actions.push(Action::VoteReady { ready: true });
             actions.push(Action::VoteReady { ready: false });
@@ -546,32 +549,17 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
         _ => {}
     }
 
-    let p = match state.players.get(player_id) {
+    let p = match projected_state.players.get(player_id) {
         Some(player) => player,
         None => return actions,
     };
 
-    // Calculate projected state/position for validation?
-    // For now, valid actions are based on CURRENT state + AP check.
-    // Ideally we'd use the projected state from the proposal queue, but that's complex.
-    // Let's stick to current state for simplicity, or maybe subtract pending AP?
-    // The Client UI currently checks `p.ap`.
-
-    // Move
-    let current_room_id = p.room_id; // Or projected?
-                                     // Using current room for valid ACTIONS generation.
-                                     // The apply_action logic handles pathfinding/queueing.
-                                     // But we want to know "Can I click 'Move to Room 5'?"
-                                     // For `Move`, we can list all rooms (or just neighbors).
-                                     // Since we support pathfinding, we could list ALL rooms, but that's a lot.
-                                     // Let's list NEIGHBORS for direct moves, or maybe key rooms?
-                                     // Let's list Neighbors for now as "Atomic" actions.
-
-    if let Some(room) = state.map.rooms.get(&current_room_id) {
+    // Use projected position and AP
+    if let Some(room) = projected_state.map.rooms.get(&p.room_id) {
         // Move
         for &neighbor in &room.neighbors {
             let action = Action::Move { to_room: neighbor };
-            if p.ap >= action_cost(state, player_id, &action) {
+            if p.ap >= action_cost(&projected_state, player_id, &action) {
                 actions.push(action);
             }
         }
@@ -585,14 +573,13 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
                 let action = match sys {
                     SystemType::Kitchen => Some(Action::Bake),
                     SystemType::Cannons => Some(Action::Shoot),
-                    SystemType::Engine => Some(Action::RaiseShields), // Swapped
-                    SystemType::Bridge => Some(Action::EvasiveManeuvers), // Swapped
-                    // Sickbay, etc.
+                    SystemType::Engine => Some(Action::RaiseShields),
+                    SystemType::Bridge => Some(Action::EvasiveManeuvers),
                     _ => None,
                 };
 
                 if let Some(act) = action {
-                    if p.ap >= action_cost(state, player_id, &act) {
+                    if p.ap >= action_cost(&projected_state, player_id, &act) {
                         actions.push(act);
                     }
                 }
@@ -602,26 +589,25 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
         // Hazards
         if room.hazards.contains(&HazardType::Fire) {
             let action = Action::Extinguish;
-            if p.ap >= action_cost(state, player_id, &action) {
+            if p.ap >= action_cost(&projected_state, player_id, &action) {
                 actions.push(action);
             }
         }
         if room.hazards.contains(&HazardType::Water) {
             let action = Action::Repair;
-            if p.ap >= action_cost(state, player_id, &action) {
+            if p.ap >= action_cost(&projected_state, player_id, &action) {
                 actions.push(action);
             }
         }
 
         // Items
-        // Dedup items
         let mut seen_items = Vec::new();
         for item in &room.items {
             if !seen_items.contains(item) {
                 let action = Action::PickUp {
                     item_type: item.clone(),
                 };
-                if p.ap >= action_cost(state, player_id, &action) {
+                if p.ap >= action_cost(&projected_state, player_id, &action) {
                     actions.push(action);
                 }
                 seen_items.push(item.clone());
@@ -629,10 +615,7 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
         }
     }
 
-    // Inventory Actions (Drop/Throw) - Simplified for now
-
-    // Undo
-    // Check if player has pending actions
+    // Undo (Always valid if actions exist in original state queue)
     for prop in &state.proposal_queue {
         if prop.player_id == player_id {
             actions.push(Action::Undo {

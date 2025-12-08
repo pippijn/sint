@@ -4,7 +4,7 @@ use crate::GameError;
 
 pub struct C46Amerigo;
 
-use crate::types::{Card, CardId, CardType, CardSolution, ItemType};
+use crate::types::{Card, CardId, CardSolution, CardType, ItemType};
 
 impl CardBehavior for C46Amerigo {
     fn get_struct(&self) -> Card {
@@ -14,7 +14,12 @@ impl CardBehavior for C46Amerigo {
             description: "Ship Split. Can't cross Hallway (7).".to_string(),
             card_type: CardType::Situation,
             options: vec![],
-            solution: Some(CardSolution { room_id: Some(7), ap_cost: 1, item_cost: Some(ItemType::Peppernut), required_players: 1 }),
+            solution: Some(CardSolution {
+                room_id: Some(7),
+                ap_cost: 1,
+                item_cost: Some(ItemType::Peppernut),
+                required_players: 1,
+            }),
         }
     }
 

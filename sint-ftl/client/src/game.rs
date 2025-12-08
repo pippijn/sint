@@ -779,7 +779,7 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                             if let Some(sol) = &card.solution {
                                 let room_match = sol
                                     .room_id
-                                    .map_or(true, |rid| rid == player.room_id);
+                                    .is_none_or(|rid| rid == player.room_id);
                                 if room_match {
                                     let c_interact = ctx_action.clone();
                                     let title = card.title.clone();

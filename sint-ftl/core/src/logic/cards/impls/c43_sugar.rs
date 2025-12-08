@@ -4,7 +4,7 @@ use crate::GameError;
 
 pub struct C43SugarRush;
 
-use crate::types::{Card, CardId, CardType, CardSolution};
+use crate::types::{Card, CardId, CardSolution, CardType};
 
 impl CardBehavior for C43SugarRush {
     fn get_struct(&self) -> Card {
@@ -14,7 +14,12 @@ impl CardBehavior for C43SugarRush {
             description: "Move 1 room extra for free. Cannons prohibited.".to_string(),
             card_type: CardType::Situation,
             options: vec![],
-            solution: Some(CardSolution { room_id: Some(6), ap_cost: 1, item_cost: None, required_players: 1 }),
+            solution: Some(CardSolution {
+                room_id: Some(6),
+                ap_cost: 1,
+                item_cost: None,
+                required_players: 1,
+            }),
         }
     }
 

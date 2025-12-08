@@ -101,7 +101,7 @@ impl GameLogic {
         let mut rng = StdRng::seed_from_u64(seed);
         let next_seed = rng.gen();
 
-        let state = GameState {
+        GameState {
             sequence_id: 0,
             rng_seed: next_seed,
             phase: GamePhase::Lobby,
@@ -123,9 +123,7 @@ impl GameLogic {
             latest_event: None,
             deck: cards::initialize_deck(&mut rng),
             discard: vec![],
-        };
-
-        state
+        }
     }
 
     pub fn apply_action(

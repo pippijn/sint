@@ -29,7 +29,7 @@ impl CardBehavior for C24LuckyDip {
         }
 
         // Extract special items
-        let special_types = vec![
+        let special_types = [
             ItemType::Extinguisher,
             ItemType::Keychain,
             ItemType::Wheelbarrow,

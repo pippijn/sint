@@ -11,7 +11,12 @@ impl CardBehavior for C45ShoeSetting {
             description: "Boom: All players lose their next turn.".to_string(),
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
-            solution: Some(CardSolution { room_id: Some(5), ap_cost: 1, item_cost: Some(ItemType::Peppernut), required_players: 1 }),
+            solution: Some(CardSolution {
+                room_id: Some(5),
+                ap_cost: 1,
+                item_cost: Some(ItemType::Peppernut),
+                required_players: 1,
+            }),
         }
     }
 

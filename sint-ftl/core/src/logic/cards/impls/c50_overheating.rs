@@ -3,7 +3,7 @@ use crate::types::GameState;
 
 pub struct C50Overheating;
 
-use crate::types::{Card, CardId, CardType, CardSolution};
+use crate::types::{Card, CardId, CardSolution, CardType};
 
 impl CardBehavior for C50Overheating {
     fn get_struct(&self) -> Card {
@@ -13,7 +13,12 @@ impl CardBehavior for C50Overheating {
             description: "End turn in Engine (5) -> Lose 1 AP next round.".to_string(),
             card_type: CardType::Situation,
             options: vec![],
-            solution: Some(CardSolution { room_id: Some(5), ap_cost: 1, item_cost: None, required_players: 1 }),
+            solution: Some(CardSolution {
+                room_id: Some(5),
+                ap_cost: 1,
+                item_cost: None,
+                required_players: 1,
+            }),
         }
     }
 

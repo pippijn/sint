@@ -1,5 +1,5 @@
-use crate::types::*;
 use super::get_behavior;
+use crate::types::*;
 use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
 
