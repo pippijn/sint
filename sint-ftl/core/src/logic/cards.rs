@@ -64,7 +64,7 @@ pub fn initialize_deck(rng: &mut StdRng) -> Vec<Card> {
         Card {
             id: "C05".to_string(),
             title: "Peppernut Rain".to_string(),
-            description: "+2 Peppernuts for everyone.".to_string(),
+            description: "+2 Peppernuts dropped in every occupied room.".to_string(),
             card_type: CardType::Flash,
             options: vec![],
             solution: None,
@@ -84,10 +84,20 @@ pub fn draw_card(state: &mut GameState) {
             CardType::Flash => {
                 // C05: Peppernut Rain logic
                 if card.id == "C05" {
-                    for p in state.players.values_mut() {
-                        p.inventory.push(ItemType::Peppernut);
-                        p.inventory.push(ItemType::Peppernut);
-                        // TODO: Handle overflow
+                    // Identify occupied rooms
+                    let occupied_rooms: Vec<u32> = state
+                        .players
+                        .values()
+                        .map(|p| p.room_id)
+                        .collect::<std::collections::HashSet<_>>() // Dedup
+                        .into_iter()
+                        .collect();
+
+                    for rid in occupied_rooms {
+                        if let Some(room) = state.map.rooms.get_mut(&rid) {
+                            room.items.push(ItemType::Peppernut);
+                            room.items.push(ItemType::Peppernut);
+                        }
                     }
                 }
                 state.discard.push(card);

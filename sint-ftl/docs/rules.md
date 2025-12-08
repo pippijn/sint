@@ -76,13 +76,16 @@ The game does not have fixed turns. It plays in a series of **Rounds**, each con
 *   Players now know exactly what threat to counter.
 
 ### **PHASE 3: TACTICAL PLANNING (The Core Loop)**
-*   **Free-Form Discussion:** Players discuss via Chat.
-*   **Proposal:** Players queue up actions ("I will move to Bridge," "I will Bake").
-    *   *Ghost Mode:* Players see the projected outcome of proposed actions.
-*   **Commit:** Players vote to **"Execute Batch"**.
+*   **Iterative Planning:** This is a safe planning phase. You can Queue actions, see the result, discuss, and modify.
+    *   **Propose:** Use actions (Move, Bake, etc) to add them to your `Proposal Queue`.
+    *   **Simulate:** The system shows "Ghost" outcomes.
+    *   **Correct:** If a plan is wrong, use `Undo` to remove actions and regain AP.
+    *   **Coordinate:** Talk to other players. "I'll go left, you go right."
+*   **Commit:** ONLY when you are happy with the plan, vote to **"Execute Batch"** (`VoteReady`).
 *   **Resolution:** Actions occur in sequence.
-    *   *Note:* Players do not need to spend all AP at once. They can execute a few moves, see the result, and plan again.
-*   **End of Phase:** Triggered when all players have **0 AP** or have voted to **Pass**.
+*   **End of Phase:** Triggered when all players have voted `Ready`.
+    *   **VoteReady:** Execute queued actions. If ANY player has AP left, the game returns to `Tactical Planning` for another batch.
+    *   **Pass:** Sets your AP to 0 and votes Ready. Use this only if you are completely done for the round.
 
 ### **PHASE 4: ENEMY ACTION & HAZARDS**
 1.  **Enemy Attack Resolves:**

@@ -9,3 +9,4 @@ INSTRUCTIONS:
 3. Output a brief internal thought process (reasoning) first.
 4. Then CALL A TOOL to execute your move. If you need to wait, output your reasoning and DO NOT call a tool.
 5. To speak to other players, you MUST use the 'action_chat' tool.
+6. TACTICAL PLANNING: You can queue actions, discuss them, and UNDO them. If a plan is bad (e.g., teammate disagrees), use `action_undo` to reclaim AP and try a different plan.

@@ -28,7 +28,6 @@ class GameAgent:
         system_instr = self._load_system_prompt()
         self.model = genai.GenerativeModel( # type: ignore
             model_name='gemini-2.5-flash-lite',
-            tools=[self.tools],
             system_instruction=system_instr,
         )
         self.websocket: Optional[Any] = None
@@ -117,7 +116,7 @@ class GameAgent:
                 if pid == self.player_id and action_type not in ["Pass", "VoteReady", "Chat"]:
                      self.schedule_think(delay=0.1)
                 else:
-                     self.schedule_think(delay=5.0)
+                     self.schedule_think(delay=0.5)
                 
             except Exception as e:
                 print(f"Error applying action: {e}")
@@ -171,17 +170,33 @@ class GameAgent:
         chat_text = "\n".join([f"CHAT: {msg['sender']}: {msg['text']}" for msg in recent_chat])
         
         status_desc = f"YOU ARE: {me['name']} (ID: {self.player_id})\nSTATUS: HP {me['hp']}/3, AP {me['ap']}/2. Inventory: {me['inventory']}"
-        room_desc = f"Room {room_id} ({room.get('name')}). Neighbors: {room.get('neighbors')}. Hazards: {room.get('hazards')}. People: {[p['name'] for p in state['players'].values() if p['room_id'] == room_id]}"
+        room_desc = f"Room {room_id} ({room.get('name')}). Items={room.get('items', [])}, Hazards={room.get('hazards', [])}, ConnectsTo={room.get('neighbors')}. People: {[p['name'] for p in state['players'].values() if p['room_id'] == room_id]}"
         
+        queue_desc = "PLANNED ACTIONS:\n"
+        queue = state.get('proposal_queue', [])
+        if queue:
+            for p in queue:
+                queue_desc += f"- {p.get('player_id')}: {p.get('action')} [ID: {p.get('id')}]\n"
+        else:
+            queue_desc += "(None)\n"
+        queue_desc += "(Use action_undo(action_id='ID') to cancel your own actions)\n"
+
+        ap = me['ap']
+        ap_warning = ""
+        if ap <= 0:
+            ap_warning = "WARNING: YOU HAVE 0 AP REMAINING. If you need to change your plan, you MUST use `action_undo` first. Undo refunds the AP cost of the action, giving you AP back to use again."
+        else:
+            ap_warning = f"You have {ap} AP remaining. VoteReady executes queued actions and keeps remaining AP. Pass DESTROYS remaining AP."
+
         phase = state.get('phase', 'Unknown')
         
         phase_hint = ""
         if phase == "Lobby":
             phase_hint = "HINT: In Lobby, you can ONLY Chat (0 AP), SetName (0 AP), or VoteReady (0 AP). You CANNOT Move or act yet. VoteReady starts the game."
         elif phase == "TacticalPlanning":
-            phase_hint = "HINT: Propose actions to solve problems. When your plan is set, VoteReady to execute."
+            phase_hint = "HINT: Propose actions. When your plan is set, VoteReady to execute. ONLY use Pass if you want to forfeit your remaining AP."
         elif phase in ["MorningReport", "EnemyTelegraph"]:
-            phase_hint = "HINT: You cannot act yet. Wait for the phase to change."
+            phase_hint = "HINT: Read the report. You CANNOT Move or Act in this phase. You MUST VoteReady (0 AP) to advance to 'TacticalPlanning' where you can then move/act."
 
         active_cards = state.get('active_situations', [])
         
@@ -193,20 +208,30 @@ class GameAgent:
         if active_cards:
             situation_desc += "ACTIVE CARDS:\n" + "\n".join([f"- {c['title']}: {c['description']}" for c in active_cards])
 
+        enemy = state.get('enemy', {})
+        next_attack = enemy.get('next_attack')
+        enemy_intent = ""
+        if next_attack:
+            enemy_intent = f"ENEMY INTENT: The enemy is targeting Room {next_attack.get('target_room')} with {next_attack.get('effect')}!"
+        else:
+            enemy_intent = "ENEMY INTENT: Unknown (Hidden or not yet revealed)."
+
         # Map Topology
         map_desc = "SHIP LAYOUT:\n"
         try:
             rooms = state['map']['rooms'].values()
             sorted_rooms = sorted(rooms, key=lambda x: x['id'])
             for r in sorted_rooms:
-                map_desc += f"- Room {r['id']} ({r['name']}) connects to {r['neighbors']}\n"
+                map_desc += f"- Room {r['id']} ({r['name']}): Items={r.get('items', [])}, Hazards={r.get('hazards', [])}, ConnectsTo={r['neighbors']}\n"
         except Exception as e:
             map_desc += f"Error reading map: {e}\n"
 
         prompt_parts = [
             f"PHASE: {phase}",
             phase_hint,
+            ap_warning,
             situation_desc,
+            enemy_intent,
             "",
             map_desc,
             "RECENT EVENTS:",
@@ -215,6 +240,7 @@ class GameAgent:
             "CHAT HISTORY:",
             chat_text,
             "",
+            queue_desc,
             "CURRENT SITUATION:",
             room_desc,
             status_desc,
@@ -228,8 +254,22 @@ class GameAgent:
         if self.debug:
             print(f"DEBUG: Prompt sent to AI:\n{prompt}")
         
+        # Filter Tools
+        all_funcs = self.tools.function_declarations
+        allowed_names = set()
+        
+        if phase == "Lobby":
+            allowed_names = {"action_chat", "action_setname", "action_voteready", "action_join", "action_fullsync"}
+        elif phase in ["MorningReport", "EnemyTelegraph"]:
+            allowed_names = {"action_chat", "action_voteready", "action_fullsync"}
+        else:
+            allowed_names = {fn.name for fn in all_funcs}
+            
+        filtered_funcs = [fn for fn in all_funcs if fn.name in allowed_names]
+        current_tool_config = genai.types.Tool(function_declarations=filtered_funcs)
+
         try:
-            response = await self.model.generate_content_async(contents=[prompt])
+            response = await self.model.generate_content_async(contents=[prompt], tools=[current_tool_config])
             
             for part in response.parts:
                 if fn := part.function_call:
@@ -277,6 +317,10 @@ class GameAgent:
             clean_args = dict(args)
             if "to_room" in clean_args:
                 try: clean_args["to_room"] = int(clean_args["to_room"])
+                except: pass
+
+            if "item_index" in clean_args:
+                try: clean_args["item_index"] = int(clean_args["item_index"])
                 except: pass
             
             # If no args, pass None (for Unit Variants in Rust)

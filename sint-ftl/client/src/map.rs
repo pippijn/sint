@@ -301,10 +301,11 @@ fn RoomCard(
                                 let color = if is_me { "#81c784" } else { "#ddd" };
                                 let fainted = p.status.contains(&sint_core::PlayerStatus::Fainted);
                                 let icon = if fainted { "💀" } else { "👤" };
+                                let ready_mark = if p.is_ready { " ✅" } else { "" };
 
                                 view! {
                                     <div style=format!("color: {}; font-size: 0.85em;", color)>
-                                        {icon} " " {p.name}
+                                        {icon} " " {p.name} {ready_mark}
                                     </div>
                                 }
                             }).collect::<Vec<_>>()}
