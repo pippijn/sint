@@ -510,21 +510,29 @@ fn Actions(ctx: GameContext) -> impl IntoView {
 
                             // Item Pickup
                             if !room.items.is_empty() {
-                                 // Just pick up the first one for now (simplification)
-                                 let c_pick = ctx_action.clone();
-                                 let item = room.items[0].clone();
-                                 let disabled = player.ap < 1;
-                                 let opacity = if disabled { "0.5" } else { "1.0" };
-                                 let cursor = if disabled { "not-allowed" } else { "pointer" };
-                                 buttons.push(view! {
-                                     <button
-                                        style=format!("padding: 10px; background: #8bc34a; border: none; color: black; border-radius: 4px; cursor: {}; opacity: {};", cursor, opacity)
-                                        disabled=disabled
-                                        on:click=move |_| c_pick.perform_action.call(Action::PickUp { item_index: 0 })
-                                    >
-                                        "Pick Up " {format!("{:?}", item)}
-                                    </button>
-                                }.into_view());
+                                let mut unique_items = room.items.clone();
+                                unique_items.sort_by_key(|a| format!("{:?}", a));
+                                unique_items.dedup();
+
+                                for item in unique_items {
+                                    let c_pick = ctx_action.clone();
+                                    let i_clone = item.clone();
+                                    let count = room.items.iter().filter(|&x| *x == item).count();
+
+                                    let disabled = player.ap < 1;
+                                    let opacity = if disabled { "0.5" } else { "1.0" };
+                                    let cursor = if disabled { "not-allowed" } else { "pointer" };
+
+                                    buttons.push(view! {
+                                        <button
+                                            style=format!("padding: 10px; background: #8bc34a; border: none; color: black; border-radius: 4px; cursor: {}; opacity: {};", cursor, opacity)
+                                            disabled=disabled
+                                            on:click=move |_| c_pick.perform_action.call(Action::PickUp { item_type: i_clone.clone() })
+                                        >
+                                            "Pick Up " {format!("{:?}", item)} {if count > 1 { format!(" (x{})", count) } else { "".to_string() }}
+                                        </button>
+                                    }.into_view());
+                                }
                             }
                          }
 

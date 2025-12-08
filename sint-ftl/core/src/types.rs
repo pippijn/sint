@@ -198,7 +198,7 @@ pub enum Action {
         item_index: usize,
     },
     /// Pick up an item from the floor (Costs 1 AP)
-    PickUp { item_index: usize },
+    PickUp { item_type: ItemType },
     /// Drop an item to the floor (Free)
     Drop { item_index: usize },
     /// Revive a Fainted player in the same room (Costs 1 AP)

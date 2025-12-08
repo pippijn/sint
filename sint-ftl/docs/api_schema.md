@@ -77,7 +77,7 @@ The AI and Clients send these payloads.
 | **`Extinguish`** | `{}` | Remove 1 Fire token. Costs 1 AP. |
 | **`Repair`** | `{}` | Remove 1 Water token. Costs 1 AP. |
 | **`Throw`** | `{ "target_player": "ID", "item": "Peppernut" }` | Throw item to adjacent player. Costs 1 AP. |
-| **`PickUp`** | `{ "item_index": int }` | Pick up item from floor. Costs 1 AP. |
+| **`PickUp`** | `{ "item_type": ItemType }` | Pick up item from floor. Costs 1 AP. |
 | **`Drop`** | `{ "item_index": int }` | Drop item to floor. Free? (Or 1 AP). |
 | **`Revive`** | `{ "target_player": "ID" }` | Revive a Fainted player in the same room. Costs 1 AP. |
 | **`Chat`** | `{ "message": string }` | Send a message. Free. (Restricted during Silence). |

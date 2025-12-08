@@ -210,14 +210,19 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
                     }
                 }
             }
-            Action::PickUp { item_index } => {
+            Action::PickUp { item_type } => {
                 let room_id = state.players.get(player_id).unwrap().room_id;
                 if let Some(room) = state.map.rooms.get_mut(&room_id) {
-                    if item_index < room.items.len() {
-                        let item = room.items.remove(item_index);
+                    if let Some(pos) = room.items.iter().position(|x| *x == item_type) {
+                        let item = room.items.remove(pos);
                         if let Some(p) = state.players.get_mut(player_id) {
                             p.inventory.push(item);
                         }
+                    } else {
+                        println!(
+                            "Action Skipped: Player {} cannot pick up {:?} (Not in room)",
+                            player_id, item_type
+                        );
                     }
                 }
             }
