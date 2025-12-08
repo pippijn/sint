@@ -269,14 +269,24 @@ class GameAgent:
         
         # Filter Tools
         all_funcs = self.tools.function_declarations
-        allowed_names = set()
+        allowed_names = {"action_chat", "action_fullsync", "action_join", "action_setname"} # Base tools
+
+        # 1. Get Valid Actions from Core
+        # We pass the raw state dict directly
+        valid_actions_raw = sint_core.get_valid_actions(self.state_json, self.player_id)
         
-        if phase == "Lobby":
-            allowed_names = {"action_chat", "action_setname", "action_voteready", "action_join", "action_fullsync"}
-        elif phase in ["MorningReport", "EnemyTelegraph", "Execution", "EnemyAction"]:
-            allowed_names = {"action_chat", "action_voteready", "action_fullsync"}
-        else:
-            allowed_names = {fn.name for fn in all_funcs}
+        # 2. Map to Tool Names
+        for act in valid_actions_raw:
+            # act is likely a dict from pythonize
+            if isinstance(act, dict):
+                act_type = act.get("type")
+                if act_type:
+                    tool_name = f"action_{act_type.lower()}"
+                    allowed_names.add(tool_name)
+            # Fallback if it's an object with attributes (unlikely with pythonize but possible)
+            elif hasattr(act, "type"):
+                    tool_name = f"action_{act.type.lower()}"
+                    allowed_names.add(tool_name)
             
         filtered_funcs = [fn for fn in all_funcs if fn.name in allowed_names]
         current_tool_config = genai.types.Tool(function_declarations=filtered_funcs)

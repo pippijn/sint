@@ -421,3 +421,133 @@ fn action_cost(state: &GameState, action: &Action) -> i32 {
 
     base
 }
+
+pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
+    let mut actions = Vec::new();
+
+    // Always allowed (technically)
+    actions.push(Action::Chat {
+        message: "".to_string(),
+    }); // Placeholder, client handles text input
+
+    // Phase-specific checks
+    match state.phase {
+        GamePhase::Lobby => {
+            actions.push(Action::VoteReady { ready: true });
+            actions.push(Action::VoteReady { ready: false });
+            actions.push(Action::SetName {
+                name: "".to_string(),
+            });
+            return actions;
+        }
+        GamePhase::MorningReport
+        | GamePhase::EnemyTelegraph
+        | GamePhase::Execution
+        | GamePhase::EnemyAction => {
+            actions.push(Action::VoteReady { ready: true });
+            return actions;
+        }
+        GamePhase::TacticalPlanning => {
+            actions.push(Action::VoteReady { ready: true });
+            actions.push(Action::Pass);
+        }
+        _ => {}
+    }
+
+    let p = match state.players.get(player_id) {
+        Some(player) => player,
+        None => return actions,
+    };
+
+    // Calculate projected state/position for validation?
+    // For now, valid actions are based on CURRENT state + AP check.
+    // Ideally we'd use the projected state from the proposal queue, but that's complex.
+    // Let's stick to current state for simplicity, or maybe subtract pending AP?
+    // The Client UI currently checks `p.ap`.
+
+    // Move
+    let current_room_id = p.room_id; // Or projected?
+                                     // Using current room for valid ACTIONS generation.
+                                     // The apply_action logic handles pathfinding/queueing.
+                                     // But we want to know "Can I click 'Move to Room 5'?"
+                                     // For `Move`, we can list all rooms (or just neighbors).
+                                     // Since we support pathfinding, we could list ALL rooms, but that's a lot.
+                                     // Let's list NEIGHBORS for direct moves, or maybe key rooms?
+                                     // Let's list Neighbors for now as "Atomic" actions.
+
+    if let Some(room) = state.map.rooms.get(&current_room_id) {
+        // Move
+        for &neighbor in &room.neighbors {
+            let action = Action::Move { to_room: neighbor };
+            if p.ap >= action_cost(state, &action) {
+                actions.push(action);
+            }
+        }
+
+        // System Actions
+        let room_functional =
+            !room.hazards.contains(&HazardType::Fire) && !room.hazards.contains(&HazardType::Water);
+
+        if room_functional {
+            if let Some(sys) = room.system {
+                let action = match sys {
+                    SystemType::Kitchen => Some(Action::Bake),
+                    SystemType::Cannons => Some(Action::Shoot),
+                    SystemType::Engine => Some(Action::RaiseShields), // Swapped
+                    SystemType::Bridge => Some(Action::EvasiveManeuvers), // Swapped
+                    // Sickbay, etc.
+                    _ => None,
+                };
+
+                if let Some(act) = action {
+                    if p.ap >= action_cost(state, &act) {
+                        actions.push(act);
+                    }
+                }
+            }
+        }
+
+        // Hazards
+        if room.hazards.contains(&HazardType::Fire) {
+            let action = Action::Extinguish;
+            if p.ap >= action_cost(state, &action) {
+                actions.push(action);
+            }
+        }
+        if room.hazards.contains(&HazardType::Water) {
+            let action = Action::Repair;
+            if p.ap >= action_cost(state, &action) {
+                actions.push(action);
+            }
+        }
+
+        // Items
+        // Dedup items
+        let mut seen_items = Vec::new();
+        for item in &room.items {
+            if !seen_items.contains(item) {
+                let action = Action::PickUp {
+                    item_type: item.clone(),
+                };
+                if p.ap >= action_cost(state, &action) {
+                    actions.push(action);
+                }
+                seen_items.push(item.clone());
+            }
+        }
+    }
+
+    // Inventory Actions (Drop/Throw) - Simplified for now
+
+    // Undo
+    // Check if player has pending actions
+    for prop in &state.proposal_queue {
+        if prop.player_id == player_id {
+            actions.push(Action::Undo {
+                action_id: prop.id.clone(),
+            });
+        }
+    }
+
+    actions
+}
