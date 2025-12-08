@@ -211,8 +211,6 @@ pub enum Action {
     Join { name: String },
     /// Set the player name (Only in Lobby)
     SetName { name: String },
-    /// Start the game (Transition from Lobby to MorningReport)
-    StartGame,
     /// Receive a full state dump from a peer
     FullSync { state_json: String },
     /// Undo a queued proposed action

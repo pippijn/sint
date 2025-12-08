@@ -33,21 +33,6 @@ pub fn apply_action(
             Err(e) => return Err(GameError::InvalidAction(format!("Bad Sync: {}", e))),
         }
     }
-    
-    // Start Game Special Case
-    if let Action::StartGame = &action {
-        if state.phase != GamePhase::Lobby {
-            return Err(GameError::InvalidAction("Game already started".to_string()));
-        }
-        if state.players.is_empty() {
-            return Err(GameError::InvalidAction("No players".to_string()));
-        }
-        
-        state.phase = GamePhase::MorningReport;
-        cards::draw_card(&mut state);
-        state.sequence_id += 1;
-        return Ok(state);
-    }
 
     if let Action::SetName { name } = &action {
         if state.phase != GamePhase::Lobby {
@@ -191,6 +176,11 @@ pub fn apply_action(
 
 fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
     match state.phase {
+        GamePhase::Lobby => {
+            state.phase = GamePhase::MorningReport;
+            cards::draw_card(&mut state);
+            for p in state.players.values_mut() { p.is_ready = false; }
+        },
         GamePhase::MorningReport => {
             state.phase = GamePhase::EnemyTelegraph;
             
@@ -283,7 +273,6 @@ fn action_cost(state: &GameState, action: &Action) -> i32 {
         Action::Join { .. } => 0,
         Action::SetName { .. } => 0,
         Action::FullSync { .. } => 0,
-        Action::StartGame => 0,
     };
     
     if slippery && base > 0 && !matches!(action, Action::Move { .. }) {

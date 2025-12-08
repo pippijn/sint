@@ -286,7 +286,6 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
     let pid = ctx.player_id.clone();
     let ctx_join = ctx.clone();
     let ctx_ready = ctx.clone();
-    let c_start = ctx_ready.clone(); 
     let ctx_update = ctx.clone();
     
     let (name_input, set_name_input) = create_signal(pid.clone());
@@ -363,15 +362,19 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                             </div>
                             
                             {if is_lobby {
-                                let c_start_click = c_start.clone();
+                                let c_ready_click = c_ready.clone();
                                 view! {
                                      <button
                                         on:click=move |_| {
-                                            c_start_click.perform_action.call(Action::StartGame);
+                                            c_ready_click.perform_action.call(Action::VoteReady { ready: !is_ready });
                                         }
-                                        style="width: 100%; background: #e91e63; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; box-shadow: 0 0 10px rgba(233, 30, 99, 0.4); margin-top: 5px;"
+                                        style=move || if is_ready {
+                                            "width: 100%; background: #4caf50; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; margin-top: 5px;"
+                                        } else {
+                                            "width: 100%; background: #e91e63; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; box-shadow: 0 0 10px rgba(233, 30, 99, 0.4); margin-top: 5px;"
+                                        }
                                     >
-                                        "🚀 START GAME"
+                                        {if is_ready { "✅ WAITING FOR OTHERS..." } else { "🚀 VOTE START" }}
                                     </button>
                                 }.into_view()
                             } else {

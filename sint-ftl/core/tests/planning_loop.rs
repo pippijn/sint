@@ -5,7 +5,7 @@ fn test_planning_loop() {
     let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
     
     // 1. Start Game -> Morning
-    state = GameLogic::apply_action(state, "P1", Action::StartGame, None).unwrap();
+    state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
     assert_eq!(state.phase, GamePhase::MorningReport);
     
     // 2. Ready -> Telegraph
