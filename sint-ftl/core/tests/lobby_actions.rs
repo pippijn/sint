@@ -6,11 +6,13 @@ fn test_move_in_lobby() {
 
     assert_eq!(state.phase, GamePhase::Lobby);
     let player = state.players.get("Player1").unwrap();
-    assert_eq!(player.room_id, 3);
+    assert_eq!(player.room_id, sint_core::logic::ROOM_DORMITORY);
     assert_eq!(player.ap, 2);
 
     // Try to move to Hallway (7)
-    let action = Action::Move { to_room: 7 };
+    let action = Action::Move {
+        to_room: sint_core::logic::ROOM_HALLWAY,
+    };
 
     // This should now FAIL because we are in Lobby
     let res = GameLogic::apply_action(state.clone(), "Player1", action, None);

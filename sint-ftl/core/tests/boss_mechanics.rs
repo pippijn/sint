@@ -8,11 +8,10 @@ fn test_boss_progression() {
     // Check Initial Boss (Level 0)
     assert_eq!(state.boss_level, 0);
     assert_eq!(state.enemy.name, "The Petty Thief");
-    let hp_0 = state.enemy.hp;
 
     // Give P1 ammo and put in Cannons
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = 8;
+        p.room_id = sint_core::logic::ROOM_CANNONS;
         p.inventory = vec![ItemType::Peppernut; 100]; // Infinite ammo
         p.ap = 0;
         p.is_ready = true;
@@ -57,7 +56,7 @@ fn test_victory_condition() {
 
     // P1 Shoot setup
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = 8;
+        p.room_id = sint_core::logic::ROOM_CANNONS;
         p.inventory = vec![ItemType::Peppernut; 100];
     }
 

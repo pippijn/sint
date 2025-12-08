@@ -25,7 +25,7 @@ pub fn apply_action(
             Player {
                 id: player_id.to_string(),
                 name: name.clone(),
-                room_id: 3,
+                room_id: crate::logic::ROOM_DORMITORY,
                 hp: 3,
                 ap: 2,
                 inventory: vec![],
@@ -473,7 +473,7 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
 
             // Generate telegraph
             let mut rng = StdRng::seed_from_u64(state.rng_seed);
-            let target_room = rng.gen_range(2..=11);
+            let target_room = rng.gen_range(crate::logic::MIN_ROOM_ID..=crate::logic::MAX_ROOM_ID);
             state.rng_seed = rng.gen();
 
             state.enemy.next_attack = Some(EnemyAttack {
@@ -560,7 +560,7 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
                 if p.status.contains(&PlayerStatus::Fainted) {
                     p.status.retain(|s| *s != PlayerStatus::Fainted);
                     p.hp = 3;
-                    p.room_id = 3; // Dormitory
+                    p.room_id = crate::logic::ROOM_DORMITORY;
                 }
             }
 

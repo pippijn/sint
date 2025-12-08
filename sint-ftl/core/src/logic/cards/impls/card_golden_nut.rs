@@ -8,11 +8,15 @@ impl CardBehavior for GoldenNutCard {
         Card {
             id: CardId::GoldenNut,
             title: "Golden Nut".to_string(),
-            description: "Mission: Go to Storage (11). Reward: Auto Hit.".to_string(),
+            description: format!(
+                "Mission: Go to Storage ({}) . Reward: Auto Hit.",
+                crate::logic::ROOM_STORAGE
+            )
+            .to_string(),
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(11),
+                room_id: Some(crate::logic::ROOM_STORAGE),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 1,

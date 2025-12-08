@@ -15,7 +15,7 @@ impl CardBehavior for NoLightCard {
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(4),
+                room_id: Some(crate::logic::ROOM_CARGO),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 1,

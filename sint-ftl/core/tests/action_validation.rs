@@ -25,7 +25,7 @@ fn test_can_evade_from_bridge() {
 
     // Teleport P1 to Bridge (9)
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = 9;
+        p.room_id = sint_core::logic::ROOM_BRIDGE;
     }
 
     let res = GameLogic::apply_action(state, "P1", Action::EvasiveManeuvers, None);
@@ -54,9 +54,25 @@ fn test_move_then_evade_valid() {
     }
 
     // Queue Move to 7
-    let state = GameLogic::apply_action(state, "P1", Action::Move { to_room: 7 }, None).unwrap();
+    let state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Move {
+            to_room: sint_core::logic::ROOM_HALLWAY,
+        },
+        None,
+    )
+    .unwrap();
     // Queue Move to 9
-    let state = GameLogic::apply_action(state, "P1", Action::Move { to_room: 9 }, None).unwrap();
+    let state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Move {
+            to_room: sint_core::logic::ROOM_BRIDGE,
+        },
+        None,
+    )
+    .unwrap();
 
     // Now Queue Evasive Maneuvers
     // Projected room should be 9.

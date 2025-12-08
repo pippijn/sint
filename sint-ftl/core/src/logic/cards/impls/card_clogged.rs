@@ -11,11 +11,12 @@ impl CardBehavior for CloggedPipeCard {
         Card {
             id: CardId::CloggedPipe,
             title: "Clogged Pipe".to_string(),
-            description: "Kitchen (6) is disabled.".to_string(),
+            description: format!("Kitchen ({}) is disabled.", crate::logic::ROOM_KITCHEN)
+                .to_string(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(6),
+                room_id: Some(crate::logic::ROOM_KITCHEN),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 1,

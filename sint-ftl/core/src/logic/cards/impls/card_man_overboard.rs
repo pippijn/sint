@@ -17,7 +17,7 @@ impl CardBehavior for ManOverboardCard {
             card_type: CardType::Timebomb { rounds_left: 2 },
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(2),
+                room_id: Some(crate::logic::ROOM_BOW),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 1,

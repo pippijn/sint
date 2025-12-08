@@ -10,7 +10,11 @@ impl CardBehavior for ShortCircuitCard {
         Card {
             id: CardId::ShortCircuit,
             title: "Short Circuit".to_string(),
-            description: "Spawn 1 Fire in the Engine Room (5).".to_string(),
+            description: format!(
+                "Spawn 1 Fire in the Engine Room ({}).",
+                crate::logic::ROOM_ENGINE
+            )
+            .to_string(),
             card_type: CardType::Flash,
             options: vec![],
             solution: None,
@@ -19,7 +23,7 @@ impl CardBehavior for ShortCircuitCard {
 
     fn on_activate(&self, state: &mut GameState) {
         // Effect: Spawn 1 Fire in the Engine Room (5).
-        if let Some(room) = state.map.rooms.get_mut(&5) {
+        if let Some(room) = state.map.rooms.get_mut(&crate::logic::ROOM_ENGINE) {
             room.hazards.push(HazardType::Fire);
         }
     }

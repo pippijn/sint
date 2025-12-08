@@ -301,7 +301,7 @@ pub fn resolve_proposal_queue(state: &mut GameState, simulation: bool) {
                             // Check for Boss Death
                             if state.enemy.hp <= 0 {
                                 state.boss_level += 1;
-                                if state.boss_level >= 4 {
+                                if state.boss_level >= crate::logic::MAX_BOSS_LEVEL {
                                     state.phase = GamePhase::Victory;
                                 } else {
                                     // Spawn next boss

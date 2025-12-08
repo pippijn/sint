@@ -10,7 +10,11 @@ impl CardBehavior for FallingGiftCard {
         Card {
             id: CardId::FallingGift,
             title: "Falling Gift".to_string(),
-            description: "Leak in Cargo (4). +2 Peppernuts in Cargo.".to_string(),
+            description: format!(
+                "Leak in Cargo ({}). +2 Peppernuts in Cargo.",
+                crate::logic::ROOM_CARGO
+            )
+            .to_string(),
             card_type: CardType::Flash,
             options: vec![],
             solution: None,
@@ -19,12 +23,12 @@ impl CardBehavior for FallingGiftCard {
 
     fn on_activate(&self, state: &mut GameState) {
         // Effect: Leak in Cargo (4). 1 Water.
-        if let Some(room) = state.map.rooms.get_mut(&4) {
+        if let Some(room) = state.map.rooms.get_mut(&crate::logic::ROOM_CARGO) {
             room.hazards.push(HazardType::Water);
         }
 
         // Bonus: 2 Peppernuts in Room 4.
-        if let Some(room) = state.map.rooms.get_mut(&4) {
+        if let Some(room) = state.map.rooms.get_mut(&crate::logic::ROOM_CARGO) {
             room.items.push(ItemType::Peppernut);
             room.items.push(ItemType::Peppernut);
         }

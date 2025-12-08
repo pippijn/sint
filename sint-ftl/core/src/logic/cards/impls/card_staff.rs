@@ -8,12 +8,18 @@ impl CardBehavior for TheStaffCard {
         Card {
             id: CardId::TheStaff,
             title: "The Staff".to_string(),
-            description: "Mission: Dormitory (3) -> Bridge (9). Reward: Magical Recovery."
-                .to_string(),
+            description: format!(
+                "Mission: {} ({}) -> {} ({}) . Reward: Magical Recovery.",
+                "Dormitory",
+                crate::logic::ROOM_DORMITORY,
+                "Bridge",
+                crate::logic::ROOM_BRIDGE
+            )
+            .to_string(),
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(9),
+                room_id: Some(crate::logic::ROOM_BRIDGE),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 1,

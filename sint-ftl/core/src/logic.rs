@@ -33,37 +33,54 @@ pub enum GameError {
     InvalidAction(String),
 }
 
+pub const MIN_ROOM_ID: u32 = 2;
+pub const MAX_ROOM_ID: u32 = 11;
+
+pub const ROOM_BOW: u32 = 2;
+pub const ROOM_DORMITORY: u32 = 3;
+pub const ROOM_CARGO: u32 = 4;
+pub const ROOM_ENGINE: u32 = 5;
+pub const ROOM_KITCHEN: u32 = 6;
+pub const ROOM_HALLWAY: u32 = 7;
+pub const ROOM_CANNONS: u32 = 8;
+pub const ROOM_BRIDGE: u32 = 9;
+pub const ROOM_SICKBAY: u32 = 10;
+pub const ROOM_STORAGE: u32 = 11;
+
+const ROOM_DEFINITIONS: &[(u32, &str, Option<SystemType>)] = &[
+    (ROOM_BOW, "The Bow", Some(SystemType::Bow)),
+    (ROOM_DORMITORY, "Dormitory", Some(SystemType::Dormitory)),
+    (ROOM_CARGO, "Cargo", Some(SystemType::Cargo)),
+    (ROOM_ENGINE, "Engine", Some(SystemType::Engine)),
+    (ROOM_KITCHEN, "Kitchen", Some(SystemType::Kitchen)),
+    (ROOM_HALLWAY, "Central Hallway", Some(SystemType::Hallway)),
+    (ROOM_CANNONS, "Cannons", Some(SystemType::Cannons)),
+    (ROOM_BRIDGE, "Bridge", Some(SystemType::Bridge)),
+    (ROOM_SICKBAY, "Sickbay", Some(SystemType::Sickbay)),
+    (ROOM_STORAGE, "Storage", Some(SystemType::Storage)),
+];
+
 pub struct GameLogic;
 
 impl GameLogic {
     pub fn new_game(player_ids: Vec<String>, seed: u64) -> GameState {
         let mut rooms = HashMap::new();
 
-        // Define Rooms based on Rules
-        let room_defs = vec![
-            (2, "The Bow", Some(SystemType::Bow)),
-            (3, "Dormitory", Some(SystemType::Dormitory)),
-            (4, "Cargo", Some(SystemType::Cargo)),
-            (5, "Engine", Some(SystemType::Engine)),
-            (6, "Kitchen", Some(SystemType::Kitchen)),
-            (7, "Central Hallway", Some(SystemType::Hallway)),
-            (8, "Cannons", Some(SystemType::Cannons)),
-            (9, "Bridge", Some(SystemType::Bridge)),
-            (10, "Sickbay", Some(SystemType::Sickbay)),
-            (11, "Storage", Some(SystemType::Storage)),
-        ];
-
-        for (id, name, sys) in room_defs {
+        for &(id, name, sys) in ROOM_DEFINITIONS {
             let mut neighbors = vec![];
-            if id != 7 {
-                neighbors.push(7);
+            if id != ROOM_HALLWAY {
+                neighbors.push(ROOM_HALLWAY);
             } else {
                 // Hallway connects to everything else
-                neighbors = vec![2, 3, 4, 5, 6, 8, 9, 10, 11];
+                neighbors = ROOM_DEFINITIONS
+                    .iter()
+                    .map(|(r_id, _, _)| *r_id)
+                    .filter(|&r_id| r_id != ROOM_HALLWAY)
+                    .collect();
             }
 
             // Special items
-            let items = if id == 11 {
+            let items = if id == ROOM_STORAGE {
                 vec![ItemType::Peppernut; 5]
             } else {
                 vec![]
@@ -89,7 +106,7 @@ impl GameLogic {
                 Player {
                     id: pid.clone(),
                     name: format!("Player {}", i + 1),
-                    room_id: 3,
+                    room_id: ROOM_DORMITORY,
                     hp: 3,
                     ap: 2,
                     inventory: vec![],
@@ -134,37 +151,31 @@ impl GameLogic {
     }
 }
 
+const BOSS_DEFINITIONS: &[(&str, i32)] = &[
+    ("The Petty Thief", 5),
+    ("The Monster", 10),
+    ("The Armada", 15),
+    ("The Kraken", 20),
+];
+
+pub const MAX_BOSS_LEVEL: u32 = BOSS_DEFINITIONS.len() as u32;
+pub const MAX_PLAYER_HP: i32 = 3;
+pub const MAX_PLAYER_AP: i32 = 2;
+
 pub fn get_boss(level: u32) -> Enemy {
-    match level {
-        0 => Enemy {
-            name: "The Petty Thief".to_string(),
-            hp: 5,
-            max_hp: 5,
+    if let Some((name, hp)) = BOSS_DEFINITIONS.get(level as usize) {
+        Enemy {
+            name: name.to_string(),
+            hp: *hp,
+            max_hp: *hp,
             next_attack: None,
-        },
-        1 => Enemy {
-            name: "The Monster".to_string(),
-            hp: 10,
-            max_hp: 10,
-            next_attack: None,
-        },
-        2 => Enemy {
-            name: "The Armada".to_string(),
-            hp: 15,
-            max_hp: 15,
-            next_attack: None,
-        },
-        3 => Enemy {
-            name: "The Kraken".to_string(),
-            hp: 20,
-            max_hp: 20,
-            next_attack: None,
-        },
-        _ => Enemy {
+        }
+    } else {
+        Enemy {
             name: "Unknown Threat".to_string(),
             hp: 50,
             max_hp: 50,
             next_attack: None,
-        },
+        }
     }
 }

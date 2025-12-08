@@ -47,7 +47,8 @@ impl TantrumCard {
     fn scramble_attack(&self, state: &mut GameState) {
         if let Some(attack) = &mut state.enemy.next_attack {
             let mut rng = StdRng::seed_from_u64(state.rng_seed);
-            attack.target_room = rng.gen_range(2..=11);
+            attack.target_room =
+                rng.gen_range(crate::logic::MIN_ROOM_ID..=crate::logic::MAX_ROOM_ID);
             state.rng_seed = rng.gen();
         }
     }

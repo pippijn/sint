@@ -458,8 +458,14 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                                     ")"
                                 </div>
                                 <div style="display: flex; justify-content: space-between;">
-                                    <span>"❤ HP: " <strong>{p.hp}</strong> "/3"</span>
-                                    <span>"⚡ AP: " <strong>{p.ap}</strong> "/2"</span>
+                                    <span>
+                                        "❤ HP: " <strong>{p.hp}</strong> "/"
+                                        {sint_core::logic::MAX_PLAYER_HP}
+                                    </span>
+                                    <span>
+                                        "⚡ AP: " <strong>{p.ap}</strong> "/"
+                                        {sint_core::logic::MAX_PLAYER_AP}
+                                    </span>
                                 </div>
                             </div>
                             <div style="width: 100%; display: flex; gap: 5px; align-items: center; background: #222; padding: 5px; border-radius: 4px;">

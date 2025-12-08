@@ -12,7 +12,7 @@ impl CardBehavior for TurboModeCard {
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(5),
+                room_id: Some(crate::logic::ROOM_ENGINE),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 1,
@@ -37,11 +37,11 @@ impl CardBehavior for TurboModeCard {
 
         if triggered {
             // Explosion
-            if let Some(room) = state.map.rooms.get_mut(&5) {
+            if let Some(room) = state.map.rooms.get_mut(&crate::logic::ROOM_ENGINE) {
                 room.hazards.push(HazardType::Fire);
                 room.hazards.push(HazardType::Fire);
             }
-            if let Some(room) = state.map.rooms.get_mut(&7) {
+            if let Some(room) = state.map.rooms.get_mut(&crate::logic::ROOM_HALLWAY) {
                 room.hazards.push(HazardType::Fire);
             }
             state

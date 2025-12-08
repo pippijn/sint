@@ -11,11 +11,15 @@ impl CardBehavior for AmerigoCard {
         Card {
             id: CardId::Amerigo,
             title: "Amerigo".to_string(),
-            description: "Ship Split. Can't cross Hallway (7).".to_string(),
+            description: format!(
+                "Ship Split. Can't cross Hallway ({}).",
+                crate::logic::ROOM_HALLWAY
+            )
+            .to_string(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(7),
+                room_id: Some(crate::logic::ROOM_HALLWAY),
                 ap_cost: 1,
                 item_cost: Some(ItemType::Peppernut),
                 required_players: 1,
@@ -29,8 +33,8 @@ impl CardBehavior for AmerigoCard {
         player_id: &str,
         action: &Action,
     ) -> Result<(), GameError> {
-        // Effect: Ship Split. Can NOT go through the Hallway (7).
-        // Means you cannot Move TO 7 or Move FROM 7?
+        // Effect: Ship Split. Can NOT go through the Hallway (crate::logic::ROOM_HALLWAY).
+        // Means you cannot Move TO crate::logic::ROOM_HALLWAY or Move FROM crate::logic::ROOM_HALLWAY?
         // "Can NOT go through the Hallway".
         // Usually implies entering or exiting is blocked?
         // Or "from one side to the other".
@@ -67,7 +71,7 @@ impl CardBehavior for AmerigoCard {
         // Let's block all Moves FROM 7.
         if let Action::Move { .. } = action {
             if let Some(p) = state.players.get(player_id) {
-                if p.room_id == 7 {
+                if p.room_id == crate::logic::ROOM_HALLWAY {
                     return Err(GameError::InvalidAction(
                         "Amerigo blocks the way! You cannot leave the Hallway.".to_string(),
                     ));

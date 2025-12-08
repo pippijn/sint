@@ -12,7 +12,7 @@ impl CardBehavior for ShoeSettingCard {
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(5),
+                room_id: Some(crate::logic::ROOM_ENGINE),
                 ap_cost: 1,
                 item_cost: Some(ItemType::Peppernut),
                 required_players: 1,

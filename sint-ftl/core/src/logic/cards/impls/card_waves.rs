@@ -11,7 +11,11 @@ impl CardBehavior for HighWavesCard {
         Card {
             id: CardId::HighWaves,
             title: "High Waves".to_string(),
-            description: "All players are pushed 1 Room towards the Engine (5).".to_string(),
+            description: format!(
+                "All players are pushed 1 Room towards the Engine ({}).",
+                crate::logic::ROOM_ENGINE
+            )
+            .to_string(),
             card_type: CardType::Flash,
             options: vec![],
             solution: None,
@@ -20,7 +24,7 @@ impl CardBehavior for HighWavesCard {
 
     fn on_activate(&self, state: &mut GameState) {
         // Effect: All players are pushed 1 Room towards the Engine (5).
-        let engine_id = 5;
+        let engine_id = crate::logic::ROOM_ENGINE;
         let player_ids: Vec<String> = state.players.keys().cloned().collect();
 
         for pid in player_ids {

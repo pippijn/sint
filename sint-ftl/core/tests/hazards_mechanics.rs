@@ -6,12 +6,12 @@ fn test_fire_damage() {
 
     // Setup: P1 in Kitchen (6), Fire in Kitchen
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = 6;
+        p.room_id = sint_core::logic::ROOM_KITCHEN;
         p.ap = 0; // Force end of turn
         p.is_ready = true;
     }
 
-    if let Some(room) = state.map.rooms.get_mut(&6) {
+    if let Some(room) = state.map.rooms.get_mut(&sint_core::logic::ROOM_KITCHEN) {
         room.hazards.push(HazardType::Fire);
     }
 
@@ -47,10 +47,10 @@ fn test_extinguish_fire() {
 
     // Setup: P1 in Kitchen (6), Fire in Kitchen
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = 6;
+        p.room_id = sint_core::logic::ROOM_KITCHEN;
         p.ap = 2;
     }
-    if let Some(room) = state.map.rooms.get_mut(&6) {
+    if let Some(room) = state.map.rooms.get_mut(&sint_core::logic::ROOM_KITCHEN) {
         room.hazards.push(HazardType::Fire);
     }
 
@@ -68,7 +68,7 @@ fn test_extinguish_fire() {
     // Wait, advance_phase(TacticalPlanning) -> calls resolve_proposal_queue immediately!
     // So Extinguish should be done.
 
-    if let Some(room) = state.map.rooms.get(&6) {
+    if let Some(room) = state.map.rooms.get(&sint_core::logic::ROOM_KITCHEN) {
         assert!(room.hazards.is_empty(), "Fire should be extinguished");
     }
 }
@@ -80,9 +80,9 @@ fn test_repair_water() {
 
     // Setup: Water in Kitchen
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = 6;
+        p.room_id = sint_core::logic::ROOM_KITCHEN;
     }
-    if let Some(room) = state.map.rooms.get_mut(&6) {
+    if let Some(room) = state.map.rooms.get_mut(&sint_core::logic::ROOM_KITCHEN) {
         room.hazards.push(HazardType::Water);
     }
 
@@ -92,7 +92,7 @@ fn test_repair_water() {
     // Advance to resolve
     state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
 
-    if let Some(room) = state.map.rooms.get(&6) {
+    if let Some(room) = state.map.rooms.get(&sint_core::logic::ROOM_KITCHEN) {
         assert!(room.hazards.is_empty(), "Water should be repaired");
     }
 }

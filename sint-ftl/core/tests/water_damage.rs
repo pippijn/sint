@@ -6,7 +6,7 @@ fn test_water_destroys_items() {
     state.phase = GamePhase::Execution;
 
     // Setup: Kitchen (6) with Water and 2 Nuts.
-    if let Some(r) = state.map.rooms.get_mut(&6) {
+    if let Some(r) = state.map.rooms.get_mut(&sint_core::logic::ROOM_KITCHEN) {
         r.hazards.push(HazardType::Water);
         r.items.push(ItemType::Peppernut);
         r.items.push(ItemType::Peppernut);
@@ -20,7 +20,7 @@ fn test_water_destroys_items() {
     state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
 
     // Check Kitchen Items (Should be empty)
-    if let Some(r) = state.map.rooms.get(&6) {
+    if let Some(r) = state.map.rooms.get(&sint_core::logic::ROOM_KITCHEN) {
         assert!(r.items.is_empty(), "Water should destroy items in Kitchen");
     }
 }
@@ -32,13 +32,13 @@ fn test_storage_protects_items() {
 
     // Setup: Storage (11) with Water and 2 Nuts.
     // (Note: Storage has 5 nuts by default, plus we add 2 more)
-    if let Some(r) = state.map.rooms.get_mut(&11) {
+    if let Some(r) = state.map.rooms.get_mut(&sint_core::logic::ROOM_STORAGE) {
         r.hazards.push(HazardType::Water);
         r.items.push(ItemType::Peppernut);
         r.items.push(ItemType::Peppernut);
     }
 
-    let initial_count = state.map.rooms[&11].items.len();
+    let initial_count = state.map.rooms[&sint_core::logic::ROOM_STORAGE].items.len();
 
     // Trigger Resolution
     if let Some(p) = state.players.get_mut("P1") {
@@ -48,7 +48,7 @@ fn test_storage_protects_items() {
     state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
 
     // Check Storage Items (Should be unchanged)
-    if let Some(r) = state.map.rooms.get(&11) {
+    if let Some(r) = state.map.rooms.get(&sint_core::logic::ROOM_STORAGE) {
         assert_eq!(
             r.items.len(),
             initial_count,

@@ -18,7 +18,15 @@ fn test_planning_loop() {
     assert_eq!(state.players["P1"].ap, 2);
 
     // 4. Move (AP 2 -> 1)
-    state = GameLogic::apply_action(state, "P1", Action::Move { to_room: 7 }, None).unwrap();
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Move {
+            to_room: sint_core::logic::ROOM_HALLWAY,
+        },
+        None,
+    )
+    .unwrap();
     assert_eq!(state.players["P1"].ap, 1);
 
     // 5. Ready -> Execution
@@ -30,7 +38,15 @@ fn test_planning_loop() {
     assert_eq!(state.phase, GamePhase::TacticalPlanning);
 
     // 7. Move again (AP 1 -> 0)
-    state = GameLogic::apply_action(state, "P1", Action::Move { to_room: 6 }, None).unwrap();
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Move {
+            to_room: sint_core::logic::ROOM_KITCHEN,
+        },
+        None,
+    )
+    .unwrap();
     assert_eq!(state.players["P1"].ap, 0);
 
     // 8. Ready -> Execution

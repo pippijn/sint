@@ -16,12 +16,20 @@ fn test_card_slippery_deck() {
 
     // Setup P1
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = 6; // Kitchen
+        p.room_id = sint_core::logic::ROOM_KITCHEN; // Kitchen
         p.ap = 2;
     }
 
     // 1. Move should be FREE (0 AP)
-    state = GameLogic::apply_action(state, "P1", Action::Move { to_room: 7 }, None).unwrap();
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Move {
+            to_room: sint_core::logic::ROOM_HALLWAY,
+        },
+        None,
+    )
+    .unwrap();
     assert_eq!(
         state.players["P1"].ap, 2,
         "Move should cost 0 AP with Slippery Deck"
@@ -32,7 +40,15 @@ fn test_card_slippery_deck() {
     // P1 currently in 6 (Kitchen), Moving to 7 (Hallway).
     // Can't bake in Hallway.
     // Let's Move BACK to 6 (Free) then Bake.
-    state = GameLogic::apply_action(state, "P1", Action::Move { to_room: 6 }, None).unwrap();
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Move {
+            to_room: sint_core::logic::ROOM_KITCHEN,
+        },
+        None,
+    )
+    .unwrap();
     assert_eq!(state.players["P1"].ap, 2);
 
     state = GameLogic::apply_action(state, "P1", Action::Bake, None).unwrap();
@@ -96,14 +112,14 @@ fn test_card_sing_a_song() {
     state
         .map
         .rooms
-        .get_mut(&6)
+        .get_mut(&sint_core::logic::ROOM_KITCHEN)
         .unwrap()
         .hazards
         .push(HazardType::Fire);
     state
         .map
         .rooms
-        .get_mut(&4)
+        .get_mut(&sint_core::logic::ROOM_CARGO)
         .unwrap()
         .hazards
         .push(HazardType::Water);
@@ -122,11 +138,15 @@ fn test_card_sing_a_song() {
 
     // Verify hazards removed
     assert!(
-        state.map.rooms[&6].hazards.is_empty(),
+        state.map.rooms[&sint_core::logic::ROOM_KITCHEN]
+            .hazards
+            .is_empty(),
         "Fire should be removed"
     );
     assert!(
-        state.map.rooms[&4].hazards.is_empty(),
+        state.map.rooms[&sint_core::logic::ROOM_CARGO]
+            .hazards
+            .is_empty(),
         "Water should be removed"
     );
 }

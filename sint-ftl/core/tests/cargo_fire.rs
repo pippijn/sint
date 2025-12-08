@@ -6,10 +6,10 @@ fn test_kitchen_standard_threshold() {
     for i in 0..20 {
         let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345 + i);
         state.phase = GamePhase::Execution;
-        if let Some(r) = state.map.rooms.get_mut(&6) {
+        if let Some(r) = state.map.rooms.get_mut(&sint_core::logic::ROOM_KITCHEN) {
             r.hazards.push(HazardType::Fire);
         }
-        if let Some(r) = state.map.rooms.get_mut(&7) {
+        if let Some(r) = state.map.rooms.get_mut(&sint_core::logic::ROOM_HALLWAY) {
             r.hazards.clear();
         }
         if let Some(p) = state.players.get_mut("P1") {
@@ -19,7 +19,7 @@ fn test_kitchen_standard_threshold() {
         state =
             GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
 
-        if let Some(r) = state.map.rooms.get(&7) {
+        if let Some(r) = state.map.rooms.get(&sint_core::logic::ROOM_HALLWAY) {
             assert!(
                 r.hazards.is_empty(),
                 "Standard room with 1 Fire should NOT spread"
@@ -36,10 +36,10 @@ fn test_cargo_lower_threshold() {
     for i in 0..20 {
         let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345 + i);
         state.phase = GamePhase::Execution;
-        if let Some(r) = state.map.rooms.get_mut(&4) {
+        if let Some(r) = state.map.rooms.get_mut(&sint_core::logic::ROOM_CARGO) {
             r.hazards.push(HazardType::Fire);
         }
-        if let Some(r) = state.map.rooms.get_mut(&7) {
+        if let Some(r) = state.map.rooms.get_mut(&sint_core::logic::ROOM_HALLWAY) {
             r.hazards.clear();
         }
         if let Some(p) = state.players.get_mut("P1") {
@@ -49,7 +49,7 @@ fn test_cargo_lower_threshold() {
         state =
             GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
 
-        if let Some(r) = state.map.rooms.get(&7) {
+        if let Some(r) = state.map.rooms.get(&sint_core::logic::ROOM_HALLWAY) {
             if r.hazards.contains(&HazardType::Fire) {
                 spread_occured = true;
                 break;

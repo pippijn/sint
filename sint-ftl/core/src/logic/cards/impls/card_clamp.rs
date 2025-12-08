@@ -14,7 +14,7 @@ impl CardBehavior for WheelClampCard {
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(9),
+                room_id: Some(crate::logic::ROOM_BRIDGE),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 1,
@@ -25,14 +25,23 @@ impl CardBehavior for WheelClampCard {
     fn on_round_end(&self, state: &mut GameState) {
         // Effect: Ship turns. Players shift 1 Room to the right (Clockwise).
         // Map: 2 -> 3 -> 4 -> 5 -> 6 -> 8 -> 9 -> 10 -> 11 -> 2?
-        // Let's assume a cycle.
-        let cycle = [2, 3, 4, 5, 6, 8, 9, 10, 11];
+        let cycle = [
+            crate::logic::ROOM_BOW,
+            crate::logic::ROOM_DORMITORY,
+            crate::logic::ROOM_CARGO,
+            crate::logic::ROOM_ENGINE,
+            crate::logic::ROOM_KITCHEN,
+            crate::logic::ROOM_CANNONS,
+            crate::logic::ROOM_BRIDGE,
+            crate::logic::ROOM_SICKBAY,
+            crate::logic::ROOM_STORAGE,
+        ];
 
         for p in state.players.values_mut() {
             if let Some(pos) = cycle.iter().position(|&r| r == p.room_id) {
                 let next_idx = (pos + 1) % cycle.len();
                 p.room_id = cycle[next_idx];
-            } else if p.room_id == 7 {
+            } else if p.room_id == crate::logic::ROOM_HALLWAY {
                 // Hallway -> Random? Or stay?
                 // Text says "Every player shifts".
                 // Let's keep Hallway as Hallway.

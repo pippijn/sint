@@ -10,7 +10,12 @@ impl CardBehavior for FalseNoteCard {
         Card {
             id: CardId::FalseNote,
             title: "False Note".to_string(),
-            description: "Everyone in Cannons (8) flees to Hallway (7).".to_string(),
+            description: format!(
+                "Everyone in Cannons ({}) flees to Hallway ({}).",
+                crate::logic::ROOM_CANNONS,
+                crate::logic::ROOM_HALLWAY
+            )
+            .to_string(),
             card_type: CardType::Flash,
             options: vec![],
             solution: None,
@@ -20,8 +25,8 @@ impl CardBehavior for FalseNoteCard {
     fn on_activate(&self, state: &mut GameState) {
         // Effect: Everyone in Cannons (8) flees to Hallway (7).
         for p in state.players.values_mut() {
-            if p.room_id == 8 {
-                p.room_id = 7;
+            if p.room_id == crate::logic::ROOM_CANNONS {
+                p.room_id = crate::logic::ROOM_HALLWAY;
             }
         }
     }

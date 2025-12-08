@@ -9,11 +9,15 @@ impl CardBehavior for MonsterDoughCard {
         Card {
             id: CardId::MonsterDough,
             title: "Monster Dough".to_string(),
-            description: "Boom: Kitchen (6) is unusable.".to_string(),
+            description: format!(
+                "Boom: Kitchen ({}) is unusable.",
+                crate::logic::ROOM_KITCHEN
+            )
+            .to_string(),
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(6),
+                room_id: Some(crate::logic::ROOM_KITCHEN),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 1,
@@ -38,7 +42,7 @@ impl CardBehavior for MonsterDoughCard {
 
         if triggered {
             // Kitchen unusable?
-            // This requires a persistent "Ruined" state for room 6.
+            // This requires a persistent "Ruined" state for room crate::logic::ROOM_KITCHEN.
             // We'll remove the card but leave the effect? Or transform card into "Ruined Kitchen"?
             // Let's transform it to a Situation?
             // "Cleaning later costs 2 AP".

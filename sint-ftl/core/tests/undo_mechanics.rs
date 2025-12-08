@@ -9,12 +9,28 @@ fn test_undo_middle_of_chain() {
     // P1 has 2 AP.
 
     // 1. Queue Move 3 -> 7 (Cost 1)
-    state = GameLogic::apply_action(state, "P1", Action::Move { to_room: 7 }, None).unwrap();
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Move {
+            to_room: sint_core::logic::ROOM_HALLWAY,
+        },
+        None,
+    )
+    .unwrap();
     assert_eq!(state.players["P1"].ap, 1);
     let id_move_7 = state.proposal_queue[0].id.clone();
 
     // 2. Queue Move 7 -> 9 (Cost 1) (Room 9 is Bridge, neighbor of 7)
-    state = GameLogic::apply_action(state, "P1", Action::Move { to_room: 9 }, None).unwrap();
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Move {
+            to_room: sint_core::logic::ROOM_BRIDGE,
+        },
+        None,
+    )
+    .unwrap();
     assert_eq!(state.players["P1"].ap, 0);
     assert_eq!(state.proposal_queue.len(), 2);
 
@@ -50,7 +66,10 @@ fn test_undo_middle_of_chain() {
     // P1 should have AP refunded (1 + 1 = 2)
     assert_eq!(state.players["P1"].ap, 2);
     // Check Room
-    assert_eq!(state.players["P1"].room_id, 3);
+    assert_eq!(
+        state.players["P1"].room_id,
+        sint_core::logic::ROOM_DORMITORY
+    );
 
     // 5. Acknowledge Execution (Transition Execution -> TacticalPlanning)
     state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();

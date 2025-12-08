@@ -8,12 +8,18 @@ impl CardBehavior for TheBookCard {
         Card {
             id: CardId::TheBook,
             title: "The Book".to_string(),
-            description: "Mission: Storage (11) -> Bridge (9). Reward: Skip Enemy Attack."
-                .to_string(),
+            description: format!(
+                "Mission: {} ({}) -> {} ({}) . Reward: Skip Enemy Attack.",
+                "Storage",
+                crate::logic::ROOM_STORAGE,
+                "Bridge",
+                crate::logic::ROOM_BRIDGE
+            )
+            .to_string(),
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(9),
+                room_id: Some(crate::logic::ROOM_BRIDGE),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 1,

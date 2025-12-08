@@ -8,7 +8,7 @@ fn test_pickup_resolution() {
     state.phase = GamePhase::TacticalPlanning;
 
     // Setup Room 3 with specific items
-    if let Some(room) = state.map.rooms.get_mut(&3) {
+    if let Some(room) = state.map.rooms.get_mut(&sint_core::logic::ROOM_DORMITORY) {
         room.items = vec![
             ItemType::Peppernut,
             ItemType::Extinguisher,
@@ -39,7 +39,11 @@ fn test_pickup_resolution() {
     assert_eq!(state.phase, GamePhase::Execution);
 
     // NOW check results
-    let room = state.map.rooms.get(&3).unwrap();
+    let room = state
+        .map
+        .rooms
+        .get(&sint_core::logic::ROOM_DORMITORY)
+        .unwrap();
     assert_eq!(room.items.len(), 2);
     // Extinguisher was in the middle, so removal should leave two Peppernuts
     assert_eq!(room.items[0], ItemType::Peppernut);

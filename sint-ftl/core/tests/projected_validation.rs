@@ -14,31 +14,54 @@ fn test_projected_location_validation() {
 
     // 1. Initial State: Valid moves should be [7]
     let actions = get_valid_actions(&state, "P1");
-    let has_move_7 = actions
-        .iter()
-        .any(|a| matches!(a, Action::Move { to_room: 7 }));
+    let has_move_7 = actions.iter().any(|a| {
+        matches!(
+            a,
+            Action::Move {
+                to_room: sint_core::logic::ROOM_HALLWAY
+            }
+        )
+    });
     assert!(has_move_7, "Should be able to move to Room 7");
 
     // 2. Queue Move to 7
-    state = GameLogic::apply_action(state, "P1", Action::Move { to_room: 7 }, None).unwrap();
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Move {
+            to_room: sint_core::logic::ROOM_HALLWAY,
+        },
+        None,
+    )
+    .unwrap();
 
     // 3. Projected State: Should be in Room 7. Neighbors: [2,3,4,5,6,8,9,10,11]
     let actions = get_valid_actions(&state, "P1");
 
     // Should NOT be able to move to 7 (already there in projection)
     // Actually Move logic checks neighbors. 7 is not neighbor of 7.
-    let has_move_7 = actions
-        .iter()
-        .any(|a| matches!(a, Action::Move { to_room: 7 }));
+    let has_move_7 = actions.iter().any(|a| {
+        matches!(
+            a,
+            Action::Move {
+                to_room: sint_core::logic::ROOM_HALLWAY
+            }
+        )
+    });
     assert!(
         !has_move_7,
         "Should NOT be able to move to Room 7 (already there)"
     );
 
     // Should be able to move to 6 (Kitchen)
-    let has_move_6 = actions
-        .iter()
-        .any(|a| matches!(a, Action::Move { to_room: 6 }));
+    let has_move_6 = actions.iter().any(|a| {
+        matches!(
+            a,
+            Action::Move {
+                to_room: sint_core::logic::ROOM_KITCHEN
+            }
+        )
+    });
     assert!(has_move_6, "Should be able to move to Room 6 (Kitchen)");
 
     // Should NOT be able to Bake (requires being in Kitchen)
@@ -57,7 +80,15 @@ fn test_projected_system_availability() {
     }
 
     // Queue Move to Kitchen (6)
-    state = GameLogic::apply_action(state, "P1", Action::Move { to_room: 6 }, None).unwrap();
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Move {
+            to_room: sint_core::logic::ROOM_KITCHEN,
+        },
+        None,
+    )
+    .unwrap();
 
     // Projected: In Kitchen.
     let actions = get_valid_actions(&state, "P1");
@@ -72,7 +103,15 @@ fn test_projected_ap_exhaustion() {
 
     // P1 has 2 AP.
     // Queue Move (1 AP).
-    state = GameLogic::apply_action(state, "P1", Action::Move { to_room: 7 }, None).unwrap();
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Move {
+            to_room: sint_core::logic::ROOM_HALLWAY,
+        },
+        None,
+    )
+    .unwrap();
 
     // Remaining AP: 1.
     let actions = get_valid_actions(&state, "P1");
@@ -81,7 +120,15 @@ fn test_projected_ap_exhaustion() {
 
     // Queue another Move (1 AP).
     // From 7 (Hallway) to 6 (Kitchen).
-    state = GameLogic::apply_action(state, "P1", Action::Move { to_room: 6 }, None).unwrap();
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Move {
+            to_room: sint_core::logic::ROOM_KITCHEN,
+        },
+        None,
+    )
+    .unwrap();
 
     // Remaining AP: 0.
     let actions = get_valid_actions(&state, "P1");
@@ -103,7 +150,7 @@ fn test_projected_item_pickup() {
 
     // Setup: P1 in Room 3. Room 3 has items? Default setup Room 3 has NO items.
     // Let's add an item to Room 3.
-    if let Some(r) = state.map.rooms.get_mut(&3) {
+    if let Some(r) = state.map.rooms.get_mut(&sint_core::logic::ROOM_DORMITORY) {
         r.items.push(ItemType::Peppernut);
     }
 

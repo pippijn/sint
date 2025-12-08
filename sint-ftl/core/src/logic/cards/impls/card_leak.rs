@@ -10,7 +10,11 @@ impl CardBehavior for LeakCard {
         Card {
             id: CardId::Leak,
             title: "Leak!".to_string(),
-            description: "Spawn 1 Water in the Cargo Room (4).".to_string(),
+            description: format!(
+                "Spawn 1 Water in the Cargo Room ({}) .",
+                crate::logic::ROOM_CARGO
+            )
+            .to_string(),
             card_type: CardType::Flash,
             options: vec![],
             solution: None,
@@ -19,7 +23,7 @@ impl CardBehavior for LeakCard {
 
     fn on_activate(&self, state: &mut GameState) {
         // Effect: Spawn 1 Water in the Cargo Room (4).
-        if let Some(room) = state.map.rooms.get_mut(&4) {
+        if let Some(room) = state.map.rooms.get_mut(&crate::logic::ROOM_CARGO) {
             room.hazards.push(HazardType::Water);
         }
     }

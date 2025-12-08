@@ -10,11 +10,15 @@ impl CardBehavior for OverheatingCard {
         Card {
             id: CardId::Overheating,
             title: "Overheating".to_string(),
-            description: "End turn in Engine (5) -> Lose 1 AP next round.".to_string(),
+            description: format!(
+                "End turn in Engine ({}) -> Lose 1 AP next round.",
+                crate::logic::ROOM_ENGINE
+            )
+            .to_string(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(5),
+                room_id: Some(crate::logic::ROOM_ENGINE),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 1,
@@ -23,7 +27,7 @@ impl CardBehavior for OverheatingCard {
     }
 
     fn on_round_start(&self, state: &mut GameState) {
-        // Effect: Players who ended turn in Room 5 lose 1 AP.
+        // Effect: Players who ended turn in Room crate::logic::ROOM_ENGINE lose 1 AP.
         // But players AP is reset in `EnemyTelegraph`.
         // We need to apply this AFTER reset.
         // `advance_phase` calls `on_round_start` during `MorningReport`.
@@ -69,10 +73,10 @@ impl CardBehavior for OverheatingCard {
         // Actually, if we look at `C33FluWave` implementation earlier (which I read),
         // it had the same issue: "Next round 1 AP... We'll leave this unimplemented correctly without a Status system."
 
-        // I will implement the logic to check Room 5.
+        // I will implement the logic to check Room crate::logic::ROOM_ENGINE.
         // And I will try to set AP to 1.
         for p in state.players.values_mut() {
-            if p.room_id == 5 {
+            if p.room_id == crate::logic::ROOM_ENGINE {
                 // Mark them?
                 // We'll just reduce AP and see.
                 if p.ap > 0 {

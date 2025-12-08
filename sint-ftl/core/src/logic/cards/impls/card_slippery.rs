@@ -14,7 +14,7 @@ impl CardBehavior for SlipperyDeckCard {
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(5),
+                room_id: Some(crate::logic::ROOM_ENGINE),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 1,

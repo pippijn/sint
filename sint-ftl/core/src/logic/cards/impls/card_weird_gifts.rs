@@ -8,11 +8,16 @@ impl CardBehavior for WeirdGiftsCard {
         Card {
             id: CardId::WeirdGifts,
             title: "Weird Gifts".to_string(),
-            description: "Boom: 3 Fire in Cargo (4), 1 Fire in Sickbay (10).".to_string(),
+            description: format!(
+                "Boom: 3 Fire in Cargo ({}), 1 Fire in Sickbay ({}).",
+                crate::logic::ROOM_CARGO,
+                crate::logic::ROOM_SICKBAY
+            )
+            .to_string(),
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(4),
+                room_id: Some(crate::logic::ROOM_CARGO),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 1,
@@ -37,12 +42,12 @@ impl CardBehavior for WeirdGiftsCard {
 
         if triggered {
             // 3 Fire in Cargo (4), 1 Fire in Sickbay (10)
-            if let Some(room) = state.map.rooms.get_mut(&4) {
+            if let Some(room) = state.map.rooms.get_mut(&crate::logic::ROOM_CARGO) {
                 for _ in 0..3 {
                     room.hazards.push(HazardType::Fire);
                 }
             }
-            if let Some(room) = state.map.rooms.get_mut(&10) {
+            if let Some(room) = state.map.rooms.get_mut(&crate::logic::ROOM_SICKBAY) {
                 room.hazards.push(HazardType::Fire);
             }
             state

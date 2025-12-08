@@ -7,7 +7,7 @@ fn test_inventory_limit_basic() {
 
     // Setup: P1 in Storage (11). 5 Nuts on floor.
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = 11;
+        p.room_id = sint_core::logic::ROOM_STORAGE;
         p.ap = 5; // Plenty of AP
     }
 
@@ -45,13 +45,13 @@ fn test_inventory_limit_wheelbarrow() {
 
     // Setup: P1 has Wheelbarrow. In Room 11.
     // Ensure Room 11 has plenty of nuts (default is 5, we need >5)
-    if let Some(r) = state.map.rooms.get_mut(&11) {
+    if let Some(r) = state.map.rooms.get_mut(&sint_core::logic::ROOM_STORAGE) {
         r.items.push(ItemType::Peppernut);
         r.items.push(ItemType::Peppernut);
         r.items.push(ItemType::Peppernut);
     }
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = 11;
+        p.room_id = sint_core::logic::ROOM_STORAGE;
         p.ap = 10;
         p.inventory.push(ItemType::Wheelbarrow);
     }
@@ -91,11 +91,11 @@ fn test_inventory_mixed_items() {
     state.phase = GamePhase::TacticalPlanning;
 
     // Setup: Room 11 has Extinguisher added.
-    if let Some(r) = state.map.rooms.get_mut(&11) {
+    if let Some(r) = state.map.rooms.get_mut(&sint_core::logic::ROOM_STORAGE) {
         r.items.push(ItemType::Extinguisher);
     }
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = 11;
+        p.room_id = sint_core::logic::ROOM_STORAGE;
         p.ap = 5;
         p.inventory.push(ItemType::Peppernut); // Max capacity for nuts
     }

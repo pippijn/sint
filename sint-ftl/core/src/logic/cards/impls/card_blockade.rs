@@ -11,11 +11,15 @@ impl CardBehavior for BlockadeCard {
         Card {
             id: CardId::Blockade,
             title: "Blockade".to_string(),
-            description: "Door to Cannons (8) is closed.".to_string(),
+            description: format!(
+                "Door to Cannons ({}) is closed.",
+                crate::logic::ROOM_CANNONS
+            )
+            .to_string(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(7),
+                room_id: Some(crate::logic::ROOM_HALLWAY),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 2,
@@ -32,15 +36,20 @@ impl CardBehavior for BlockadeCard {
         // Door to Cannons (8) is closed.
         // No one can enter or exit.
         if let Action::Move { to_room } = action {
-            if *to_room == 8 {
+            if *to_room == crate::logic::ROOM_CANNONS {
                 return Err(GameError::InvalidAction(
-                    "Blockade! Cannot enter Room 8.".to_string(),
+                    format!(
+                        "Blockade! Cannot enter Room {}.",
+                        crate::logic::ROOM_CANNONS
+                    )
+                    .to_string(),
                 ));
             }
             if let Some(p) = state.players.get(player_id) {
-                if p.room_id == 8 {
+                if p.room_id == crate::logic::ROOM_CANNONS {
                     return Err(GameError::InvalidAction(
-                        "Blockade! Cannot exit Room 8.".to_string(),
+                        format!("Blockade! Cannot exit Room {}.", crate::logic::ROOM_CANNONS)
+                            .to_string(),
                     ));
                 }
             }
