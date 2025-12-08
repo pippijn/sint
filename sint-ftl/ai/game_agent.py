@@ -23,7 +23,7 @@ class GameAgent:
         self.debounce_task: Optional[asyncio.Task[None]] = None
         self.turns_taken: int = 0
         
-        self.tools = load_game_tools()
+        self.tools, self.tool_map = load_game_tools()
         
         system_instr = self._load_system_prompt()
         self.model = genai.GenerativeModel( # type: ignore
@@ -114,7 +114,10 @@ class GameAgent:
                 print(f"Event Received: {desc}")
                 self.memory.add_log(desc)
                 
-                self.schedule_think(delay=5.0)
+                if pid == self.player_id and action_type not in ["Pass", "VoteReady", "Chat"]:
+                     self.schedule_think(delay=0.1)
+                else:
+                     self.schedule_think(delay=5.0)
                 
             except Exception as e:
                 print(f"Error applying action: {e}")
@@ -171,6 +174,15 @@ class GameAgent:
         room_desc = f"Room {room_id} ({room.get('name')}). Neighbors: {room.get('neighbors')}. Hazards: {room.get('hazards')}. People: {[p['name'] for p in state['players'].values() if p['room_id'] == room_id]}"
         
         phase = state.get('phase', 'Unknown')
+        
+        phase_hint = ""
+        if phase == "Lobby":
+            phase_hint = "HINT: In Lobby, you can ONLY Chat (0 AP), SetName (0 AP), or VoteReady (0 AP). You CANNOT Move or act yet. VoteReady starts the game."
+        elif phase == "TacticalPlanning":
+            phase_hint = "HINT: Propose actions to solve problems. When your plan is set, VoteReady to execute."
+        elif phase in ["MorningReport", "EnemyTelegraph"]:
+            phase_hint = "HINT: You cannot act yet. Wait for the phase to change."
+
         active_cards = state.get('active_situations', [])
         
         situation_desc = ""
@@ -193,6 +205,7 @@ class GameAgent:
 
         prompt_parts = [
             f"PHASE: {phase}",
+            phase_hint,
             situation_desc,
             "",
             map_desc,
@@ -207,7 +220,7 @@ class GameAgent:
             status_desc,
             f"Hull: {state['hull_integrity']}. Turn: {state['turn_count']}.",
             "",
-            "What is your next move?"
+            "What is your next move? (If you are waiting, do not call any tool)."
         ]
         
         prompt = "\n".join(prompt_parts)
@@ -256,7 +269,11 @@ class GameAgent:
             print(f"DEBUG: Executing tool {tool_name} with args: {args}")
 
         if tool_name.startswith("action_"):
-            action_type = tool_name.replace("action_", "").capitalize()
+            # Use mapping if available, otherwise heuristic
+            action_type = self.tool_map.get(tool_name)
+            if not action_type:
+                 action_type = tool_name.replace("action_", "").capitalize()
+
             clean_args = dict(args)
             if "to_room" in clean_args:
                 try: clean_args["to_room"] = int(clean_args["to_room"])
