@@ -393,8 +393,7 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                                         />
                                         <button
                                             on:click=move |_| {
-                                                c_up
-                                                    .perform_action
+                                                c_up.perform_action
                                                     .call(Action::SetName {
                                                         name: name_input.get(),
                                                     })

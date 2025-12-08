@@ -411,8 +411,7 @@ fn RoomCard(
                                         )>{icon} " " {p.name} {ready_mark}</div>
                                     }
                                 })
-                                .collect::<Vec<_>>()}
-                            // Ghosts
+                                .collect::<Vec<_>>()} // Ghosts
                             {ghosts
                                 .into_iter()
                                 .map(|pid| {
