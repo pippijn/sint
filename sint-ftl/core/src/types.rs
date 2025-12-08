@@ -8,7 +8,7 @@ pub type RoomId = u32;
 
 // --- Top Level State ---
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 pub struct GameState {
     /// Incremental version for P2P sync
     pub sequence_id: u64,

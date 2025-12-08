@@ -21,6 +21,7 @@ getrandom = { version = "0.2", features = ["js"] }
 # Python bindings
 pyo3 = { version = "0.27", features = ["extension-module"], optional = true }
 pythonize = { version = "0.27", optional = true }
+log = "0.4.29"
 
 [features]
 schema = []

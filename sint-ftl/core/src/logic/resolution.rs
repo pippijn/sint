@@ -3,6 +3,7 @@ use super::cards::get_behavior;
 use crate::types::*;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
+use log::{debug, info};
 
 pub fn resolve_enemy_attack(state: &mut GameState) {
     if let Some(attack) = &state.enemy.next_attack {
@@ -18,13 +19,13 @@ pub fn resolve_enemy_attack(state: &mut GameState) {
         for _ in 0..count {
             // Check Evasion
             if state.evasion_active {
-                println!("Attack Missed due to Evasive Maneuvers!");
+                info!("Attack Missed due to Evasive Maneuvers!");
                 continue;
             }
 
             // Check Shields
             if state.shields_active {
-                println!("Shields Blocked the Attack!");
+                info!("Shields Blocked the Attack!");
                 continue;
             }
 
@@ -141,7 +142,7 @@ pub fn resolve_proposal_queue(state: &mut GameState, simulation: bool) {
                 if let Err(e) =
                     get_behavior(card_id).check_resolution(state, player_id, &proposal.action)
                 {
-                    println!("Action Skipped: Blocked by card {:?}: {}", card_id, e);
+                    debug!("Action Skipped: Blocked by card {:?}: {}", card_id, e);
                     blocked_by_card = true;
                     break;
                 }
@@ -165,7 +166,7 @@ pub fn resolve_proposal_queue(state: &mut GameState, simulation: bool) {
                 // VALIDATION:
                 if let Some(room) = state.map.rooms.get(&current_room_id) {
                     if !room.neighbors.contains(to_room) {
-                        println!(
+                        debug!(
                             "Action Skipped: Player {} cannot move from {} to {}",
                             player_id, current_room_id, to_room
                         );
@@ -361,7 +362,7 @@ pub fn resolve_proposal_queue(state: &mut GameState, simulation: bool) {
                             p.inventory.push(item);
                         }
                     } else {
-                        println!(
+                        debug!(
                             "Action Skipped: Player {} cannot pick up {:?} (Not in room)",
                             player_id, item_type
                         );
