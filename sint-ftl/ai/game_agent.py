@@ -170,7 +170,7 @@ class GameAgent:
         recent_chat = chat_log[-10:] # Last 10 messages
         chat_text = "\n".join([f"CHAT: {msg['sender']}: {msg['text']}" for msg in recent_chat])
         
-        status_desc = f"HP {me['hp']}/3, AP {me['ap']}/2. Inventory: {me['inventory']}"
+        status_desc = f"YOU ARE: {me['name']} (ID: {self.player_id})\nSTATUS: HP {me['hp']}/3, AP {me['ap']}/2. Inventory: {me['inventory']}"
         room_desc = f"Room {room_id} ({room.get('name')}). Neighbors: {room.get('neighbors')}. Hazards: {room.get('hazards')}. People: {[p['name'] for p in state['players'].values() if p['room_id'] == room_id]}"
         
         phase = state.get('phase', 'Unknown')
