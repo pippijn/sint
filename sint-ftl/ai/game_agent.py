@@ -70,8 +70,6 @@ class GameAgent:
             "action": { "type": action_type, "payload": payload }
         }
         msg = { "type": "Event", "payload": { "sequence_id": 0, "data": event } }
-        if self.debug:
-            print(f"DEBUG: Sending Event: {json.dumps(msg, indent=2)}")
         if self.websocket:
             await self.websocket.send(json.dumps(msg))
 
@@ -93,12 +91,7 @@ class GameAgent:
         elif msg_type == "Event":
             try:
                 if not self.state_json:
-                     print("DEBUG: Initializing new game state...")
                      self.state_json = sint_core.new_game([self.player_id], 12345)
-                     if self.debug:
-                         p = self.state_json['players'].get(self.player_id)
-                         print(f"DEBUG: State after new_game. Player {self.player_id} inventory: {p.get('inventory') if p else 'NOT FOUND'}")
-                         print(f"DEBUG: Latest event: {self.state_json.get('latest_event')}")
 
                 event_data = payload.get("data", {})
                 pid = event_data.get("player_id")

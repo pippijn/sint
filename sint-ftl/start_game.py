@@ -89,7 +89,7 @@ def main():
             print("\n🤖 Starting AI Agent...")
             if not os.environ.get("GEMINI_API_KEY"):
                 print("⚠️  GEMINI_API_KEY not set. AI might fail.")
-            procs.append(run_cmd(f"{PYTHON_EXEC} ai/agent.py --player AI_Bot", background=True))
+            procs.append(run_cmd(f"{PYTHON_EXEC} ai/agent.py --player AI_Bot --room Room_A", background=True))
 
         print("\n✅ System Running. Press Ctrl+C to stop.\n")
         
