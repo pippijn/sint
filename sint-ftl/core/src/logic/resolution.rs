@@ -113,7 +113,7 @@ pub fn resolve_hazards(state: &mut GameState) {
     state.rng_seed = rng.gen();
 }
 
-pub fn resolve_proposal_queue(state: &mut GameState) {
+pub fn resolve_proposal_queue(state: &mut GameState, simulation: bool) {
     let queue = state.proposal_queue.clone();
     state.proposal_queue.clear();
 
@@ -128,13 +128,23 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
         let mut blocked_by_card = false;
         let active_ids: Vec<CardId> = state.active_situations.iter().map(|c| c.id).collect();
 
-        for card_id in active_ids {
-            if let Err(e) =
-                get_behavior(card_id).check_resolution(state, player_id, &proposal.action)
-            {
-                println!("Action Skipped: Blocked by card {:?}: {}", card_id, e);
-                blocked_by_card = true;
-                break;
+        // In simulation, we assume cards do not block via RNG to avoid oracle behavior.
+        // We only check if simulation is FALSE or if the card check is deterministic?
+        // Sticky Floor is RNG. If we check it in simulation, we reveal the roll.
+        // So in simulation, we SKIP the check_resolution hook?
+        // Or we pass 'simulation' to check_resolution?
+        // Changing trait `check_resolution` is invasive.
+        // For now, let's skip RNG hooks in simulation.
+
+        if !simulation {
+            for card_id in active_ids {
+                if let Err(e) =
+                    get_behavior(card_id).check_resolution(state, player_id, &proposal.action)
+                {
+                    println!("Action Skipped: Blocked by card {:?}: {}", card_id, e);
+                    blocked_by_card = true;
+                    break;
+                }
             }
         }
 
@@ -271,20 +281,29 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
                 if let Some(idx) = p.inventory.iter().position(|i| *i == ItemType::Peppernut) {
                     p.inventory.remove(idx);
 
-                    let mut rng = StdRng::seed_from_u64(state.rng_seed);
-                    let roll: u32 = rng.gen_range(1..=6);
-                    state.rng_seed = rng.gen();
+                    // MASK RNG IN SIMULATION
+                    if !simulation {
+                        let mut rng = StdRng::seed_from_u64(state.rng_seed);
+                        let roll: u32 = rng.gen_range(1..=6);
+                        state.rng_seed = rng.gen();
 
-                    let mut threshold = 3;
-                    for card in &state.active_situations {
-                        let t = get_behavior(card.id).get_hit_threshold(state);
-                        if t > threshold {
-                            threshold = t;
+                        let mut threshold = 3;
+                        for card in &state.active_situations {
+                            let t = get_behavior(card.id).get_hit_threshold(state);
+                            if t > threshold {
+                                threshold = t;
+                            }
                         }
-                    }
 
-                    if roll >= threshold {
-                        state.enemy.hp -= 1;
+                        if roll >= threshold {
+                            state.enemy.hp -= 1;
+                        }
+                    } else {
+                        // In simulation, we consume the ammo but don't roll dice or damage enemy.
+                        // We also don't advance state.rng_seed to avoid "using" the roll.
+                        // Wait, if we DON'T advance rng_seed, then the next simulation step starts with the SAME seed.
+                        // That is correct for simulation (exploring).
+                        // If we execute, we use the seed.
                     }
                 }
             }

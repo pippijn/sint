@@ -1,7 +1,8 @@
 use crate::state::GameContext;
 use leptos::*;
-use sint_core::{Action, GameMap, GamePhase, HazardType, ItemType, Player, Room, RoomId};
-use std::collections::{HashSet, VecDeque};
+use sint_core::{
+    logic::pathfinding::find_path, Action, GamePhase, HazardType, ItemType, Player, Room,
+};
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum DoorDirection {
@@ -432,39 +433,4 @@ fn RoomCard(
             }
         }}
     }
-}
-
-fn find_path(map: &GameMap, start: RoomId, end: RoomId) -> Option<Vec<RoomId>> {
-    if start == end {
-        return Some(vec![]);
-    }
-
-    let mut queue = VecDeque::new();
-    queue.push_back(vec![start]);
-
-    let mut visited = HashSet::new();
-    visited.insert(start);
-
-    while let Some(path) = queue.pop_front() {
-        let last = *path.last().unwrap();
-        if last == end {
-            return Some(path.into_iter().skip(1).collect());
-        }
-
-        if path.len() > 3 {
-            continue;
-        }
-
-        if let Some(room) = map.rooms.get(&last) {
-            for &neighbor in &room.neighbors {
-                if !visited.contains(&neighbor) {
-                    visited.insert(neighbor);
-                    let mut new_path = path.clone();
-                    new_path.push(neighbor);
-                    queue.push_back(new_path);
-                }
-            }
-        }
-    }
-    None
 }

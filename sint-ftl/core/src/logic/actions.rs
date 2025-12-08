@@ -82,7 +82,7 @@ pub fn apply_action(
     // --- ROBUST PROJECTION START ---
     // For validation, we project the state forward by executing the current queue.
     let mut projected_state = state.clone();
-    super::resolution::resolve_proposal_queue(&mut projected_state);
+    super::resolution::resolve_proposal_queue(&mut projected_state, true);
 
     // 0. Handle Immediate Actions (Bypass Projection)
     match &action {
@@ -501,7 +501,7 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
             }
 
             // RESOLVE ACTIONS
-            resolution::resolve_proposal_queue(&mut state);
+            resolution::resolve_proposal_queue(&mut state, false);
         }
         GamePhase::Execution => {
             // Check if any player still has AP
@@ -598,7 +598,7 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
     // Replay the queue using the official resolution logic to determine
     // the final position, inventory, and status of the player.
     // This correctly updates room_id, inventory, etc. based on the queued actions.
-    resolution::resolve_proposal_queue(&mut projected_state);
+    resolution::resolve_proposal_queue(&mut projected_state, true);
 
     let mut actions = Vec::new();
 
