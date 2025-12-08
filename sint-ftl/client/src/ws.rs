@@ -6,7 +6,7 @@ use serde_json::Value;
 pub enum ClientMessage {
     Join { room_id: String, player_id: String },
     Event { sequence_id: u64, data: Value },
-    SyncRequest,
+    SyncRequest { requestor_id: String },
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -14,6 +14,6 @@ pub enum ClientMessage {
 pub enum ServerMessage {
     Welcome { room_id: String },
     Event { sequence_id: u64, data: Value },
-    SyncRequest,
+    SyncRequest { requestor_id: String },
     Error { msg: String },
 }

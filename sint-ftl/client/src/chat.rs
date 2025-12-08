@@ -22,7 +22,7 @@ pub fn ChatView(ctx: GameContext) -> impl IntoView {
     let send_on_click = send_message.clone();
 
     view! {
-        <div style="background: #222; border: 1px solid #444; border-radius: 8px; display: flex; flex-direction: column; height: 300px;">
+        <div style="background: #222; border: 1px solid #444; border-radius: 8px; display: flex; flex-direction: column; height: 100%; box-sizing: border-box;">
             <div style="flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
                 {move || {
                     state.get().chat_log.into_iter().map(|msg| {

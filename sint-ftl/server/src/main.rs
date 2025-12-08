@@ -1,6 +1,6 @@
 use axum::{
     extract::{ws::{Message, WebSocket, WebSocketUpgrade}, State},
-    response::IntoResponse,
+    response::{IntoResponse, Json},
     routing::get,
     Router,
 };
@@ -10,8 +10,14 @@ use std::{net::SocketAddr, sync::Arc};
 use tokio::sync::broadcast;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use serde::{Deserialize, Serialize};
+use tower_http::cors::CorsLayer;
 
 // --- Types ---
+
+#[derive(Serialize)]
+struct RoomList {
+    rooms: Vec<String>,
+}
 
 #[derive(Clone)]
 struct AppState {
@@ -24,7 +30,7 @@ struct AppState {
 enum ClientMessage {
     Join { room_id: String, player_id: String },
     Event { sequence_id: u64, data: serde_json::Value },
-    SyncRequest,
+    SyncRequest { requestor_id: String },
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -32,7 +38,7 @@ enum ClientMessage {
 enum ServerMessage {
     Welcome { room_id: String },
     Event { sequence_id: u64, data: serde_json::Value },
-    SyncRequest,
+    SyncRequest { requestor_id: String },
     Error { msg: String },
 }
 
@@ -53,12 +59,19 @@ async fn main() {
 
     let app = Router::new()
         .route("/ws", get(ws_handler))
+        .route("/api/rooms", get(list_rooms))
+        .layer(CorsLayer::permissive())
         .with_state(state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     tracing::info!("listening on {}", addr);
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
+}
+
+async fn list_rooms(State(state): State<AppState>) -> impl IntoResponse {
+    let rooms: Vec<String> = state.rooms.iter().map(|r| r.key().clone()).collect();
+    Json(RoomList { rooms })
 }
 
 async fn ws_handler(
@@ -113,11 +126,11 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
                                 }
                             }
                             
-                            Ok(ClientMessage::SyncRequest) => {
+                            Ok(ClientMessage::SyncRequest { requestor_id }) => {
                                 // Broadcast SyncRequest to peers
                                 if let Some(room_id) = &my_room_id {
                                     if let Some(tx) = state.rooms.get(room_id) {
-                                        let relay_msg = serde_json::to_string(&ServerMessage::SyncRequest).unwrap();
+                                        let relay_msg = serde_json::to_string(&ServerMessage::SyncRequest { requestor_id }).unwrap();
                                         let _ = tx.send(relay_msg);
                                     }
                                 }

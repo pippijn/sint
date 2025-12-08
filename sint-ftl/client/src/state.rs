@@ -27,17 +27,7 @@ impl ActionCallback {
     }
 }
 
-pub fn provide_game_context() -> GameContext {
-    let location = web_sys::window().unwrap().location();
-    let search = location.search().unwrap_or_default();
-    let params = web_sys::UrlSearchParams::new_with_str(&search).unwrap();
-    
-    let room_id = params.get("room").unwrap_or_else(|| "Room_A".to_string());
-    let player_id = params.get("player").unwrap_or_else(|| {
-        let uuid = Uuid::new_v4();
-        format!("Player_{}", &uuid.to_string()[..8])
-    });
-
+pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
     // Start empty, let Join actions populate players
     let initial_state = GameLogic::new_game(vec![], 12345);
     let (state, set_state) = create_signal(initial_state.clone());
@@ -98,10 +88,6 @@ pub fn provide_game_context() -> GameContext {
         };
         let _ = write.send(Message::Text(serde_json::to_string(&join_msg).unwrap())).await;
 
-        // Request Sync from peers
-        let sync_req = ClientMessage::SyncRequest;
-        let _ = write.send(Message::Text(serde_json::to_string(&sync_req).unwrap())).await;
-
         // Send Join Action (Game State)
         let join_action = ProposedAction {
             id: Uuid::new_v4().to_string(),
@@ -114,6 +100,10 @@ pub fn provide_game_context() -> GameContext {
             data: serde_json::to_value(&join_action).unwrap(),
         };
         let _ = write.send(Message::Text(serde_json::to_string(&event_msg).unwrap())).await;
+
+        // Request Sync from peers
+        let sync_req = ClientMessage::SyncRequest { requestor_id: pid_ws.clone() };
+        let _ = write.send(Message::Text(serde_json::to_string(&sync_req).unwrap())).await;
 
         loop {
             futures::select! {
@@ -182,22 +172,24 @@ pub fn provide_game_context() -> GameContext {
                                 Ok(ServerMessage::Welcome { room_id }) => {
                                     leptos::logging::log!("Welcome to {}", room_id);
                                 }
-                                Ok(ServerMessage::SyncRequest) => {
-                                    let guard = internal_ws.borrow();
-                                    if guard.verified_state.sequence_id > 0 {
-                                        leptos::logging::log!("Providing Sync State");
-                                        let sync_action = ProposedAction {
-                                            id: Uuid::new_v4().to_string(),
-                                            player_id: pid_ws.clone(),
-                                            action: Action::FullSync { 
-                                                state_json: serde_json::to_string(&guard.verified_state).unwrap() 
-                                            },
-                                        };
-                                        let msg = ClientMessage::Event {
-                                            sequence_id: guard.verified_state.sequence_id,
-                                            data: serde_json::to_value(&sync_action).unwrap(),
-                                        };
-                                        let _ = tx_inner.try_send(serde_json::to_string(&msg).unwrap());
+                                Ok(ServerMessage::SyncRequest { requestor_id }) => {
+                                    if requestor_id != pid_ws {
+                                        let guard = internal_ws.borrow();
+                                        if guard.verified_state.sequence_id > 0 {
+                                            leptos::logging::log!("Providing Sync State");
+                                            let sync_action = ProposedAction {
+                                                id: Uuid::new_v4().to_string(),
+                                                player_id: pid_ws.clone(),
+                                                action: Action::FullSync { 
+                                                    state_json: serde_json::to_string(&guard.verified_state).unwrap() 
+                                                },
+                                            };
+                                            let msg = ClientMessage::Event {
+                                                sequence_id: guard.verified_state.sequence_id,
+                                                data: serde_json::to_value(&sync_action).unwrap(),
+                                            };
+                                            let _ = tx_inner.try_send(serde_json::to_string(&msg).unwrap());
+                                        }
                                     }
                                 }
                                 Ok(ServerMessage::Error { msg }) => {

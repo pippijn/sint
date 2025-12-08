@@ -26,7 +26,7 @@ class GameAgent:
         self.tools = load_game_tools()
         
         system_instr = self._load_system_prompt()
-        self.model = genai.GenerativeModel(
+        self.model = genai.GenerativeModel( # type: ignore
             model_name='gemini-2.5-flash-lite',
             tools=[self.tools],
             system_instruction=system_instr,
@@ -49,7 +49,10 @@ class GameAgent:
                 await self.send_event("Join", { "name": self.player_id })
                 
                 # Sync
-                await ws.send(json.dumps({ "type": "SyncRequest", "payload": None }))
+                await ws.send(json.dumps({ 
+                    "type": "SyncRequest", 
+                    "payload": { "requestor_id": self.player_id } 
+                }))
                 
                 # Kickstart
                 self.schedule_think(delay=2.0)
@@ -60,7 +63,7 @@ class GameAgent:
         except websockets.exceptions.ConnectionClosed:
             print("WebSocket connection closed.")
 
-    async def send_event(self, action_type: str, payload: Dict[str, Any]) -> None:
+    async def send_event(self, action_type: str, payload: Optional[Dict[str, Any]]) -> None:
         event = {
             "id": str(uuid.uuid4()),
             "player_id": self.player_id,
@@ -81,7 +84,8 @@ class GameAgent:
             print(f"Joined room: {payload.get('room_id')}")
             
         elif msg_type == "SyncRequest":
-            if self.state_json and self.state_json.get("sequence_id", 0) > 0:
+            req_id = payload.get("requestor_id")
+            if req_id != self.player_id and self.state_json and self.state_json.get("sequence_id", 0) > 0:
                 print("Responding to SyncRequest...")
                 state_str = json.dumps(self.state_json)
                 await self.send_event("FullSync", { "state_json": state_str })
