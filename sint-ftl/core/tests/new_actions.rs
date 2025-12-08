@@ -1,4 +1,4 @@
-use sint_core::{Action, GameLogic, GamePhase, SystemType};
+use sint_core::{Action, GameLogic, GamePhase};
 
 #[test]
 fn test_lookout_action() {

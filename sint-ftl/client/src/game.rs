@@ -728,7 +728,6 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                     );
                             }
                             if room.system == Some(SystemType::Sickbay) {
-                                // Heal Self
                                 let c_heal_self = ctx_action.clone();
                                 let disabled = player.ap < 1;
                                 let opacity = if disabled { "0.5" } else { "1.0" };
@@ -736,6 +735,7 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                 let pid_clone = pid.clone();
                                 buttons
                                     .push(
+                                        // Heal Self
                                         view! {
                                             <button
                                                 style=format!(
@@ -757,8 +757,6 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                         }
                                             .into_view(),
                                     );
-
-                                // Heal Neighbors
                                 for other_p in s.players.values() {
                                     if other_p.id == pid {
                                         continue;
@@ -771,9 +769,15 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                         let target_name = other_p.name.clone();
                                         let disabled = player.ap < 1;
                                         let opacity = if disabled { "0.5" } else { "1.0" };
-                                        let cursor = if disabled { "not-allowed" } else { "pointer" };
+                                        let cursor = if disabled {
+                                            "not-allowed"
+                                        } else {
+                                            "pointer"
+                                        };
                                         buttons
                                             .push(
+
+                                                // Heal Neighbors
                                                 view! {
                                                     <button
                                                         style=format!(

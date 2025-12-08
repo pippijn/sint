@@ -27,6 +27,8 @@ pub enum GameError {
     Silenced,
     #[error("Invalid item index")]
     InvalidItem,
+    #[error("Inventory is full")]
+    InventoryFull,
     #[error("Invalid Action: {0}")]
     InvalidAction(String),
 }

@@ -57,13 +57,19 @@ pub fn resolve_hazards(state: &mut GameState) {
         if has_fire {
             state.hull_integrity -= 1;
 
-            // Spread Chance? (Simple: if > 1 fire, spread to neighbors)
+            // Spread Chance? (Cargo spreads faster: Threshold 1 instead of 2)
+            let threshold = if room.system == Some(SystemType::Cargo) {
+                1
+            } else {
+                2
+            };
+
             if room
                 .hazards
                 .iter()
                 .filter(|&h| *h == HazardType::Fire)
                 .count()
-                >= 2
+                >= threshold
             {
                 for &neighbor in &room.neighbors {
                     if rng.gen_bool(0.5) {
@@ -91,6 +97,15 @@ pub fn resolve_hazards(state: &mut GameState) {
         if let Some(room) = state.map.rooms.get_mut(&room_id) {
             if !room.hazards.contains(&HazardType::Fire) {
                 room.hazards.push(HazardType::Fire);
+            }
+        }
+    }
+
+    // 3. Water destroys items (Except in Storage)
+    for room in state.map.rooms.values_mut() {
+        if room.hazards.contains(&HazardType::Water) {
+            if room.system != Some(SystemType::Storage) {
+                room.items.clear();
             }
         }
     }
@@ -276,11 +291,14 @@ pub fn resolve_proposal_queue(state: &mut GameState) {
             Action::Lookout => {
                 let card = state.deck.last();
                 let msg = if let Some(c) = card {
-                    format!("LOOKOUT REPORT: The next event is '{}' ({})", c.title, c.description)
+                    format!(
+                        "LOOKOUT REPORT: The next event is '{}' ({})",
+                        c.title, c.description
+                    )
                 } else {
                     "LOOKOUT REPORT: The horizon is clear (Deck Empty).".to_string()
                 };
-                
+
                 state.chat_log.push(ChatMessage {
                     sender: "SYSTEM".to_string(),
                     text: msg,

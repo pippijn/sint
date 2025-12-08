@@ -307,13 +307,13 @@ pub fn apply_action(
                 .players
                 .get(target_player)
                 .ok_or(GameError::PlayerNotFound)?;
-            
+
             let is_self = target_player == player_id;
             let is_adjacent = room.neighbors.contains(&target.room_id);
             let is_here = target.room_id == p_proj.room_id;
 
             if !is_self && !is_adjacent && !is_here {
-                 return Err(GameError::InvalidAction(
+                return Err(GameError::InvalidAction(
                     "Target for First Aid must be self or in adjacent room".to_string(),
                 ));
             }
@@ -338,6 +338,22 @@ pub fn apply_action(
                     item_type
                 )));
             }
+
+            // Inventory Limit Check
+            if *item_type == ItemType::Peppernut {
+                let nut_count = p_proj
+                    .inventory
+                    .iter()
+                    .filter(|i| **i == ItemType::Peppernut)
+                    .count();
+                let has_wheelbarrow = p_proj.inventory.contains(&ItemType::Wheelbarrow);
+                let limit = if has_wheelbarrow { 5 } else { 1 };
+
+                if nut_count >= limit {
+                    return Err(GameError::InventoryFull);
+                }
+            }
+
             state.proposal_queue.push(ProposedAction {
                 id: Uuid::new_v4().to_string(),
                 player_id: player_id.to_string(),
@@ -653,17 +669,33 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
 
                 // Sickbay (Targeted Action)
                 if sys == SystemType::Sickbay {
-                    if p.ap >= action_cost(&projected_state, player_id, &Action::FirstAid { target_player: "".to_string() }) {
+                    if p.ap
+                        >= action_cost(
+                            &projected_state,
+                            player_id,
+                            &Action::FirstAid {
+                                target_player: "".to_string(),
+                            },
+                        )
+                    {
                         // Target Self
-                        actions.push(Action::FirstAid { target_player: player_id.to_string() });
-                        
+                        actions.push(Action::FirstAid {
+                            target_player: player_id.to_string(),
+                        });
+
                         // Target Neighbors
                         for other_p in projected_state.players.values() {
-                            if other_p.id == *player_id { continue; }
-                            
+                            if other_p.id == *player_id {
+                                continue;
+                            }
+
                             // Check if in neighbor or same room
-                            if room.neighbors.contains(&other_p.room_id) || other_p.room_id == p.room_id {
-                                actions.push(Action::FirstAid { target_player: other_p.id.clone() });
+                            if room.neighbors.contains(&other_p.room_id)
+                                || other_p.room_id == p.room_id
+                            {
+                                actions.push(Action::FirstAid {
+                                    target_player: other_p.id.clone(),
+                                });
                             }
                         }
                     }
@@ -689,11 +721,27 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
         let mut seen_items = Vec::new();
         for item in &room.items {
             if !seen_items.contains(item) {
-                let action = Action::PickUp {
-                    item_type: item.clone(),
-                };
-                if p.ap >= action_cost(&projected_state, player_id, &action) {
-                    actions.push(action);
+                let mut can_pickup = true;
+                if *item == ItemType::Peppernut {
+                    let nut_count = p
+                        .inventory
+                        .iter()
+                        .filter(|i| **i == ItemType::Peppernut)
+                        .count();
+                    let has_wheelbarrow = p.inventory.contains(&ItemType::Wheelbarrow);
+                    let limit = if has_wheelbarrow { 5 } else { 1 };
+                    if nut_count >= limit {
+                        can_pickup = false;
+                    }
+                }
+
+                if can_pickup {
+                    let action = Action::PickUp {
+                        item_type: item.clone(),
+                    };
+                    if p.ap >= action_cost(&projected_state, player_id, &action) {
+                        actions.push(action);
+                    }
                 }
                 seen_items.push(item.clone());
             }
