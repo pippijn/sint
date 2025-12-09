@@ -36,16 +36,21 @@ fn main() {
     let player_ids: Vec<String> = (0..args.players).map(|i| format!("P{}", i + 1)).collect();
     let initial_state = GameLogic::new_game(player_ids, args.seed);
 
-    info!("Starting solver for {} players, seed {}", args.players, args.seed);
+    info!(
+        "Starting solver for {} players, seed {}",
+        args.players, args.seed
+    );
 
     // Shared Search State
-    let search_state = Arc::new(Mutex::new(beam_search::SearchStatus::new(initial_state.clone())));
+    let search_state = Arc::new(Mutex::new(beam_search::SearchStatus::new(
+        initial_state.clone(),
+    )));
 
     // Launch Search Thread
     let search_state_clone = search_state.clone();
     let width = args.width;
     let initial_state_clone = initial_state.clone();
-    
+
     thread::spawn(move || {
         beam_search::run(initial_state_clone, width, search_state_clone);
     });
@@ -59,7 +64,7 @@ fn main() {
                 "Depth: {}, Best Score: {}, Nodes: {}",
                 status.depth, status.best_score, status.nodes_visited
             );
-            
+
             // Debug: Print end of path
             if let Some(node) = &status.best_node {
                 println!("Last actions:");
@@ -79,7 +84,7 @@ fn main() {
     } else {
         // Launch TUI
         tui::run(search_state.clone());
-        
+
         // After TUI exit, print path
         let status = search_state.lock().unwrap();
         if let Some(node) = &status.best_node {

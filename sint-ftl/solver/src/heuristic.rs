@@ -6,7 +6,7 @@ pub fn evaluate(state: &GameState) -> i32 {
 
     // 1. Progress (The Goal)
     score += (state.boss_level as i32) * 5000;
-    
+
     // Urgency: Penalize time taken
     score -= (state.turn_count as i32) * 50;
 
@@ -20,9 +20,9 @@ pub fn evaluate(state: &GameState) -> i32 {
 
     // 2. Enemy Damage
     // The current enemy HP. Lower is better.
-    // Max HP is roughly 20. 
+    // Max HP is roughly 20.
     score += (state.enemy.max_hp - state.enemy.hp) * 500;
-    
+
     // Penalty for remaining HP (Urgency)
     score -= state.enemy.hp * 100;
 
@@ -51,22 +51,24 @@ pub fn evaluate(state: &GameState) -> i32 {
         }
         // Health Bonus
         score += p.hp * 10;
-        
+
         // Inventory Bonus (Resources are good)
         for item in &p.inventory {
             match item {
                 ItemType::Peppernut => {
                     score += 20; // Ammo is valuable
-                    // Shaping: Reward proximity to Cannons (Room 8)
+                                 // Shaping: Reward proximity to Cannons (Room 8)
                     let cannon_id = SystemType::Cannons.as_u32();
                     if p.room_id == cannon_id {
                         score += 50; // At the cannon!
-                    } else if let Some(path) = pathfinding::find_path(&state.map, p.room_id, cannon_id) {
-                         // Closer is better. Path len is distance.
-                         // Max distance is ~5.
-                         score += (10 - path.len() as i32) * 5; 
+                    } else if let Some(path) =
+                        pathfinding::find_path(&state.map, p.room_id, cannon_id)
+                    {
+                        // Closer is better. Path len is distance.
+                        // Max distance is ~5.
+                        score += (10 - path.len() as i32) * 5;
                     }
-                },
+                }
                 ItemType::Extinguisher => score += 10,
                 _ => score += 1,
             }

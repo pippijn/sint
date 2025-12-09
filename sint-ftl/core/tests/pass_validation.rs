@@ -11,11 +11,11 @@ fn test_pass_with_ap_works() {
 
     let res = GameLogic::apply_action(state.clone(), "P1", Action::Pass, None);
     assert!(res.is_ok());
-    
+
     let new_state = res.unwrap();
     let p1_new = new_state.players.get("P1").unwrap();
     assert_eq!(p1_new.ap, 0); // AP should be consumed
-    
+
     // Phase advances to Execution
     assert_eq!(new_state.phase, GamePhase::Execution);
 }
@@ -32,9 +32,12 @@ fn test_pass_with_0_ap_fails() {
 
     let res = GameLogic::apply_action(state, "P1", Action::Pass, None);
     assert!(res.is_err());
-    
+
     let err = res.err().unwrap();
-    assert_eq!(err.to_string(), "Invalid Action: Cannot Pass with 0 AP. Vote ready instead.");
+    assert_eq!(
+        err.to_string(),
+        "Invalid Action: Cannot Pass with 0 AP. Vote ready instead."
+    );
 }
 
 #[test]
@@ -54,8 +57,13 @@ fn test_vote_ready_works_any_ap() {
     // Case 2: 2 AP
     let mut state2 = GameLogic::new_game(vec!["P1".to_string()], 12345);
     state2.phase = GamePhase::TacticalPlanning;
-    
-    let res2 = GameLogic::apply_action(state2.clone(), "P1", Action::VoteReady { ready: true }, None);
+
+    let res2 = GameLogic::apply_action(
+        state2.clone(),
+        "P1",
+        Action::VoteReady { ready: true },
+        None,
+    );
     assert!(res2.is_ok());
     let s2 = res2.unwrap();
     let p1 = s2.players.get("P1").unwrap();

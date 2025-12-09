@@ -386,7 +386,18 @@ fn RoomCard(
                                         ItemType::Peppernut => {
                                             view! { <span title="Peppernut">"🍪"</span> }
                                         }
-                                        _ => view! { <span title="Item">"📦"</span> },
+                                        ItemType::Extinguisher => {
+                                            view! { <span title="Extinguisher">"🧯"</span> }
+                                        }
+                                        ItemType::Keychain => {
+                                            view! { <span title="Keychain">"🔑"</span> }
+                                        }
+                                        ItemType::Wheelbarrow => {
+                                            view! { <span title="Wheelbarrow">"🛒"</span> }
+                                        }
+                                        ItemType::Mitre => {
+                                            view! { <span title="Mitre">"🧢"</span> }
+                                        }
                                     }
                                 })
                                 .collect::<Vec<_>>()}

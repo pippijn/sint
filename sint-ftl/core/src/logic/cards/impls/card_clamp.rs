@@ -1,9 +1,7 @@
 use crate::logic::cards::behavior::CardBehavior;
-use crate::types::GameState;
+use crate::types::{Card, CardId, CardSolution, CardType, GameState, SystemType};
 
 pub struct WheelClampCard;
-
-use crate::types::{Card, CardId, CardSolution, CardType};
 
 impl CardBehavior for WheelClampCard {
     fn get_struct(&self) -> Card {
@@ -14,7 +12,7 @@ impl CardBehavior for WheelClampCard {
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(crate::types::SystemType::Bridge.as_u32()),
+                room_id: Some(SystemType::Bridge.as_u32()),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 1,
@@ -26,22 +24,22 @@ impl CardBehavior for WheelClampCard {
         // Effect: Ship turns. Players shift 1 Room to the right (Clockwise).
         // Map: 2 -> 3 -> 4 -> 5 -> 6 -> 8 -> 9 -> 10 -> 11 -> 2?
         let cycle = [
-            crate::types::SystemType::Bow.as_u32(),
-            crate::types::SystemType::Dormitory.as_u32(),
-            crate::types::SystemType::Cargo.as_u32(),
-            crate::types::SystemType::Engine.as_u32(),
-            crate::types::SystemType::Kitchen.as_u32(),
-            crate::types::SystemType::Cannons.as_u32(),
-            crate::types::SystemType::Bridge.as_u32(),
-            crate::types::SystemType::Sickbay.as_u32(),
-            crate::types::SystemType::Storage.as_u32(),
+            SystemType::Bow.as_u32(),
+            SystemType::Dormitory.as_u32(),
+            SystemType::Cargo.as_u32(),
+            SystemType::Engine.as_u32(),
+            SystemType::Kitchen.as_u32(),
+            SystemType::Cannons.as_u32(),
+            SystemType::Bridge.as_u32(),
+            SystemType::Sickbay.as_u32(),
+            SystemType::Storage.as_u32(),
         ];
 
         for p in state.players.values_mut() {
             if let Some(pos) = cycle.iter().position(|&r| r == p.room_id) {
                 let next_idx = (pos + 1) % cycle.len();
                 p.room_id = cycle[next_idx];
-            } else if p.room_id == crate::types::SystemType::Hallway.as_u32() {
+            } else if p.room_id == SystemType::Hallway.as_u32() {
                 // Hallway -> Random? Or stay?
                 // Text says "Every player shifts".
                 // Let's keep Hallway as Hallway.

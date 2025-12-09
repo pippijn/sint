@@ -58,7 +58,10 @@ impl CardBehavior for TurboModeCard {
         }
     }
 
-    // Advantage: 3 AP. Hook into `reset_ap` logic?
-    // We don't have a hook for AP reset. We set it to 2 in `advance_phase`.
-    // We should add a `modify_max_ap` hook or similar.
+    fn on_round_start(&self, state: &mut GameState) {
+        // Advantage: 3 AP.
+        for p in state.players.values_mut() {
+            p.ap += 1;
+        }
+    }
 }

@@ -3,7 +3,7 @@
 ## **1. OVERVIEW**
 **Operation Peppernut** is a cooperative, tactical survival game where players crew "The Steamboat" against waves of enemies. Unlike the previous party-game iteration, this version emphasizes resource scarcity, strategic positioning, and crisis management (inspired by *FTL: Faster Than Light*).
 
-*   **Goal:** Defeat 4 Bosses in sequence (The Thief, The Monster, The Armada, The Kraken).
+*   **Goal:** Defeat 4 Bosses in sequence (The Petty Thief, The Monster, The Armada, The Kraken).
 *   **Lose Conditions:**
     *   **Hull Integrity reaches 0.**
     *   **All players are Fainted simultaneously** (Crew Wipe).
@@ -29,12 +29,12 @@ The ship is divided into numbered rooms. Each room houses a specific system.
 | :--- | :--- | :--- |
 | **2** | **The Bow** | *Lookout.* Reveals the top card of the Enemy Deck (Forecasting). |
 | **3** | **Dormitory** | *Respawn Point.* Fainted players revive here at the start of the next round. |
-| **4** | **Cargo** | *Fuel.* Contains flammable gifts. Fire spreads 2x faster here. |
-| **5** | **Engine** | *Power.* Action: **"Raise Shields"** (2 AP). Blocks the next incoming **Damage** event. |
+| **4** | **Cargo** | *Fuel.* Contains flammable gifts. Fire spreads 2x faster here (Spread Threshold 1). |
+| **5** | **Engine** | *Power.* Action: **"Raise Shields"** (2 AP). Blocks **all** incoming **Damage** events this round. |
 | **6** | **Kitchen** | *Ammo.* Action: **"Bake"** (1 AP). Create 3 Peppernuts (placed in room). |
 | **7** | **Hallway** | *Transit.* Connects all rooms. Central hub. |
 | **8** | **Cannons** | *Attack.* Action: **"Load & Fire"** (1 AP + 1 Nut). Deals 1 Dmg to Enemy (Chance to Hit). |
-| **9** | **Bridge** | *Steering.* Action: **"Evasive Maneuvers"** (2 AP). Forces the next enemy attack to **MISS**. |
+| **9** | **Bridge** | *Steering.* Action: **"Evasive Maneuvers"** (2 AP). Forces **all** enemy attacks to **MISS** this round. |
 | **10** | **Sickbay** | *Heal.* Action: **"First Aid"** (1 AP). Restore 1 HP to self or adjacent player. |
 | **11** | **Storage** | *Vault.* Secure storage. Items here are safe from Water damage. |
 
@@ -56,8 +56,9 @@ The ship is divided into numbered rooms. Each room houses a specific system.
 3.  **Extinguish:** Remove 1 Fire token from current room.
 4.  **Repair:** Remove 1 Water token from current room.
 5.  **Throw:** Toss 1 Peppernut to a player in an adjacent room (100% success).
-6.  **Pick Up / Drop:** Manage inventory.
-7.  **Revive:** Help a Fainted player in the same room (Revives them immediately with 1 HP).
+6.  **Pick Up:** Add item from room to inventory.
+7.  **Drop:** Drop item from inventory to room (**Free**).
+8.  **Revive:** Help a Fainted player in the same room (Revives them immediately with 1 HP).
 
 ---
 
@@ -105,7 +106,7 @@ The game does not have fixed turns. It plays in a series of **Rounds**, each con
 ### **FIRE (Red Token)**
 *   **Effect:** Disables Room Function.
 *   **Danger:** Deals damage to Players and Hull at end of round.
-*   **Spread:** If >2 Fire tokens in a room, it automatically spills to adjacent rooms.
+*   **Spread:** If >= 2 Fire tokens in a room (>= 1 in Cargo), it has a 50% chance to spread to adjacent rooms.
 
 ### **WATER (Blue Token)**
 *   **Effect:** Disables Room Function.
@@ -114,4 +115,4 @@ The game does not have fixed turns. It plays in a series of **Rounds**, each con
 
 ## **6. COMMUNICATION**
 *   **Standard:** Open Chat.
-*   **"Static Noise" Event:** Communications systems down. Chat is restricted to **Emoji Only**.
+*   **"Static Noise" Event:** Communications systems down. Chat is restricted to **No alphabetic characters**.

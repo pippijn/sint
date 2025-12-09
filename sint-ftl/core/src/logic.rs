@@ -72,6 +72,10 @@ impl GameLogic {
             // Special items
             let items = if sys == SystemType::Storage {
                 vec![ItemType::Peppernut; 5]
+            } else if sys == SystemType::Cargo {
+                vec![ItemType::Wheelbarrow]
+            } else if sys == SystemType::Engine {
+                vec![ItemType::Extinguisher]
             } else {
                 vec![]
             };

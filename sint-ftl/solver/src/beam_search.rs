@@ -81,7 +81,7 @@ pub fn run(initial_state: GameState, beam_width: usize, status: Arc<Mutex<Search
         // Scoring & Pruning (Selection)
         // We want the Top K candidates.
         // Convert to Heap or Sort. Sorting is fine for width ~100-1000.
-        
+
         let mut valid_candidates: Vec<StateNode> = candidates
             .into_iter()
             .filter(|n| n.state.phase != GamePhase::GameOver) // Filter dead ends
@@ -90,7 +90,7 @@ pub fn run(initial_state: GameState, beam_width: usize, status: Arc<Mutex<Search
         // Deduplication (Simple hash of something? Or just exact match?)
         // Exact match of GameState is expensive.
         // For now, skip dedup or use simple heuristic scoring sort.
-        
+
         valid_candidates.sort_by(|a, b| b.score.cmp(&a.score)); // Descending
         valid_candidates.truncate(beam_width);
 
@@ -124,14 +124,14 @@ fn expand_node(node: &StateNode) -> Vec<StateNode> {
             let act = Action::VoteReady { ready: true };
             path_log.push((pid.clone(), act.clone()));
             match GameLogic::apply_action(next_state.clone(), pid, act, None) {
-                 Ok(s) => next_state = s,
-                 Err(_) => return vec![], // Should not happen if game logic is robust
+                Ok(s) => next_state = s,
+                Err(_) => return vec![], // Should not happen if game logic is robust
             }
         }
         let score = heuristic::evaluate(&next_state);
         return vec![StateNode {
             state: next_state,
-            path: path_log, 
+            path: path_log,
             score,
             depth: node.depth + 1,
         }];
@@ -164,9 +164,14 @@ fn expand_node(node: &StateNode) -> Vec<StateNode> {
         // Apply Actions
         for (i, task) in combo.iter().enumerate() {
             let pid = &player_ids[i];
-            
+
             // Log Macro (Description)
-            path_log.push((pid.clone(), Action::Chat { message: format!("[MACRO] {}", task.description) }));
+            path_log.push((
+                pid.clone(),
+                Action::Chat {
+                    message: format!("[MACRO] {}", task.description),
+                },
+            ));
 
             for act in &task.actions {
                 // Log actual action
@@ -177,33 +182,42 @@ fn expand_node(node: &StateNode) -> Vec<StateNode> {
                     Err(_) => {
                         // Invalid move sequence (e.g. blocked path blocked by another player?)
                         // Since we calculate paths based on static map, dynamic conflicts happen.
-                        invalid = true; 
+                        invalid = true;
                         break;
                     }
                 }
             }
-            if invalid { break; }
+            if invalid {
+                break;
+            }
         }
 
-        if invalid { continue; }
+        if invalid {
+            continue;
+        }
 
         // Vote Ready (All players)
         for pid in &player_ids {
             let vote_act = Action::VoteReady { ready: true };
             path_log.push((pid.clone(), vote_act.clone()));
             match GameLogic::apply_action(next_state.clone(), pid, vote_act, None) {
-                 Ok(s) => next_state = s,
-                 Err(_) => { invalid = true; break; }
+                Ok(s) => next_state = s,
+                Err(_) => {
+                    invalid = true;
+                    break;
+                }
             }
         }
 
-        if invalid { continue; }
+        if invalid {
+            continue;
+        }
 
         // At this point, `next_state` should have advanced through Execution -> ... -> Planning
         // Or GameOver.
-        
+
         let score = heuristic::evaluate(&next_state);
-        
+
         new_nodes.push(StateNode {
             state: next_state,
             path: path_log,

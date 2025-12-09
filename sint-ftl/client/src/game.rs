@@ -480,7 +480,8 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                                 } else {
                                     p.inventory
                                         .iter()
-                                        .map(|item| {
+                                        .enumerate()
+                                        .map(|(i, item)| {
                                             let (emoji, name) = match item {
                                                 sint_core::ItemType::Peppernut => ("🍪", "Peppernut"),
                                                 sint_core::ItemType::Extinguisher => {
@@ -490,8 +491,32 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                                                 sint_core::ItemType::Wheelbarrow => ("🛒", "Wheelbarrow"),
                                                 sint_core::ItemType::Mitre => ("🧢", "Mitre"),
                                             };
+                                            let c_drop = ctx_update.clone();
+                                            let is_planning = s.phase == GamePhase::TacticalPlanning;
+                                            let cursor = if is_planning { "pointer" } else { "default" };
+                                            let title = if is_planning {
+                                                format!("{} (Click to Drop)", name)
+                                            } else {
+                                                name.to_string()
+                                            };
+
                                             view! {
-                                                <span title=name style="font-size: 1.2em; cursor: help;">
+                                                <span
+                                                    title=title
+                                                    style=format!(
+                                                        "font-size: 1.2em; cursor: {}; margin-right: 5px;",
+                                                        cursor,
+                                                    )
+                                                    on:click=move |_| {
+                                                        if is_planning {
+                                                            c_drop
+                                                                .perform_action
+                                                                .call(Action::Drop {
+                                                                    item_index: i,
+                                                                });
+                                                        }
+                                                    }
+                                                >
                                                     {emoji}
                                                 </span>
                                             }
@@ -873,6 +898,74 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                         }
                                             .into_view(),
                                     );
+                            }
+                            if room.hazards.contains(&HazardType::Water) {
+                                let c_rep = ctx_action.clone();
+                                let disabled = player.ap < 1;
+                                let opacity = if disabled { "0.5" } else { "1.0" };
+                                let cursor = if disabled { "not-allowed" } else { "pointer" };
+                                buttons
+                                    .push(
+
+                                        view! {
+                                            <button
+                                                style=format!(
+                                                    "padding: 10px; background: #2196f3; border: none; color: white; border-radius: 4px; cursor: {}; opacity: {};",
+                                                    cursor,
+                                                    opacity,
+                                                )
+                                                disabled=disabled
+                                                on:click=move |_| {
+                                                    c_rep.perform_action.call(Action::Repair)
+                                                }
+                                            >
+                                                "Repair Leak"
+                                            </button>
+                                        }
+                                            .into_view(),
+                                    );
+                            }
+                            // Check for Revive targets (Fainted players in same room)
+                            for other_p in s.players.values() {
+                                if other_p.id == pid {
+                                    continue;
+                                }
+                                if other_p.room_id == player.room_id
+                                    && other_p
+                                        .status
+                                        .contains(&sint_core::PlayerStatus::Fainted)
+                                {
+                                    let c_revive = ctx_action.clone();
+                                    let target_id = other_p.id.clone();
+                                    let target_name = other_p.name.clone();
+                                    let disabled = player.ap < 1;
+                                    let opacity = if disabled { "0.5" } else { "1.0" };
+                                    let cursor = if disabled { "not-allowed" } else { "pointer" };
+                                    buttons
+                                        .push(
+                                            view! {
+                                                <button
+                                                    style=format!(
+                                                        "padding: 10px; background: #009688; border: none; color: white; border-radius: 4px; cursor: {}; opacity: {};",
+                                                        cursor,
+                                                        opacity,
+                                                    )
+                                                    disabled=disabled
+                                                    on:click=move |_| {
+                                                        c_revive
+                                                            .perform_action
+                                                            .call(Action::Revive {
+                                                                target_player: target_id.clone(),
+                                                            })
+                                                    }
+                                                >
+                                                    "Revive "
+                                                    {target_name}
+                                                </button>
+                                            }
+                                                .into_view(),
+                                        );
+                                }
                             }
                             if !room.items.is_empty() {
                                 let mut unique_items = room.items.clone();

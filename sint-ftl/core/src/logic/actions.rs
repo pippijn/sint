@@ -123,7 +123,7 @@ pub fn apply_action(
                 .players
                 .get_mut(player_id)
                 .ok_or(GameError::PlayerNotFound)?;
-            
+
             if p.ap == 0 {
                 return Err(GameError::InvalidAction(
                     "Cannot Pass with 0 AP. Vote ready instead.".to_string(),
@@ -407,6 +407,22 @@ pub fn apply_action(
             if *item_index >= p_proj.inventory.len() {
                 return Err(GameError::InvalidItem);
             }
+
+            // Validation: Cannot drop Wheelbarrow if holding excess Peppernuts
+            let item_to_drop = &p_proj.inventory[*item_index];
+            if *item_to_drop == ItemType::Wheelbarrow {
+                let nut_count = p_proj
+                    .inventory
+                    .iter()
+                    .filter(|i| **i == ItemType::Peppernut)
+                    .count();
+                if nut_count > 1 {
+                    return Err(GameError::InvalidAction(
+                        "Cannot drop Wheelbarrow while holding >1 Peppernuts".to_string(),
+                    ));
+                }
+            }
+
             state.proposal_queue.push(ProposedAction {
                 id: Uuid::new_v4().to_string(),
                 player_id: player_id.to_string(),
@@ -461,6 +477,11 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
             state.shields_active = false;
             state.evasion_active = false;
 
+            // Reset AP (Start of Game)
+            for p in state.players.values_mut() {
+                p.ap = 2;
+            }
+
             // Round Start Hook
             let active_ids: Vec<CardId> = state.active_situations.iter().map(|c| c.id).collect();
             for id in active_ids {
@@ -496,9 +517,8 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
         }
         GamePhase::EnemyTelegraph => {
             state.phase = GamePhase::TacticalPlanning;
-            // Reset AP
+            // Reset Ready (AP already reset in MorningReport)
             for p in state.players.values_mut() {
-                p.ap = 2;
                 p.is_ready = false;
             }
         }
@@ -549,6 +569,11 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
             state.phase = GamePhase::MorningReport;
             state.shields_active = false;
             state.evasion_active = false;
+
+            // Reset AP (New Round)
+            for p in state.players.values_mut() {
+                p.ap = 2;
+            }
 
             // Trigger Card End-of-Round Effects (e.g. Timebombs, Mice)
             let active_ids: Vec<CardId> = state.active_situations.iter().map(|c| c.id).collect();
@@ -763,6 +788,21 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
                     }
                 }
                 seen_items.push(item.clone());
+            }
+        }
+
+        // Revive
+        for other_p in projected_state.players.values() {
+            if other_p.id != *player_id
+                && other_p.room_id == p.room_id
+                && other_p.status.contains(&PlayerStatus::Fainted)
+            {
+                let action = Action::Revive {
+                    target_player: other_p.id.clone(),
+                };
+                if p.ap >= action_cost(&projected_state, player_id, &action) {
+                    actions.push(action);
+                }
             }
         }
     }

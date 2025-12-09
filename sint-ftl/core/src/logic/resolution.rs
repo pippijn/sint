@@ -1,9 +1,9 @@
 use super::actions::action_cost;
 use super::cards::get_behavior;
 use crate::types::*;
+use log::{debug, info};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
-use log::{debug, info};
 
 pub fn resolve_enemy_attack(state: &mut GameState) {
     if let Some(attack) = &state.enemy.next_attack {
@@ -252,10 +252,21 @@ pub fn resolve_proposal_queue(state: &mut GameState, simulation: bool) {
                 }
             }
             Action::Extinguish => {
-                let room_id = state.players.get(player_id).unwrap().room_id;
+                let p = state.players.get(player_id).unwrap();
+                let has_extinguisher = p.inventory.contains(&ItemType::Extinguisher);
+                let room_id = p.room_id;
+
                 if let Some(room) = state.map.rooms.get_mut(&room_id) {
-                    if let Some(idx) = room.hazards.iter().position(|&h| h == HazardType::Fire) {
-                        room.hazards.remove(idx);
+                    let limit = if has_extinguisher { 2 } else { 1 };
+                    let mut removed = 0;
+
+                    while removed < limit {
+                        if let Some(idx) = room.hazards.iter().position(|&h| h == HazardType::Fire) {
+                            room.hazards.remove(idx);
+                            removed += 1;
+                        } else {
+                            break;
+                        }
                     }
                 }
             }

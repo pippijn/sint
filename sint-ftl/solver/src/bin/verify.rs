@@ -1,7 +1,7 @@
 use clap::Parser;
-use sint_core::GameError;
 use sint_core::logic::GameLogic;
 use sint_core::types::{Action, GamePhase, GameState, ItemType};
+use sint_core::GameError;
 use solver::replay;
 use std::fs::File;
 use std::io::{self, BufRead};
@@ -29,18 +29,26 @@ fn main() {
     let initial_state = GameLogic::new_game(player_ids.clone(), seed);
 
     // Run
-    println!("Verifying solution from {:?} with {} players, seed {}", args.file, players, seed);
-    let final_history = run_verification(initial_state, file_actions);
-    
+    println!(
+        "Verifying solution from {:?} with {} players, seed {}",
+        args.file, players, seed
+    );
+    let (final_history, success) = run_verification(initial_state, file_actions);
+
     // Replay for visualization
-    let state_for_print = GameLogic::new_game(player_ids, seed);
-    replay::print_trajectory(state_for_print, final_history);
+    if success {
+        let state_for_print = GameLogic::new_game(player_ids, seed);
+        replay::print_trajectory(state_for_print, final_history);
+    }
 }
 
-fn run_verification(mut state: GameState, user_actions: Vec<(String, Action)>) -> Vec<(String, Action)> {
+fn run_verification(
+    mut state: GameState,
+    user_actions: Vec<(String, Action)>,
+) -> (Vec<(String, Action)>, bool) {
     let mut full_history = Vec::new();
     let mut action_iter = user_actions.into_iter();
-    
+
     // Loop until Game Over or Actions exhausted
     loop {
         if state.phase == GamePhase::GameOver || state.phase == GamePhase::Victory {
@@ -49,19 +57,19 @@ fn run_verification(mut state: GameState, user_actions: Vec<(String, Action)>) -
 
         // Auto-Advance Phases
         if state.phase != GamePhase::TacticalPlanning {
-             // Just Vote Ready for everyone
-             let pids: Vec<String> = state.players.keys().cloned().collect();
-             for pid in pids {
-                 let act = Action::VoteReady { ready: true };
-                 match GameLogic::apply_action(state.clone(), &pid, act.clone(), None) {
-                     Ok(s) => {
-                         state = s;
-                         full_history.push((pid, act));
-                     }
-                     Err(_) => break, // Should not happen
-                 }
-             }
-             continue;
+            // Just Vote Ready for everyone
+            let pids: Vec<String> = state.players.keys().cloned().collect();
+            for pid in pids {
+                let act = Action::VoteReady { ready: true };
+                match GameLogic::apply_action(state.clone(), &pid, act.clone(), None) {
+                    Ok(s) => {
+                        state = s;
+                        full_history.push((pid, act));
+                    }
+                    Err(_) => break, // Should not happen
+                }
+            }
+            continue;
         }
 
         if let Some((pid, action)) = action_iter.next() {
@@ -75,11 +83,16 @@ fn run_verification(mut state: GameState, user_actions: Vec<(String, Action)>) -
                         if let Some(p) = s.players.get(&pid) {
                             if p.ap == 0 && !p.is_ready {
                                 let ready_act = Action::VoteReady { ready: true };
-                                match GameLogic::apply_action(s.clone(), &pid, ready_act.clone(), None) {
+                                match GameLogic::apply_action(
+                                    s.clone(),
+                                    &pid,
+                                    ready_act.clone(),
+                                    None,
+                                ) {
                                     Ok(next_s) => {
                                         s = next_s;
                                         full_history.push((pid.clone(), ready_act));
-                                    },
+                                    }
                                     Err(e) => println!("Auto-ready failed for {}: {}", pid, e),
                                 }
                             }
@@ -90,7 +103,7 @@ fn run_verification(mut state: GameState, user_actions: Vec<(String, Action)>) -
                 Err(e) => {
                     println!("Error applying {}: {:?} -> {}", pid, action, e);
                     print_failure_summary(&state, &pid, &action, &e);
-                    break;
+                    return (full_history, false);
                 }
             }
         } else {
@@ -98,8 +111,8 @@ fn run_verification(mut state: GameState, user_actions: Vec<(String, Action)>) -
             break;
         }
     }
-    
-    full_history
+
+    (full_history, true)
 }
 
 fn print_failure_summary(state: &GameState, pid: &str, action: &Action, error: &GameError) {
@@ -108,22 +121,39 @@ fn print_failure_summary(state: &GameState, pid: &str, action: &Action, error: &
     println!("Phase: {:?}", state.phase);
     println!("Failed Action: {} performs {:?}", pid, action);
     println!("Error: {}", error);
-    
+
+    if let GameError::NotEnoughAP = error {
+        let other_players_with_ap: Vec<_> = state
+            .players
+            .values()
+            .filter(|p| p.id != pid && p.ap > 0)
+            .collect();
+        if other_players_with_ap.len() == 1 {
+            let p = other_players_with_ap[0];
+            println!("Hint: Round not over. {} still has {} AP.", p.id, p.ap);
+        }
+    }
+
     println!("\n-- State Context --");
-    println!("Hull: {} | Enemy: {} ({} HP)", state.hull_integrity, state.enemy.name, state.enemy.hp);
-    
+    println!(
+        "Hull: {} | Enemy: {} ({} HP)",
+        state.hull_integrity, state.enemy.name, state.enemy.hp
+    );
+
     println!("Active Situations:");
     for card in &state.active_situations {
         println!("  - {} ({:?})", card.title, card.id);
     }
-    
+
     println!("Players:");
     let mut pids: Vec<String> = state.players.keys().cloned().collect();
     pids.sort();
     for p_id in pids {
         if let Some(p) = state.players.get(&p_id) {
-            println!("  {}: Room {} | AP {} | HP {} | Inv {:?} | Status {:?}", 
-                p_id, p.room_id, p.ap, p.hp, p.inventory, p.status);
+            println!(
+                "  {}: Room {} | AP {} | HP {} | Inv {:?} | Status {:?}",
+                p_id, p.room_id, p.ap, p.hp, p.inventory, p.status
+            );
         }
     }
     println!("=======================\n");
@@ -162,7 +192,7 @@ fn parse_solution_file(path: &PathBuf) -> (Vec<(String, Action)>, Option<u64>, O
             eprintln!("Warning: Skipping invalid line: {}", line);
             continue;
         }
-        
+
         let pid = parts[0].trim().to_string();
         let cmd = parts[1].trim();
 
@@ -177,13 +207,18 @@ fn parse_solution_file(path: &PathBuf) -> (Vec<(String, Action)>, Option<u64>, O
             let parts: Vec<&str> = cmd.split_whitespace().collect();
             let target = parts[1].to_string();
             let idx = parts[2].parse().unwrap();
-            Action::Throw { target_player: target, item_index: idx }
+            Action::Throw {
+                target_player: target,
+                item_index: idx,
+            }
         } else if cmd == "Extinguish" {
             Action::Extinguish
         } else if cmd == "Repair" {
             Action::Repair
         } else if cmd == "PickUp" {
-             Action::PickUp { item_type: ItemType::Peppernut }
+            Action::PickUp {
+                item_type: ItemType::Peppernut,
+            }
         } else if cmd.starts_with("Drop") {
             let idx = cmd.split_whitespace().nth(1).unwrap().parse().unwrap();
             Action::Drop { item_index: idx }
@@ -200,11 +235,15 @@ fn parse_solution_file(path: &PathBuf) -> (Vec<(String, Action)>, Option<u64>, O
         } else if cmd == "Interact" {
             Action::Interact
         } else if cmd.starts_with("Revive") {
-             let target = cmd.split_whitespace().nth(1).unwrap().to_string();
-             Action::Revive { target_player: target }
+            let target = cmd.split_whitespace().nth(1).unwrap().to_string();
+            Action::Revive {
+                target_player: target,
+            }
         } else if cmd.starts_with("FirstAid") {
-             let target = cmd.split_whitespace().nth(1).unwrap().to_string();
-             Action::FirstAid { target_player: target }
+            let target = cmd.split_whitespace().nth(1).unwrap().to_string();
+            Action::FirstAid {
+                target_player: target,
+            }
         } else if cmd.starts_with("Chat") {
             let msg = cmd.replace("Chat ", "").trim().to_string();
             Action::Chat { message: msg }

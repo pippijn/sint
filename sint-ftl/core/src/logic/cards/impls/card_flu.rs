@@ -36,16 +36,30 @@ impl CardBehavior for FluWaveCard {
         }
 
         if triggered {
-            // Next round 1 AP.
-            // We set AP at start of TacticalPlanning.
-            // We need a persistent status "Sick".
-            // Since we don't have statuses yet other than Fainted/Silenced,
-            // we'll implement this by reducing AP *now* if we reset AP at end of round?
-            // `advance_phase` resets AP to 2 in EnemyTelegraph.
-            // If this triggers in EnemyAction (before Telegraph), we need a way to persist the malus.
-            // State variable? Or just modify players now and hope they don't get reset?
-            // They DO get reset.
-            // We'll leave this unimplemented correctly without a Status system.
+            // Keep card active (rounds_left=0) to trigger on_round_start effect next turn.
+        } else {
+            // Solved state is handled by Interact action removing the card.
+        }
+    }
+
+    fn on_round_start(&self, state: &mut GameState) {
+        let mut triggered = false;
+        for card in &state.active_situations {
+            if card.id == CardId::FluWave {
+                if let CardType::Timebomb { rounds_left } = card.card_type {
+                    if rounds_left == 0 {
+                        triggered = true;
+                    }
+                }
+            }
+        }
+
+        if triggered {
+            // Apply Penalty: 1 AP
+            for p in state.players.values_mut() {
+                p.ap = 1;
+            }
+            // Remove card now that penalty is applied
             state.active_situations.retain(|c| c.id != CardId::FluWave);
         }
     }
