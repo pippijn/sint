@@ -123,6 +123,13 @@ pub fn apply_action(
                 .players
                 .get_mut(player_id)
                 .ok_or(GameError::PlayerNotFound)?;
+            
+            if p.ap == 0 {
+                return Err(GameError::InvalidAction(
+                    "Cannot Pass with 0 AP. Vote ready instead.".to_string(),
+                ));
+            }
+
             p.ap = 0;
             p.is_ready = true;
             if state.players.values().all(|p| p.is_ready) {

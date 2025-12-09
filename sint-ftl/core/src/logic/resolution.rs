@@ -51,8 +51,13 @@ pub fn resolve_hazards(state: &mut GameState) {
     let mut fire_spreads = vec![];
     let mut rng = StdRng::seed_from_u64(state.rng_seed);
 
+    // Deterministic Iteration: Sort Room IDs
+    let mut room_ids: Vec<u32> = state.map.rooms.keys().cloned().collect();
+    room_ids.sort();
+
     // 1. Damage Players & Hull
-    for room in state.map.rooms.values() {
+    for room_id in &room_ids {
+        let room = &state.map.rooms[room_id];
         let has_fire = room.hazards.contains(&HazardType::Fire);
 
         if has_fire {
@@ -82,12 +87,18 @@ pub fn resolve_hazards(state: &mut GameState) {
     }
 
     // Apply Player Damage separately
-    for p in state.players.values_mut() {
-        if let Some(room) = state.map.rooms.get(&p.room_id) {
-            if room.hazards.contains(&HazardType::Fire) {
-                p.hp -= 1;
-                if p.hp <= 0 {
-                    p.status.push(PlayerStatus::Fainted);
+    // Deterministic Iteration: Sort Player IDs
+    let mut player_ids: Vec<String> = state.players.keys().cloned().collect();
+    player_ids.sort();
+
+    for pid in &player_ids {
+        if let Some(p) = state.players.get_mut(pid) {
+            if let Some(room) = state.map.rooms.get(&p.room_id) {
+                if room.hazards.contains(&HazardType::Fire) {
+                    p.hp -= 1;
+                    if p.hp <= 0 {
+                        p.status.push(PlayerStatus::Fainted);
+                    }
                 }
             }
         }
@@ -103,10 +114,12 @@ pub fn resolve_hazards(state: &mut GameState) {
     }
 
     // 3. Water destroys items (Except in Storage)
-    for room in state.map.rooms.values_mut() {
-        if room.hazards.contains(&HazardType::Water) {
-            if room.system != Some(SystemType::Storage) {
-                room.items.clear();
+    for room_id in &room_ids {
+        if let Some(room) = state.map.rooms.get_mut(room_id) {
+            if room.hazards.contains(&HazardType::Water) {
+                if room.system != Some(SystemType::Storage) {
+                    room.items.clear();
+                }
             }
         }
     }
