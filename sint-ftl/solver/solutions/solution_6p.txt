@@ -18,6 +18,7 @@ P4: Pass
 P4: Move 5
 P4: Extinguish
 P4: Interact
+P4: Move 7
 P3: EvasiveManeuvers
 P1: Bake
 P1: PickUp
@@ -35,8 +36,8 @@ P1: Interact
 P1: Throw P2 0
 P2: Throw P5 0
 P5: Shoot
+P3: EvasiveManeuvers
 P2: Pass
-P3: Pass
 P4: Pass
 P5: Pass
 P6: Pass
@@ -45,18 +46,18 @@ P4: Move 9
 P4: Interact
 P3: EvasiveManeuvers
 P2: Move 4
-P2: Move 7
 P1: Bake
 P1: Pass
+P2: Pass
 P5: Pass
 P6: Pass
 # Round 5: NoLight. Enemy->6.
-P2: Move 4
 P2: Interact
 P3: EvasiveManeuvers
 P1: PickUp
 P1: Move 7
 P1: Drop 0
+P2: Pass
 P4: Pass
 P5: Pass
 P6: Pass
@@ -82,9 +83,11 @@ P2: Move 7
 P4: Move 7
 P4: Move 5
 P2: Pass
-# Round 8: ListingShip. Enemy->5.
+# Round 8: ListingShip. Enemy->8. Fire in 9.
 P4: Interact
-P3: Extinguish
+P2: Move 9
+P2: Extinguish
+P3: EvasiveManeuvers
 P5: PickUp
 P6: PickUp
 P5: Shoot
@@ -92,22 +95,24 @@ P6: Shoot
 P1: Move 6
 P1: PickUp
 P1: Pass
-P2: Pass
-P3: Pass
 # Round 9: WeirdGifts. Enemy->6.
-P2: Move 8
-P2: Extinguish
-P1: Move 7
-P1: Throw P5 0
 P5: Shoot
+P1: Move 7
+P1: Throw P6 0
+P6: Shoot
 P3: EvasiveManeuvers
+P2: Move 7
+P2: Move 4
 P4: Pass
 P5: Pass
 P6: Pass
-# Round 10: Victory/Transition.
-P1: Pass
+# Round 10: Kill Boss / Defense.
+P3: EvasiveManeuvers
+P4: Extinguish
+P4: Move 7
+P2: Interact
+P1: Move 6
+P1: Bake
 P2: Pass
-P3: Pass
-P4: Pass
 P5: Pass
 P6: Pass
