@@ -269,3 +269,25 @@ P4: Move 7
 P1: Pass
 P5: Pass
 P6: Pass
+# Round 25: Firefighting & Positioning.
+P2: Extinguish
+P3: Move 7
+P4: Move 7
+P5: Move 7
+P6: Move 7
+P1: Move 8
+P1: Pass
+P2: Pass
+# Round 26: Load & Shift.
+P2: Extinguish
+P2: Interact
+P3: Move 6
+P3: Bake
+P4: Move 6
+P4: PickUp
+P5: Move 6
+P5: PickUp
+P6: Move 6
+P6: PickUp
+P1: Interact
+P1: PickUp

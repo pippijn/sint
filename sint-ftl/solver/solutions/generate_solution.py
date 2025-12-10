@@ -706,8 +706,57 @@ def r24():
     # P4 (10) -> 7 (Sticky 2 AP).
     p4.action("Move 7", 2)
 
-    # P5, P6 Pass (Stay in 7).
-    # No action needed, loop handles pass.
+    for p in players: p.pass_turn()
+
+def r25():
+    print("# Round 25: Firefighting & Positioning.")
+    start_round()
+    # P2 (in 5) Extinguish (1 AP).
+    p2.action("Extinguish", 1)
+
+    # P3 (5) -> 7 (Sticky 2 AP).
+    p3.action("Move 7", 2)
+
+    # P4 (5) -> 7 (Sticky 2 AP).
+    p4.action("Move 7", 2)
+
+    # P5 (5) -> 7 (Sticky 2 AP).
+    p5.action("Move 7", 2)
+
+    # P6 (5) -> 7 (Sticky 2 AP).
+    p6.action("Move 7", 2)
+
+    # P1 (7) -> 8 (1 AP).
+    p1.action("Move 8", 1)
+
+    for p in players: p.pass_turn()
+
+def r26():
+    print("# Round 26: Load & Shift.")
+    start_round()
+    # P2 (in 6) Extinguish (1 AP). Solve Seasick (1 AP).
+    p2.action("Extinguish", 1)
+    p2.action("Interact", 1) # Solve Seasick
+
+    # P3 (7) -> 6 (1 AP). Bake (1 AP).
+    p3.action("Move 6", 1)
+    p3.action("Bake", 1)
+
+    # P4 (7) -> 6 (1 AP). Pickup (1 AP).
+    p4.action("Move 6", 1)
+    p4.action("PickUp", 1)
+
+    # P5 (7) -> 6 (1 AP). Pickup (1 AP).
+    p5.action("Move 6", 1)
+    p5.action("PickUp", 1)
+
+    # P6 (7) -> 6 (1 AP). Pickup (1 AP).
+    p6.action("Move 6", 1)
+    p6.action("PickUp", 1)
+
+    # P1 (9). Solve Book (1 AP). Pickup (1 AP).
+    p1.action("Interact", 1)
+    p1.action("PickUp", 1)
     
     for p in players: p.pass_turn()
 
@@ -739,6 +788,8 @@ def main():
     r22()
     r23()
     r24()
+    r25()
+    r26()
 
 if __name__ == "__main__":
     main()
