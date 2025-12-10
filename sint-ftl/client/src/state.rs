@@ -64,12 +64,7 @@ pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
             "ws:"
         };
         let host = location.host().unwrap();
-
-        let url = if host.contains(":8080") {
-            "ws://localhost:3000/ws".to_string()
-        } else {
-            format!("{}//{}/ws", protocol, host)
-        };
+        let url = format!("{}//{}/ws", protocol, host);
 
         let ws = match WebSocket::open(&url) {
             Ok(ws) => ws,

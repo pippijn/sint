@@ -7,6 +7,19 @@ use crate::{logic::GameError, types::*};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use uuid::Uuid;
 
+fn deterministic_uuid(state: &mut GameState) -> String {
+    let mut rng = StdRng::seed_from_u64(state.rng_seed);
+    let mut bytes = [0u8; 16];
+    rng.fill(&mut bytes);
+    state.rng_seed = rng.gen();
+
+    // Set UUID v4 bits manually to ensure it looks valid
+    bytes[6] = (bytes[6] & 0x0f) | 0x40; // Version 4
+    bytes[8] = (bytes[8] & 0x3f) | 0x80; // Variant 1
+
+    Uuid::from_bytes(bytes).to_string()
+}
+
 pub fn apply_action(
     mut state: GameState,
     player_id: &str,
@@ -194,8 +207,9 @@ pub fn apply_action(
                 }
 
                 for step_room in path {
+                    let id = deterministic_uuid(&mut state);
                     state.proposal_queue.push(ProposedAction {
-                        id: Uuid::new_v4().to_string(),
+                        id,
                         player_id: player_id.to_string(),
                         action: Action::Move { to_room: step_room },
                     });
@@ -214,8 +228,9 @@ pub fn apply_action(
                     ));
                 }
             }
+            let id = deterministic_uuid(&mut state);
             state.proposal_queue.push(ProposedAction {
-                id: Uuid::new_v4().to_string(),
+                id,
                 player_id: player_id.to_string(),
                 action: action.clone(),
             });
@@ -230,8 +245,9 @@ pub fn apply_action(
                     ));
                 }
             }
+            let id = deterministic_uuid(&mut state);
             state.proposal_queue.push(ProposedAction {
-                id: Uuid::new_v4().to_string(),
+                id,
                 player_id: player_id.to_string(),
                 action: action.clone(),
             });
@@ -260,8 +276,9 @@ pub fn apply_action(
             if !room.hazards.is_empty() {
                 return Err(GameError::RoomBlocked);
             }
+            let id = deterministic_uuid(&mut state);
             state.proposal_queue.push(ProposedAction {
-                id: Uuid::new_v4().to_string(),
+                id,
                 player_id: player_id.to_string(),
                 action: action.clone(),
             });
@@ -284,8 +301,9 @@ pub fn apply_action(
             if !room.hazards.is_empty() {
                 return Err(GameError::RoomBlocked);
             }
+            let id = deterministic_uuid(&mut state);
             state.proposal_queue.push(ProposedAction {
-                id: Uuid::new_v4().to_string(),
+                id,
                 player_id: player_id.to_string(),
                 action: action.clone(),
             });
@@ -325,8 +343,9 @@ pub fn apply_action(
                 ));
             }
 
+            let id = deterministic_uuid(&mut state);
             state.proposal_queue.push(ProposedAction {
-                id: Uuid::new_v4().to_string(),
+                id,
                 player_id: player_id.to_string(),
                 action: action.clone(),
             });
@@ -361,8 +380,9 @@ pub fn apply_action(
                 }
             }
 
+            let id = deterministic_uuid(&mut state);
             state.proposal_queue.push(ProposedAction {
-                id: Uuid::new_v4().to_string(),
+                id,
                 player_id: player_id.to_string(),
                 action: action.clone(),
             });
@@ -395,8 +415,9 @@ pub fn apply_action(
                 return Err(GameError::InvalidAction("Target not in range".to_string()));
             }
 
+            let id = deterministic_uuid(&mut state);
             state.proposal_queue.push(ProposedAction {
-                id: Uuid::new_v4().to_string(),
+                id,
                 player_id: player_id.to_string(),
                 action: action.clone(),
             });
@@ -423,8 +444,9 @@ pub fn apply_action(
                 }
             }
 
+            let id = deterministic_uuid(&mut state);
             state.proposal_queue.push(ProposedAction {
-                id: Uuid::new_v4().to_string(),
+                id,
                 player_id: player_id.to_string(),
                 action: action.clone(),
             });
@@ -446,8 +468,9 @@ pub fn apply_action(
                     "Target is not Fainted".to_string(),
                 ));
             }
+            let id = deterministic_uuid(&mut state);
             state.proposal_queue.push(ProposedAction {
-                id: Uuid::new_v4().to_string(),
+                id,
                 player_id: player_id.to_string(),
                 action: action.clone(),
             });
@@ -456,8 +479,9 @@ pub fn apply_action(
         }
 
         _ => {
+            let id = deterministic_uuid(&mut state);
             state.proposal_queue.push(ProposedAction {
-                id: Uuid::new_v4().to_string(),
+                id,
                 player_id: player_id.to_string(),
                 action: action.clone(),
             });

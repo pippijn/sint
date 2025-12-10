@@ -1,5 +1,5 @@
 #[cfg(feature = "python")]
-use crate::verification::{parse_solution_text, run_verification};
+use crate::verification::run_verification;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 #[cfg(feature = "python")]
@@ -8,16 +8,6 @@ use pyo3::types::PyDict;
 use pythonize::{depythonize, pythonize};
 #[cfg(feature = "python")]
 use sint_core::types::{Action, GameState};
-
-#[cfg(feature = "python")]
-#[pyfunction]
-fn parse_solution(py: Python, text: String) -> PyResult<Py<PyAny>> {
-    let (actions, seed, players) = parse_solution_text(&text);
-    let res = (actions, seed, players);
-    let py_res = pythonize(py, &res)
-        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
-    Ok(py_res.into())
-}
 
 #[cfg(feature = "python")]
 #[pyfunction]
@@ -72,7 +62,6 @@ fn get_trajectory_log(
 #[cfg(feature = "python")]
 #[pymodule]
 fn sint_solver(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(parse_solution, m)?)?;
     m.add_function(wrap_pyfunction!(verify_solution, m)?)?;
     m.add_function(wrap_pyfunction!(get_trajectory_log, m)?)?;
     Ok(())

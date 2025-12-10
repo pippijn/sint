@@ -22,14 +22,7 @@ pub fn LobbyBrowser() -> impl IntoView {
     let rooms_resource = create_resource(
         || (),
         move |_| async move {
-            let location = web_sys::window().unwrap().location();
-            let host = location.host().unwrap();
-
-            let url = if host.contains(":8080") {
-                "http://localhost:3000/api/rooms"
-            } else {
-                "/api/rooms"
-            };
+            let url = "/api/rooms";
 
             match Request::get(url).send().await {
                 Ok(resp) => {
