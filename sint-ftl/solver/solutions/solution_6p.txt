@@ -252,3 +252,20 @@ P6: Shoot
 P1: Pass
 P5: Pass
 P6: Pass
+# Round 23: Spin & Bake. P3 Wakes P1.
+P3: Interact
+P4: EvasiveManeuvers
+P2: Move 6
+P2: Bake
+P1: Move 7
+P5: Move 7
+P6: Move 7
+P3: Pass
+# Round 24: Sacrifice P1 for Positioning.
+P1: Move 5
+P2: Move 7
+P3: Move 7
+P4: Move 7
+P1: Pass
+P5: Pass
+P6: Pass

@@ -667,6 +667,50 @@ def r22():
 
     for p in players: p.pass_turn()
 
+def r23():
+    print("# Round 23: Spin & Bake. P3 Wakes P1.")
+    start_round()
+    # P3 Solve Nap (1 AP).
+    p3.action("Interact", 1)
+
+    # P4 Evasive (2 AP).
+    p4.action("EvasiveManeuvers", 2)
+
+    # P2 Move 6 (1 AP). Bake (1 AP).
+    p2.action("Move 6", 1)
+    p2.action("Bake", 1)
+
+    # P1 (Awake) Move 7 (Sticky 2 AP).
+    p1.action("Move 7", 2)
+
+    # P5 Move 7 (Sticky 2 AP).
+    p5.action("Move 7", 2)
+
+    # P6 Move 7 (Sticky 2 AP).
+    p6.action("Move 7", 2)
+
+    for p in players: p.pass_turn()
+
+def r24():
+    print("# Round 24: Sacrifice P1 for Positioning.")
+    start_round()
+    # P1 (7) -> 5 (1 AP).
+    p1.action("Move 5", 1)
+
+    # P2 (8) -> 7 (Sticky 2 AP).
+    p2.action("Move 7", 2)
+
+    # P3 (11) -> 7 (Sticky 2 AP).
+    p3.action("Move 7", 2)
+
+    # P4 (10) -> 7 (Sticky 2 AP).
+    p4.action("Move 7", 2)
+
+    # P5, P6 Pass (Stay in 7).
+    # No action needed, loop handles pass.
+    
+    for p in players: p.pass_turn()
+
 def main():
     print("SEED 12345")
     print("PLAYERS 6")
@@ -693,6 +737,8 @@ def main():
     r20()
     r21()
     r22()
+    r23()
+    r24()
 
 if __name__ == "__main__":
     main()

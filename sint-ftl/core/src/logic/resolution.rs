@@ -118,7 +118,8 @@ pub fn resolve_hazards(state: &mut GameState) {
         if let Some(room) = state.map.rooms.get_mut(room_id) {
             if room.hazards.contains(&HazardType::Water) {
                 if room.system != Some(SystemType::Storage) {
-                    room.items.clear();
+                    // Only destroy Peppernuts. Special items survive.
+                    room.items.retain(|i| *i != ItemType::Peppernut);
                 }
             }
         }
