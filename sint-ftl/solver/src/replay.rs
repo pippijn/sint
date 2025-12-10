@@ -1,31 +1,25 @@
 use sint_core::logic::GameLogic;
 use sint_core::types::{Action, GamePhase, GameState, HazardType, PlayerId};
+use std::fmt::Write;
 
-pub fn print_trajectory(initial_state: GameState, path: Vec<(PlayerId, Action)>) {
+pub fn format_trajectory(initial_state: GameState, path: Vec<(PlayerId, Action)>) -> Vec<String> {
     let mut state = initial_state;
     let mut current_round = state.turn_count;
     let mut round_start_hull = state.hull_integrity;
     let mut round_start_hazards = count_hazards(&state);
 
-    println!("\n=== BEST TRAJECTORY FOUND ===\n");
-    println!(
+    let mut rounds_output = Vec::new();
+    let mut current_buffer = String::new();
+
+    writeln!(current_buffer, "\n=== BEST TRAJECTORY FOUND ===").unwrap();
+    writeln!(
+        current_buffer,
         "Start: Hull {}, Boss {}, Players {}",
         state.hull_integrity,
         state.enemy.name,
         state.players.len()
-    );
-
-    // Group actions by "Batch" (between phase changes or round changes)
-    // Actually, simply iterating and detecting Phase changes is easier.
-
-    // We want to print context *before* the actions of a round (Event, Telegraph).
-    // But the path only contains Player Actions.
-    // Events happen *between* player actions (during phase transitions).
-
-    // Initial Context (Round 1)
-    // We start in Lobby usually, so we won't print context until Planning.
-    // But verify runs `new_game` which starts in Lobby.
-    // So loop handles it.
+    )
+    .unwrap();
 
     for (pid, action) in path {
         let prev_phase = state.phase;
@@ -37,15 +31,21 @@ pub fn print_trajectory(initial_state: GameState, path: Vec<(PlayerId, Action)>)
                 match &action {
                     Action::Chat { message } => {
                         if message.starts_with("[MACRO]") {
-                            println!("\n  {} plans: {}", pid, message.replace("[MACRO] ", ""));
+                            writeln!(
+                                current_buffer,
+                                "\n  {} plans: {}",
+                                pid,
+                                message.replace("[MACRO] ", "")
+                            )
+                            .unwrap();
                         }
                     }
                     Action::VoteReady { .. } => {} // Silent
                     Action::Pass => {
-                        println!("  {} passes.", pid);
+                        writeln!(current_buffer, "  {} passes.", pid).unwrap();
                     }
                     _ => {
-                        println!("    -> {:?} ({})", action, pid);
+                        writeln!(current_buffer, "    -> {:?} ({})", action, pid).unwrap();
                     }
                 }
 
@@ -53,26 +53,35 @@ pub fn print_trajectory(initial_state: GameState, path: Vec<(PlayerId, Action)>)
 
                 if state.phase != prev_phase {
                     if state.turn_count > current_round {
-                        print_results(
+                        // Finish previous round
+                        let results = format_results(
                             round_start_hull,
                             state.hull_integrity,
                             round_start_hazards,
                             count_hazards(&state),
                         );
+                        write!(current_buffer, "{}", results).unwrap();
+
+                        rounds_output.push(current_buffer);
+                        current_buffer = String::new();
+
                         current_round = state.turn_count;
                         round_start_hull = state.hull_integrity;
                         round_start_hazards = count_hazards(&state);
 
-                        println!("\n--- ROUND {} ---", current_round);
-                        // Don't print header here, wait for phases
+                        writeln!(current_buffer, "\n--- ROUND {} ---", current_round).unwrap();
                     }
 
                     if state.phase == GamePhase::MorningReport
                         && prev_phase != GamePhase::MorningReport
                     {
-                        // New Event usually appears here
                         if let Some(card) = &state.latest_event {
-                            println!("[EVENT] {} - {}", card.title, card.description);
+                            writeln!(
+                                current_buffer,
+                                "[EVENT] {} - {}",
+                                card.title, card.description
+                            )
+                            .unwrap();
                         }
                         if !state.active_situations.is_empty() {
                             let names: Vec<String> = state
@@ -80,39 +89,56 @@ pub fn print_trajectory(initial_state: GameState, path: Vec<(PlayerId, Action)>)
                                 .iter()
                                 .map(|c| c.title.clone())
                                 .collect();
-                            println!("[ACTIVE] {}", names.join(", "));
+                            writeln!(current_buffer, "[ACTIVE] {}", names.join(", ")).unwrap();
                         }
                     } else if state.phase == GamePhase::TacticalPlanning
                         && prev_phase != GamePhase::TacticalPlanning
                     {
-                        // We just entered Planning. Telegraph should be ready.
-                        print_planning_context(&state);
+                        write!(current_buffer, "{}", format_planning_context(&state)).unwrap();
                     }
                 }
             }
             Err(e) => {
-                println!("  ERROR REPLAYING: {} failed to {:?}: {}", pid, action, e);
+                writeln!(
+                    current_buffer,
+                    "  ERROR REPLAYING: {} failed to {:?}: {}",
+                    pid, action, e
+                )
+                .unwrap();
             }
         }
     }
 
-    println!("\n=== GAME OVER: {:?} ===", state.phase);
+    writeln!(current_buffer, "\n=== GAME OVER: {:?} ===", state.phase).unwrap();
+    rounds_output.push(current_buffer);
+
+    rounds_output
 }
 
-fn print_planning_context(state: &GameState) {
+pub fn print_trajectory(initial_state: GameState, path: Vec<(PlayerId, Action)>) {
+    let rounds = format_trajectory(initial_state, path);
+    for r in rounds {
+        print!("{}", r);
+    }
+}
+
+fn format_planning_context(state: &GameState) -> String {
+    let mut out = String::new();
+
     // 1. Enemy Intent
     if let Some(attack) = &state.enemy.next_attack {
-        println!(
+        writeln!(
+            out,
             "[ENEMY] {} targets Room {} with {:?}",
             state.enemy.name, attack.target_room, attack.effect
-        );
+        )
+        .unwrap();
     }
 
     // 2. Hazards
     let mut fire_rooms = Vec::new();
     let mut water_rooms = Vec::new();
 
-    // Sort Room IDs for stability
     let mut room_ids: Vec<u32> = state.map.rooms.keys().cloned().collect();
     room_ids.sort();
 
@@ -139,10 +165,10 @@ fn print_planning_context(state: &GameState) {
     }
 
     if !fire_rooms.is_empty() {
-        println!("[HAZARDS] Fire: {}", fire_rooms.join(", "));
+        writeln!(out, "[HAZARDS] Fire: {}", fire_rooms.join(", ")).unwrap();
     }
     if !water_rooms.is_empty() {
-        println!("[HAZARDS] Water: {}", water_rooms.join(", "));
+        writeln!(out, "[HAZARDS] Water: {}", water_rooms.join(", ")).unwrap();
     }
 
     // 3. Players
@@ -159,31 +185,47 @@ fn print_planning_context(state: &GameState) {
             players_info.push(format!("{}: R{}{}", pid, p.room_id, inv_str));
         }
     }
-    println!("[PLAYERS] {}", players_info.join(" | "));
+    writeln!(out, "[PLAYERS] {}", players_info.join(" | ")).unwrap();
 
     // 5. Status
-    println!(
+    writeln!(
+        out,
         "[STATUS] Hull: {} | Boss HP: {} | Total Hazards: {}",
         state.hull_integrity,
         state.enemy.hp,
         count_hazards(state)
-    );
-    println!("[TEAM] Actions:");
+    )
+    .unwrap();
+    writeln!(out, "[TEAM] Actions:").unwrap();
+
+    out
 }
 
-fn print_results(old_hull: i32, new_hull: i32, old_hazards: usize, new_hazards: usize) {
-    println!("[RESULTS]");
+fn format_results(old_hull: i32, new_hull: i32, old_hazards: usize, new_hazards: usize) -> String {
+    let mut out = String::new();
+    writeln!(out, "[RESULTS]").unwrap();
     if new_hull < old_hull {
-        println!("  ! Hull Damage: {} -> {}", old_hull, new_hull);
+        writeln!(out, "  ! Hull Damage: {} -> {}", old_hull, new_hull).unwrap();
     } else {
-        println!("  - Hull Stable ({})", new_hull);
+        writeln!(out, "  - Hull Stable ({})", new_hull).unwrap();
     }
 
     if new_hazards > old_hazards {
-        println!("  ! Hazards Increased: {} -> {}", old_hazards, new_hazards);
+        writeln!(
+            out,
+            "  ! Hazards Increased: {} -> {}",
+            old_hazards, new_hazards
+        )
+        .unwrap();
     } else if new_hazards < old_hazards {
-        println!("  + Hazards Controlled: {} -> {}", old_hazards, new_hazards);
+        writeln!(
+            out,
+            "  + Hazards Controlled: {} -> {}",
+            old_hazards, new_hazards
+        )
+        .unwrap();
     }
+    out
 }
 
 fn count_hazards(state: &GameState) -> usize {

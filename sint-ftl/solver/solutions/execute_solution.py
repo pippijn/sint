@@ -548,6 +548,12 @@ def main():
         print(f"Final Hull: {result['final_state']['hull_integrity']}")
         print(f"Final Boss HP: {result['final_state']['enemy']['hp']}")
         print(f"Score: {result['score']}")
+        
+        print("\n--- TRAJECTORY LOG ---")
+        logs = sint_solver.get_trajectory_log(initial_state, result['history'])
+        for l in logs:
+            print(l, end='')
+
     else:
         print("❌ FAILURE!")
         print(result["failure_summary"])

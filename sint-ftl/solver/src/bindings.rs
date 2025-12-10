@@ -52,9 +52,28 @@ fn verify_solution(
 }
 
 #[cfg(feature = "python")]
+#[pyfunction]
+fn get_trajectory_log(
+    _py: Python,
+    initial_state_dict: Bound<'_, PyAny>,
+    history_list: Bound<'_, PyAny>,
+) -> PyResult<Vec<String>> {
+    let initial_state: GameState = depythonize(&initial_state_dict).map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid initial state: {}", e))
+    })?;
+
+    let history: Vec<(String, Action)> = depythonize(&history_list).map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid history list: {}", e))
+    })?;
+
+    Ok(crate::replay::format_trajectory(initial_state, history))
+}
+
+#[cfg(feature = "python")]
 #[pymodule]
 fn sint_solver(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(parse_solution, m)?)?;
     m.add_function(wrap_pyfunction!(verify_solution, m)?)?;
+    m.add_function(wrap_pyfunction!(get_trajectory_log, m)?)?;
     Ok(())
 }
