@@ -52,6 +52,18 @@ pub trait CardBehavior: Send + Sync {
         1
     }
 
+    /// Modify the number of hazard tokens spawned per hit (Default 0).
+    /// Used by Rudderless.
+    fn get_hazard_modifier(&self, _state: &GameState) -> u32 {
+        0
+    }
+
+    /// Hook to modify the enemy attack telegraph (e.g. Masking it).
+    fn modify_telegraph(&self, _attack: &mut crate::types::EnemyAttack) {}
+
+    /// Hook to resolve/reveal the enemy attack before execution (e.g. Unmasking Fog).
+    fn resolve_telegraph(&self, _state: &mut GameState, _attack: &mut crate::types::EnemyAttack) {}
+
     /// Hook called during execution phase, before the action is applied.
     /// Can be used for RNG checks (Sticky Floor) or late validation.
     /// Returns Ok(()) to proceed, or Err to skip action.
@@ -63,6 +75,9 @@ pub trait CardBehavior: Send + Sync {
     ) -> Result<(), GameError> {
         Ok(())
     }
+
+    /// Hook called when the card is successfully solved/removed via Interaction.
+    fn on_solved(&self, _state: &mut GameState) {}
 }
 
 // A default behavior that does nothing

@@ -4,14 +4,29 @@ use log::{debug, info};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 pub fn resolve_enemy_attack(state: &mut GameState) {
-    if let Some(attack) = &state.enemy.next_attack {
+    // 1. Handle Fog Bank (Hidden Attack) or Normal Attack via Hooks
+    let mut attack_opt = state.enemy.next_attack.clone();
+
+    if let Some(ref mut attack) = attack_opt {
+        // Collect IDs to avoid borrow issues while mutating state in hook
+        let active_ids: Vec<CardId> = state.active_situations.iter().map(|c| c.id).collect();
+        for id in active_ids {
+            get_behavior(id).resolve_telegraph(state, attack);
+        }
+    }
+
+    if let Some(attack) = &attack_opt {
         // Calculate Attack Count
         let mut count = 1;
+        let mut hazard_mod = 0;
+
         for card in &state.active_situations {
-            let c = get_behavior(card.id).get_enemy_attack_count(state);
+            let behavior = get_behavior(card.id);
+            let c = behavior.get_enemy_attack_count(state);
             if c > count {
                 count = c;
             }
+            hazard_mod += behavior.get_hazard_modifier(state);
         }
 
         for _ in 0..count {
@@ -32,10 +47,16 @@ pub fn resolve_enemy_attack(state: &mut GameState) {
                 match attack.effect {
                     AttackEffect::Fireball => {
                         room.hazards.push(HazardType::Fire);
+                        for _ in 0..hazard_mod {
+                            room.hazards.push(HazardType::Fire);
+                        }
                         state.hull_integrity -= 1;
                     }
                     AttackEffect::Leak => {
                         room.hazards.push(HazardType::Water);
+                        for _ in 0..hazard_mod {
+                            room.hazards.push(HazardType::Water);
+                        }
                     }
                     _ => {}
                 }
@@ -237,7 +258,24 @@ pub fn resolve_proposal_queue(state: &mut GameState, simulation: bool) {
 
                 if let Some(idx) = solved_idx {
                     let card = &state.active_situations[idx];
-                    if let Some(sol) = &card.solution {
+
+                    // Trigger Reward Hook
+                    get_behavior(card.id).on_solved(state);
+
+                    // Re-acquire card reference safely or just access by index if logic permits
+                    // But on_solved took &mut state, so we need to be careful with indices if on_solved modified active_situations
+                    // However, we found idx BEFORE on_solved.
+                    // If on_solved removed other cards, idx might be wrong.
+                    // But standard rewards usually just modify resources/status.
+                    // Safe approach: Find the card again by ID or assume on_solved doesn't shuffle active_situations.
+                    // Since we are about to remove THIS card, we should just remove it.
+                    // But wait, if on_solved modified the vector, we are in trouble.
+                    // Let's assume on_solved doesn't remove cards.
+
+                    // Actually, let's just use the index we found, assuming on_solved didn't change the list structure.
+                    // Most rewards are "Give HP", "Damage Enemy".
+
+                    if let Some(sol) = &state.active_situations[idx].solution {
                         if let Some(req_item) = &sol.item_cost {
                             if let Some(p) = state.players.get_mut(player_id) {
                                 if let Some(pos) = p.inventory.iter().position(|x| x == req_item) {

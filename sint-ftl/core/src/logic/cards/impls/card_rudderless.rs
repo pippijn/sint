@@ -1,6 +1,6 @@
 use crate::{
     logic::cards::behavior::CardBehavior,
-    types::{Card, CardId, CardSolution, CardType},
+    types::{Card, CardId, CardSolution, CardType, GameState},
 };
 
 pub struct RudderlessCard;
@@ -20,5 +20,9 @@ impl CardBehavior for RudderlessCard {
                 required_players: 2,
             }),
         }
+    }
+
+    fn get_hazard_modifier(&self, _state: &GameState) -> u32 {
+        1
     }
 }

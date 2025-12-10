@@ -191,6 +191,7 @@ pub enum AttackEffect {
     Fireball, // Spawns Fire
     Leak,     // Spawns Water
     Boarding, // Spawns Blockade?
+    Hidden,   // Masked by Fog or other effects
     Special(String),
 }
 

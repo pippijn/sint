@@ -29,6 +29,16 @@ impl CardBehavior for TheBookCard {
         }
     }
 
+    fn on_solved(&self, state: &mut GameState) {
+        state.enemy.next_attack = None;
+        state.chat_log.push(crate::types::ChatMessage {
+            sender: "SYSTEM".to_string(),
+            text: "The Book is recovered! The enemy is confused and skips their attack."
+                .to_string(),
+            timestamp: 0,
+        });
+    }
+
     fn on_round_end(&self, state: &mut GameState) {
         // "Reward" triggered by solving?
         // Solution logic is "Interact". We don't track if it was solved here.

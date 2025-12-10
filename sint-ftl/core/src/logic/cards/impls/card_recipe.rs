@@ -1,6 +1,6 @@
 use crate::{
     logic::cards::behavior::CardBehavior,
-    types::{Card, CardId, CardSolution, CardType, GameState},
+    types::{Card, CardId, CardSolution, CardType, GameState, ItemType},
 };
 
 pub struct RecipeCard;
@@ -24,6 +24,22 @@ impl CardBehavior for RecipeCard {
                 required_players: 1,
             }),
         }
+    }
+
+    fn on_solved(&self, state: &mut GameState) {
+        for p in state.players.values_mut() {
+            // Give 2 Peppernuts (Super Peppernuts)
+            // Respect inventory limit? Standard limit is loose, usually just UI.
+            // But logic checks for full inventory on Pickup.
+            // Here we force add.
+            p.inventory.push(ItemType::Peppernut);
+            p.inventory.push(ItemType::Peppernut);
+        }
+        state.chat_log.push(crate::types::ChatMessage {
+            sender: "SYSTEM".to_string(),
+            text: "Recipe found! Everyone receives Super Peppernuts (2x Ammo).".to_string(),
+            timestamp: 0,
+        });
     }
 
     fn on_round_end(&self, state: &mut GameState) {

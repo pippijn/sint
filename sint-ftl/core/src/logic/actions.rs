@@ -524,16 +524,24 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
             // Archive the event
             state.latest_event = None;
 
-            // Generate telegraph
+            // Generate telegraph normally
             let mut rng = StdRng::seed_from_u64(state.rng_seed);
             // 2d6 distribution (2-12). 12 is a miss.
             let target_room = rng.gen_range(1..=6) + rng.gen_range(1..=6);
             state.rng_seed = rng.gen();
 
-            state.enemy.next_attack = Some(EnemyAttack {
+            let mut attack = EnemyAttack {
                 target_room,
                 effect: AttackEffect::Fireball,
-            });
+            };
+
+            // Allow cards to modify it (e.g. FogBank masking it)
+            let active_ids: Vec<CardId> = state.active_situations.iter().map(|c| c.id).collect();
+            for id in active_ids {
+                get_behavior(id).modify_telegraph(&mut attack);
+            }
+
+            state.enemy.next_attack = Some(attack);
 
             // Reset ready
             for p in state.players.values_mut() {

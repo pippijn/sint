@@ -26,6 +26,36 @@ impl CardBehavior for GoldenNutCard {
         }
     }
 
+    fn on_solved(&self, state: &mut GameState) {
+        state.enemy.hp -= 1;
+        state.chat_log.push(crate::types::ChatMessage {
+            sender: "SYSTEM".to_string(),
+            text: "Golden Nut used! 1 Damage dealt to the Enemy.".to_string(),
+            timestamp: 0,
+        });
+
+        // Check for Boss Death (Duplicated from resolution.rs logic)
+        if state.enemy.hp <= 0 {
+            state.boss_level += 1;
+            if state.boss_level >= crate::logic::MAX_BOSS_LEVEL {
+                state.phase = crate::types::GamePhase::Victory;
+                state.chat_log.push(crate::types::ChatMessage {
+                    sender: "SYSTEM".to_string(),
+                    text: "VICTORY! All bosses defeated!".to_string(),
+                    timestamp: 0,
+                });
+            } else {
+                // Spawn next boss
+                state.enemy = crate::logic::get_boss(state.boss_level);
+                state.chat_log.push(crate::types::ChatMessage {
+                    sender: "SYSTEM".to_string(),
+                    text: format!("Enemy Defeated! approaching: {}", state.enemy.name),
+                    timestamp: 0,
+                });
+            }
+        }
+    }
+
     fn on_round_end(&self, state: &mut GameState) {
         for card in state.active_situations.iter_mut() {
             if card.id == CardId::GoldenNut {

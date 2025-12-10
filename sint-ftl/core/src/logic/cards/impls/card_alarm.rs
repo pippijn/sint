@@ -1,5 +1,6 @@
 use crate::logic::cards::behavior::CardBehavior;
-use crate::types::{Card, CardId, CardSolution, CardType};
+use crate::types::{Action, Card, CardId, CardSolution, CardType, GameState};
+use crate::GameError;
 
 pub struct WailingAlarmCard;
 
@@ -17,6 +18,23 @@ impl CardBehavior for WailingAlarmCard {
                 item_cost: None,
                 required_players: 1,
             }),
+        }
+    }
+
+    fn validate_action(
+        &self,
+        _state: &GameState,
+        _player_id: &str,
+        action: &Action,
+    ) -> Result<(), GameError> {
+        match action {
+            Action::RaiseShields => Err(GameError::InvalidAction(
+                "Wailing Alarm! Shields are disabled.".to_string(),
+            )),
+            Action::EvasiveManeuvers => Err(GameError::InvalidAction(
+                "Wailing Alarm! Evasive Maneuvers are disabled.".to_string(),
+            )),
+            _ => Ok(()),
         }
     }
 }
