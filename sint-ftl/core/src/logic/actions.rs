@@ -482,13 +482,14 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
                 p.ap = 2;
             }
 
+            cards::draw_card(&mut state);
+
             // Round Start Hook
             let active_ids: Vec<CardId> = state.active_situations.iter().map(|c| c.id).collect();
             for id in active_ids {
                 get_behavior(id).on_round_start(&mut state);
             }
 
-            cards::draw_card(&mut state);
             for p in state.players.values_mut() {
                 p.is_ready = false;
             }
@@ -581,6 +582,8 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
                 get_behavior(id).on_round_end(&mut state);
             }
 
+            cards::draw_card(&mut state);
+
             // Round Start Hook (New Round)
             let active_ids_new: Vec<CardId> =
                 state.active_situations.iter().map(|c| c.id).collect();
@@ -597,7 +600,6 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
                 }
             }
 
-            cards::draw_card(&mut state);
             for p in state.players.values_mut() {
                 p.is_ready = false;
             }

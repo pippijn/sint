@@ -290,9 +290,9 @@ fn test_planning_loop() {
     // 3. Ready -> Planning
     state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
     assert_eq!(state.phase, GamePhase::TacticalPlanning);
-    assert_eq!(state.players["P1"].ap, 2);
+    assert_eq!(state.players["P1"].ap, 3);
 
-    // 4. Move (AP 2 -> 1)
+    // 4. Move (AP 3 -> 2)
     state = GameLogic::apply_action(
         state,
         "P1",
@@ -302,17 +302,17 @@ fn test_planning_loop() {
         None,
     )
     .unwrap();
-    assert_eq!(state.players["P1"].ap, 1);
+    assert_eq!(state.players["P1"].ap, 2);
 
     // 5. Ready -> Execution
     state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
     assert_eq!(state.phase, GamePhase::Execution);
 
-    // 6. Ready (in Execution, with AP 1) -> SHOULD GO BACK TO PLANNING
+    // 6. Ready (in Execution, with AP 2) -> SHOULD GO BACK TO PLANNING
     state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
     assert_eq!(state.phase, GamePhase::TacticalPlanning);
 
-    // 7. Move again (AP 1 -> 0)
+    // 7. Move again (AP 2 -> 1)
     state = GameLogic::apply_action(
         state,
         "P1",
@@ -322,13 +322,33 @@ fn test_planning_loop() {
         None,
     )
     .unwrap();
-    assert_eq!(state.players["P1"].ap, 0);
+    assert_eq!(state.players["P1"].ap, 1);
 
     // 8. Ready -> Execution
     state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
     assert_eq!(state.phase, GamePhase::Execution);
 
-    // 9. Ready (in Execution, with AP 0) -> SHOULD GO TO ENEMY ACTION
+    // 9. Ready (in Execution, with AP 1) -> SHOULD GO BACK TO PLANNING
+    state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
+    assert_eq!(state.phase, GamePhase::TacticalPlanning);
+
+    // 10. Move again (AP 1 -> 0) - Move back to Hallway
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Move {
+            to_room: sint_core::types::SystemType::Hallway.as_u32(),
+        },
+        None,
+    )
+    .unwrap();
+    assert_eq!(state.players["P1"].ap, 0);
+
+    // 11. Ready -> Execution
+    state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
+    assert_eq!(state.phase, GamePhase::Execution);
+
+    // 12. Ready (in Execution, with AP 0) -> SHOULD GO TO ENEMY ACTION
     state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
     assert_eq!(state.phase, GamePhase::EnemyAction);
 }

@@ -130,7 +130,7 @@ def start_round(ap_override=None):
 
 def r1():
     # print("# Round 1: TurboMode, Enemy->5")
-    start_round()
+    start_round(3)
     p1.action("Move 7"); p1.action("Move 6")
     p5.action("Move 7"); p5.action("Move 8")
     p6.action("Move 7"); p6.action("Move 8")
