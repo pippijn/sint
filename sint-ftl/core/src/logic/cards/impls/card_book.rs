@@ -40,16 +40,8 @@ impl CardBehavior for TheBookCard {
     }
 
     fn on_round_end(&self, state: &mut GameState) {
-        // "Reward" triggered by solving?
-        // Solution logic is "Interact". We don't track if it was solved here.
-        // But if the card is REMOVED by solution, the effect triggers?
-        // Card text: "Mission: Get book... REWARD: Enemy skips NEXT ATTACK."
-        // Solution logic in `resolution.rs` removes the card.
-        // We need to hook into removal?
-        // Or `on_round_end` just ticks timebomb.
-        // If solved, `resolution.rs` removes it.
-        // We need a way to apply reward upon resolution.
-        // But `CardBehavior` doesn't have `on_solved`.
+        // Reward is applied when the solution action (Interact) is successfully executed.
+        // Here we just handle the Timebomb countdown.
 
         // Timebomb tick
         for card in state.active_situations.iter_mut() {

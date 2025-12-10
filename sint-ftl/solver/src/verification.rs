@@ -177,9 +177,6 @@ pub fn parse_solution_text(text: &str) -> (Vec<(String, Action)>, Option<u64>, O
             let msg = cmd.replace("Chat ", "").trim().to_string();
             Action::Game(GameAction::Chat { message: msg })
         } else {
-            // Panic or ignore? The original code panicked.
-            // Let's print error and continue or panic.
-            // For library code, panic is bad. But this is a parser helper.
             panic!("Unknown command: {}", cmd);
         };
 

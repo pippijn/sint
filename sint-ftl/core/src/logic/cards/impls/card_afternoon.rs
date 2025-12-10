@@ -38,10 +38,8 @@ impl CardBehavior for AfternoonNapCard {
 
         if let Some(&rid) = reader_id {
             if rid == player_id {
-                // Check if action costs AP
-                // Hardcoded knowledge of costs here, or we'd need to invoke cost calc?
-                // But validate is called BEFORE cost calc in apply_action.
-                // We'll duplicate the base cost logic slightly or just block all non-free actions.
+                // Block all actions that typically cost AP.
+                // Note: Cost calculation is not available during validation, so we check action types directly.
                 let is_free = matches!(
                     action,
                     GameAction::Chat { .. }

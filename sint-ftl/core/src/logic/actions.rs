@@ -3,6 +3,7 @@ use super::{
     pathfinding::find_path,
     resolution,
 };
+use crate::logic::handlers::get_handler;
 use crate::{logic::GameError, types::*};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use uuid::Uuid;
@@ -215,7 +216,7 @@ fn apply_game_action(
         GameAction::Move { to_room } => {
             let start_room = p_proj.room_id;
             if let Some(path) = find_path(&state.map, start_room, *to_room) {
-                let step_cost = base_cost;
+                let step_cost = base_cost; // Per step
                 let total_cost = step_cost * (path.len() as i32);
 
                 if current_ap < total_cost {
@@ -236,268 +237,12 @@ fn apply_game_action(
                 return Err(GameError::InvalidMove);
             }
         }
-        GameAction::Extinguish => {
-            if let Some(room) = projected_state.map.rooms.get(&p_proj.room_id) {
-                if !room.hazards.contains(&HazardType::Fire) {
-                    return Err(GameError::InvalidAction(
-                        "No fire to extinguish (or already targeted)".to_string(),
-                    ));
-                }
-            }
-            let id = deterministic_uuid(&mut state);
-            state.proposal_queue.push(ProposedAction {
-                id,
-                player_id: player_id.to_string(),
-                action: action.clone(),
-            });
-            let p = state.players.get_mut(player_id).unwrap();
-            p.ap -= base_cost;
-        }
-        GameAction::Repair => {
-            if let Some(room) = projected_state.map.rooms.get(&p_proj.room_id) {
-                if !room.hazards.contains(&HazardType::Water) {
-                    return Err(GameError::InvalidAction(
-                        "No water to repair (or already targeted)".to_string(),
-                    ));
-                }
-            }
-            let id = deterministic_uuid(&mut state);
-            state.proposal_queue.push(ProposedAction {
-                id,
-                player_id: player_id.to_string(),
-                action: action.clone(),
-            });
-            let p = state.players.get_mut(player_id).unwrap();
-            p.ap -= base_cost;
-        }
-        GameAction::Bake
-        | GameAction::Shoot
-        | GameAction::RaiseShields
-        | GameAction::EvasiveManeuvers => {
-            let room = projected_state
-                .map
-                .rooms
-                .get(&p_proj.room_id)
-                .ok_or(GameError::RoomNotFound)?;
-            let expected_sys = match action {
-                GameAction::Bake => SystemType::Kitchen,
-                GameAction::Shoot => SystemType::Cannons,
-                GameAction::RaiseShields => SystemType::Engine,
-                GameAction::EvasiveManeuvers => SystemType::Bridge,
-                _ => unreachable!(),
-            };
-            if room.system != Some(expected_sys) {
-                return Err(GameError::InvalidAction(format!(
-                    "Action {:?} requires being in {:?}, but you will be in {} ({})",
-                    action, expected_sys, room.name, room.id
-                )));
-            }
-            if !room.hazards.is_empty() {
-                return Err(GameError::RoomBlocked);
-            }
-            let id = deterministic_uuid(&mut state);
-            state.proposal_queue.push(ProposedAction {
-                id,
-                player_id: player_id.to_string(),
-                action: action.clone(),
-            });
-            let p = state.players.get_mut(player_id).unwrap();
-            p.ap -= base_cost;
-        }
-        GameAction::Lookout => {
-            let room = projected_state
-                .map
-                .rooms
-                .get(&p_proj.room_id)
-                .ok_or(GameError::RoomNotFound)?;
-
-            if room.system != Some(SystemType::Bow) {
-                return Err(GameError::InvalidAction(format!(
-                    "Lookout requires being in The Bow (2), but you will be in {} ({})",
-                    room.name, room.id
-                )));
-            }
-            if !room.hazards.is_empty() {
-                return Err(GameError::RoomBlocked);
-            }
-            let id = deterministic_uuid(&mut state);
-            state.proposal_queue.push(ProposedAction {
-                id,
-                player_id: player_id.to_string(),
-                action: action.clone(),
-            });
-            let p = state.players.get_mut(player_id).unwrap();
-            p.ap -= base_cost;
-        }
-        GameAction::FirstAid { target_player } => {
-            let room = projected_state
-                .map
-                .rooms
-                .get(&p_proj.room_id)
-                .ok_or(GameError::RoomNotFound)?;
-
-            if room.system != Some(SystemType::Sickbay) {
-                return Err(GameError::InvalidAction(format!(
-                    "First Aid requires being in Sickbay (10), but you will be in {} ({})",
-                    room.name, room.id
-                )));
-            }
-            if !room.hazards.is_empty() {
-                return Err(GameError::RoomBlocked);
-            }
-
-            // Validate Target Range (Self or Adjacent Room)
-            let target = projected_state
-                .players
-                .get(target_player)
-                .ok_or(GameError::PlayerNotFound)?;
-
-            let is_self = target_player == player_id;
-            let is_adjacent = room.neighbors.contains(&target.room_id);
-            let is_here = target.room_id == p_proj.room_id;
-
-            if !is_self && !is_adjacent && !is_here {
-                return Err(GameError::InvalidAction(
-                    "Target for First Aid must be self or in adjacent room".to_string(),
-                ));
-            }
-
-            let id = deterministic_uuid(&mut state);
-            state.proposal_queue.push(ProposedAction {
-                id,
-                player_id: player_id.to_string(),
-                action: action.clone(),
-            });
-            let p = state.players.get_mut(player_id).unwrap();
-            p.ap -= base_cost;
-        }
-        GameAction::PickUp { item_type } => {
-            let room = projected_state
-                .map
-                .rooms
-                .get(&p_proj.room_id)
-                .ok_or(GameError::RoomNotFound)?;
-            if !room.items.contains(item_type) {
-                return Err(GameError::InvalidAction(format!(
-                    "Item {:?} not in room (or already picked up)",
-                    item_type
-                )));
-            }
-
-            // Inventory Limit Check
-            if *item_type == ItemType::Peppernut {
-                let nut_count = p_proj
-                    .inventory
-                    .iter()
-                    .filter(|i| **i == ItemType::Peppernut)
-                    .count();
-                let has_wheelbarrow = p_proj.inventory.contains(&ItemType::Wheelbarrow);
-                let limit = if has_wheelbarrow { 5 } else { 1 };
-
-                if nut_count >= limit {
-                    return Err(GameError::InventoryFull);
-                }
-            }
-
-            let id = deterministic_uuid(&mut state);
-            state.proposal_queue.push(ProposedAction {
-                id,
-                player_id: player_id.to_string(),
-                action: action.clone(),
-            });
-            let p = state.players.get_mut(player_id).unwrap();
-            p.ap -= base_cost;
-        }
-        GameAction::Throw {
-            target_player,
-            item_index,
-        } => {
-            if *item_index >= p_proj.inventory.len() {
-                return Err(GameError::InvalidItem);
-            }
-            let target = projected_state
-                .players
-                .get(target_player)
-                .ok_or(GameError::PlayerNotFound)?;
-            let my_room = p_proj.room_id;
-            let target_room = target.room_id;
-
-            let is_adjacent = if my_room == target_room {
-                true
-            } else if let Some(r) = projected_state.map.rooms.get(&my_room) {
-                r.neighbors.contains(&target_room)
-            } else {
-                false
-            };
-
-            if !is_adjacent {
-                return Err(GameError::InvalidAction("Target not in range".to_string()));
-            }
-
-            let id = deterministic_uuid(&mut state);
-            state.proposal_queue.push(ProposedAction {
-                id,
-                player_id: player_id.to_string(),
-                action: action.clone(),
-            });
-            let p = state.players.get_mut(player_id).unwrap();
-            p.ap -= base_cost;
-        }
-        GameAction::Drop { item_index } => {
-            if *item_index >= p_proj.inventory.len() {
-                return Err(GameError::InvalidItem);
-            }
-
-            // Validation: Cannot drop Wheelbarrow if holding excess Peppernuts
-            let item_to_drop = &p_proj.inventory[*item_index];
-            if *item_to_drop == ItemType::Wheelbarrow {
-                let nut_count = p_proj
-                    .inventory
-                    .iter()
-                    .filter(|i| **i == ItemType::Peppernut)
-                    .count();
-                if nut_count > 1 {
-                    return Err(GameError::InvalidAction(
-                        "Cannot drop Wheelbarrow while holding >1 Peppernuts".to_string(),
-                    ));
-                }
-            }
-
-            let id = deterministic_uuid(&mut state);
-            state.proposal_queue.push(ProposedAction {
-                id,
-                player_id: player_id.to_string(),
-                action: action.clone(),
-            });
-            let p = state.players.get_mut(player_id).unwrap();
-            p.ap -= base_cost;
-        }
-        GameAction::Revive { target_player } => {
-            let target = projected_state
-                .players
-                .get(target_player)
-                .ok_or(GameError::PlayerNotFound)?;
-            if target.room_id != p_proj.room_id {
-                return Err(GameError::InvalidAction(
-                    "Target not in same room".to_string(),
-                ));
-            }
-            if !target.status.contains(&PlayerStatus::Fainted) {
-                return Err(GameError::InvalidAction(
-                    "Target is not Fainted".to_string(),
-                ));
-            }
-            let id = deterministic_uuid(&mut state);
-            state.proposal_queue.push(ProposedAction {
-                id,
-                player_id: player_id.to_string(),
-                action: action.clone(),
-            });
-            let p = state.players.get_mut(player_id).unwrap();
-            p.ap -= base_cost;
-        }
-
         _ => {
+            // Generic Handler Validation
+            let handler = get_handler(&action);
+            handler.validate(&projected_state, player_id)?;
+
+            // Queue
             let id = deterministic_uuid(&mut state);
             state.proposal_queue.push(ProposedAction {
                 id,
@@ -661,18 +406,13 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
 }
 
 pub fn action_cost(state: &GameState, player_id: &str, action: &GameAction) -> i32 {
+    // Immediate actions that don't have handlers or have special logic in handlers
     let base = match action {
-        GameAction::Chat { .. } | GameAction::VoteReady { .. } => 0,
-        GameAction::Move { .. } => 1,
-        GameAction::Interact => 1,
-        GameAction::Bake | GameAction::Shoot | GameAction::Extinguish | GameAction::Repair => 1,
-        GameAction::Lookout | GameAction::FirstAid { .. } => 1,
-        GameAction::Throw { .. } | GameAction::PickUp { .. } => 1,
-        GameAction::Revive { .. } => 1,
-        GameAction::RaiseShields | GameAction::EvasiveManeuvers => 2,
-        GameAction::Drop { .. } => 0,
-        GameAction::Pass => 0,
-        GameAction::Undo { .. } => 0,
+        GameAction::Chat { .. }
+        | GameAction::VoteReady { .. }
+        | GameAction::Pass
+        | GameAction::Undo { .. } => 0,
+        _ => get_handler(action).base_cost(),
     };
 
     let mut cost = base;

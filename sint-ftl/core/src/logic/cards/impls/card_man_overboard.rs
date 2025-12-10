@@ -24,19 +24,7 @@ impl CardBehavior for ManOverboardCard {
     }
 
     fn on_activate(&self, _state: &mut GameState) {
-        // Target Player (Random) is removed from play?
-        // "Removed from play" implies fainted or just gone?
-        // Or marked?
-        // Let's mark them as Fainted for simplicity, or add a special status?
-        // Rules say "Removed from play". Let's assume Fainted in Water?
-        // But it's a Timebomb. "If not solved... triggers".
-        // Wait, "Effect: Target Player ... is removed".
-        // Does the effect happen NOW or later?
-        // "Timebomb ... If not solved by then, a bad effect triggers."
-        // So the effect triggers when rounds_left == 0.
-        // We don't do anything on activate except maybe pick the target?
-        // The card description says "Target Player (Random)". We should probably pick one and store it in card description?
-        // Or pick deterministically based on seed.
+        // Effect triggers when timebomb reaches 0 (in on_round_end).
     }
 
     fn on_round_end(&self, state: &mut GameState) {

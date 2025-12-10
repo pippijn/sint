@@ -30,10 +30,7 @@ impl CardBehavior for SeasickCard {
         _action: &GameAction,
     ) -> Result<(), GameError> {
         // Effect: You may EITHER Walk OR do Actions (not both).
-        // Check if player has already spent AP on a conflicting type?
-        // Hard to track "previous action type" without history.
-        // Heuristic: If AP < Max, check what we did?
-        // We'll skip strict validation in Planning for now, as it requires tracking intent across the batch.
+        // Note: Strict validation skipped for now (requires tracking intent across batch).
         Ok(())
     }
 }

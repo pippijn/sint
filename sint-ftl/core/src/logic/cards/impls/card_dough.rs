@@ -43,12 +43,8 @@ impl CardBehavior for MonsterDoughCard {
         }
 
         if triggered {
-            // Kitchen unusable?
-            // This requires a persistent "Ruined" state for room crate::types::SystemType::Kitchen.as_u32().
-            // We'll remove the card but leave the effect? Or transform card into "Ruined Kitchen"?
-            // Let's transform it to a Situation?
-            // "Cleaning later costs 2 AP".
-            // We'll leave it as active with rounds_left=0 acting as the situation.
+            // Kitchen is unusable.
+            // Note: We keep rounds_left at 0 to signal the persistent blocked state to validate_action.
         } else {
             // Remove if solved? Solution logic is in Action::Interact usually.
         }
@@ -63,9 +59,7 @@ impl CardBehavior for MonsterDoughCard {
         // If triggered (rounds_left == 0)
         // Block actions in Kitchen.
         if let GameAction::Bake = action {
-            // Check if triggered?
-            // We need access to self state or query state.
-            // We'll assume if this behavior is active, we check the card in state.
+            // Check if triggered
             return Err(GameError::InvalidAction(
                 "Monster Dough! Kitchen blocked.".to_string(),
             ));

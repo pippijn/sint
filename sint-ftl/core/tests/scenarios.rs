@@ -96,7 +96,7 @@ fn test_scenario_bucket_brigade() {
 
     // P1
     state = GameLogic::apply_action(state, "P1", Action::Game(GameAction::Bake), None).unwrap();
-    // Need to pickup first? Bake spawns on floor.
+    // Pickup baked item
     state = GameLogic::apply_action(
         state,
         "P1",
@@ -106,12 +106,8 @@ fn test_scenario_bucket_brigade() {
         None,
     )
     .unwrap();
-    // Oops, P1 out of AP (Bake=1, Pickup=1). Cannot throw.
-    // P1 needs 3 AP for this chain alone? Or Bake happens before?
-    // Let's assume P1 started with a Nut or has 3 AP (TurboMode?).
-    // Or P1 only Bakes and Drops? No, Throw.
 
-    // Let's cheat AP for P1.
+    // Cheat AP for P1 to allow Throw
     if let Some(p) = state.players.get_mut("P1") {
         p.ap = 10;
     }

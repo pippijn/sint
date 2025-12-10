@@ -39,13 +39,7 @@ impl CardBehavior for ShoeSettingCard {
 
         if triggered {
             // Boom: All players lose their next turn.
-            // We set a flag or just reduce AP to 0?
-            // "Next turn" implies next round.
-            // We can check for active "C45" with rounds_left=0 in `on_round_start` or `advance_phase` to zero AP.
-            // But `active_situations` might be cleared?
-            // "Boom (Empty)". We keep it active?
-            // If we remove it, effect is lost unless we apply state.
-            // Let's keep it active with 0 rounds.
+            // Note: We set rounds_left to 0 to signal the penalty for on_round_start.
         } else {
             // Remove if solved?
         }

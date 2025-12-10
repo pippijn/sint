@@ -24,7 +24,7 @@ impl CardBehavior for WheelClampCard {
 
     fn on_round_end(&self, state: &mut GameState) {
         // Effect: Ship turns. Players shift 1 Room to the right (Clockwise).
-        // Map: 2 -> 3 -> 4 -> 5 -> 6 -> 8 -> 9 -> 10 -> 11 -> 2?
+        // Cycle: Bow -> Dormitory -> Cargo -> Engine -> Kitchen -> Cannons -> Bridge -> Sickbay -> Storage
         let cycle = [
             SystemType::Bow.as_u32(),
             SystemType::Dormitory.as_u32(),

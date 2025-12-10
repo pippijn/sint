@@ -45,10 +45,6 @@ fn main() {
         if let Some(summary) = result.failure_summary() {
             println!("{}", summary);
         }
-    } else {
-        // Only print full trajectory on success (or if verbose)
-        // Actually original verify.rs prints trajectory if success OR verbose.
-        // It does not print failure summary on success.
     }
 
     // Replay for visualization

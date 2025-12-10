@@ -47,13 +47,7 @@ impl CardBehavior for LuckyDipCard {
             }
         }
 
-        // Rotate Left: Player i gets item from (i + 1) % len (Right)?
-        // "Pass ... to the player to their LEFT".
-        // If I sit in circle: P1 - P2 - P3.
-        // P1 passes to Left (P3?). P3 passes to Left (P2?).
-        // Usually Left means index - 1 or + 1 depending on view.
-        // Let's assume P1 -> P2 -> P3 -> P1.
-        // So i receives from i-1.
+        // Swap Special Items to the left (i receives from i-1 in sorted list).
 
         for (i, pid) in sorted_ids.iter().enumerate() {
             let source_idx = if i == 0 { len - 1 } else { i - 1 };

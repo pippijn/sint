@@ -18,18 +18,7 @@ impl CardBehavior for PresentCard {
     }
 
     fn on_activate(&self, state: &mut GameState) {
-        // Choose your gift.
-        // Simplified: Everyone gets full AP (Option A) AND Repair 3 (Option B).
-        // Let's be generous for the holidays.
-
-        // Option A: AP refill (though usually AP is reset in Telegraph, so refill now is only useful if we are in Action phase?
-        // But Flash cards are drawn in MorningReport. So AP refill is useless as AP resets later anyway.
-        // Wait, "Everyone gets all AP back". If drawn in Morning, AP is already full?
-        // No, AP resets in EnemyTelegraph.
-        // If we set AP=2 now, it persists until reset?
-        // Or "Max AP +1"?
-        // Let's implement Option B: Repair 3 Tokens.
-
+        // Option B: Repair 3 Tokens.
         let mut repaired = 0;
         let limit = 3;
 

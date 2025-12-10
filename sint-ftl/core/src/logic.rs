@@ -1,5 +1,6 @@
 pub mod actions;
 pub mod cards;
+pub mod handlers;
 pub mod pathfinding;
 pub mod resolution;
 

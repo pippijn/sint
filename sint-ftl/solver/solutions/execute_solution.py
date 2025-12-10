@@ -82,23 +82,7 @@ p5 = Player("P5", "P5")
 p6 = Player("P6", "P6")
 players = [p1, p2, p3, p4, p5, p6]
 
-all_actions = []
-
-def collect_actions():
-    round_actions = []
-    # Collect from all players, respecting some order?
-    # The original script interleaved calls like:
-    # p1.action(...)
-    # p5.action(...)
-    # This implies we should capture them in the order they are called.
-    # But here players are objects.
-    # The original script CALLED methods on p1, p2 etc in order.
-    # We need to capture that order.
-    pass
-
-# We need to restructure slightly. 
-# Instead of players storing actions, we can have a global list and players append to it.
-
+# Global log to capture actions in call order
 actions_log = []
 
 class LoggingPlayer(Player):

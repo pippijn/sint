@@ -20,10 +20,7 @@ impl CardBehavior for HighPressureCard {
 
     fn on_activate(&self, state: &mut GameState) {
         // Effect: All players take 1 step to a room of choice.
-        // Since we can't choose, we'll move them to a random neighbor to simulate chaos/running.
-        // Or we just don't move them and assume they "chose" to stay? No, text says "take 1 step".
-        // Let's randomize.
-
+        // Implementation: Move to a random neighbor to simulate chaos.
         let player_ids: Vec<String> = state.players.keys().cloned().collect();
 
         for pid in player_ids {

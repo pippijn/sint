@@ -9,11 +9,7 @@ pub fn score_state(state: &GameState) -> f64 {
     // Range: 0-20. Weight: High.
     score += state.hull_integrity as f64 * 100.0;
 
-    // 2. Boss Progress
-    // We want to reward killing bosses.
-    // Problem: We don't know "how many" bosses died just from GameState easily
-    // without tracking external counters, but we know the current Boss HP.
-    // Let's assume lower Boss HP is better.
+    // 2. Boss Progress (Lower HP is better)
     score -= state.enemy.hp as f64 * 10.0;
 
     // 3. Hazard Penalty

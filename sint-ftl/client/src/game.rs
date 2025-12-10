@@ -415,7 +415,6 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                     let is_ready = p.is_ready;
                     let c_ready = ctx_ready.clone();
                     let is_lobby = s.phase == GamePhase::Lobby;
-                    // PREDICTION LOGIC
 
                     view! {
                         <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
@@ -652,8 +651,6 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                 let cursor = if disabled { "not-allowed" } else { "pointer" };
                                 buttons
                                     .push(
-
-                                        // PREDICTION LOGIC
 
                                         // Move Buttons
 
