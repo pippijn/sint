@@ -1,10 +1,10 @@
-use super::cards::{self, get_behavior};
-use super::pathfinding::find_path;
-use super::resolution;
-use crate::logic::GameError;
-use crate::types::*;
-use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
+use super::{
+    cards::{self, get_behavior},
+    pathfinding::find_path,
+    resolution,
+};
+use crate::{logic::GameError, types::*};
+use rand::{rngs::StdRng, Rng, SeedableRng};
 use uuid::Uuid;
 
 pub fn apply_action(

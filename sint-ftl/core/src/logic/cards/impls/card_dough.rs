@@ -1,6 +1,8 @@
-use crate::logic::cards::behavior::CardBehavior;
-use crate::types::{Action, Card, CardId, CardSolution, CardType, GameState};
-use crate::GameError;
+use crate::{
+    logic::cards::behavior::CardBehavior,
+    types::{Action, Card, CardId, CardSolution, CardType, GameState},
+    GameError,
+};
 
 pub struct MonsterDoughCard;
 

@@ -1,5 +1,4 @@
-use sint_core::{Action, GameLogic, GamePhase, ItemType};
-use sint_core::{HazardType, PlayerStatus};
+use sint_core::{Action, GameLogic, GamePhase, HazardType, ItemType, PlayerStatus};
 
 #[test]
 fn test_boss_progression() {

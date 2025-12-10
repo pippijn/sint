@@ -1,6 +1,7 @@
-use crate::logic::cards::behavior::CardBehavior;
-use crate::types::{Card, CardId, CardType};
-use crate::types::{GameState, ItemType};
+use crate::{
+    logic::cards::behavior::CardBehavior,
+    types::{Card, CardId, CardType, GameState, ItemType},
+};
 
 pub struct LuckyDipCard;
 

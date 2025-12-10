@@ -1,8 +1,8 @@
-use crate::logic::cards::behavior::CardBehavior;
-use crate::types::{Card, CardId, CardSolution, CardType};
-use crate::types::{GameState, HazardType};
-use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
+use crate::{
+    logic::cards::behavior::CardBehavior,
+    types::{Card, CardId, CardSolution, CardType, GameState, HazardType},
+};
+use rand::{rngs::StdRng, Rng, SeedableRng};
 
 pub struct AnchorLooseCard;
 

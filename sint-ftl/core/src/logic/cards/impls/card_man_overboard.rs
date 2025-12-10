@@ -1,9 +1,8 @@
-use crate::logic::cards::behavior::CardBehavior;
-use crate::types::{Card, CardSolution};
-use crate::types::{CardId, CardType, GameState};
-use rand::rngs::StdRng;
-use rand::seq::SliceRandom;
-use rand::{Rng, SeedableRng};
+use crate::{
+    logic::cards::behavior::CardBehavior,
+    types::{Card, CardId, CardSolution, CardType, GameState},
+};
+use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
 
 pub struct ManOverboardCard;
 

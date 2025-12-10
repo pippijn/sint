@@ -1,6 +1,7 @@
-use crate::logic::cards::behavior::CardBehavior;
-use crate::types::{Card, CardId, CardSolution, CardType};
-use crate::types::{GameState, ItemType};
+use crate::{
+    logic::cards::behavior::CardBehavior,
+    types::{Card, CardId, CardSolution, CardType, GameState, ItemType},
+};
 
 pub struct MicePlagueCard;
 

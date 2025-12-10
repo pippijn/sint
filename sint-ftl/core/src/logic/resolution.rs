@@ -1,9 +1,7 @@
-use super::actions::action_cost;
-use super::cards::get_behavior;
+use super::{actions::action_cost, cards::get_behavior};
 use crate::types::*;
 use log::{debug, info};
-use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
+use rand::{rngs::StdRng, Rng, SeedableRng};
 
 pub fn resolve_enemy_attack(state: &mut GameState) {
     if let Some(attack) = &state.enemy.next_attack {

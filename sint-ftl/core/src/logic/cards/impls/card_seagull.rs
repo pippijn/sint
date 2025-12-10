@@ -1,7 +1,8 @@
-use crate::logic::cards::behavior::CardBehavior;
-use crate::types::{Action, GameState, ItemType};
-use crate::types::{Card, CardId, CardSolution, CardType};
-use crate::GameError;
+use crate::{
+    logic::cards::behavior::CardBehavior,
+    types::{Action, Card, CardId, CardSolution, CardType, GameState, ItemType},
+    GameError,
+};
 
 pub struct SeagullAttackCard;
 

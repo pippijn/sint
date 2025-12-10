@@ -1,7 +1,7 @@
-use crate::logic::cards::behavior::CardBehavior;
-use crate::logic::pathfinding::find_path;
-use crate::types::GameState;
-use crate::types::{Card, CardId, CardType};
+use crate::{
+    logic::{cards::behavior::CardBehavior, pathfinding::find_path},
+    types::{Card, CardId, CardType, GameState},
+};
 
 pub struct HighWavesCard;
 

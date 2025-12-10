@@ -1,5 +1,4 @@
-use sint_core::ItemType;
-use sint_core::{Action, GameLogic, GamePhase, HazardType};
+use sint_core::{Action, GameLogic, GamePhase, HazardType, ItemType};
 
 #[test]
 fn test_fire_damage() {

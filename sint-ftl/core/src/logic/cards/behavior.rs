@@ -1,5 +1,7 @@
-use crate::types::{Action, Card, CardId, CardType, GameState};
-use crate::GameError;
+use crate::{
+    types::{Action, Card, CardId, CardType, GameState},
+    GameError,
+};
 
 pub trait CardBehavior: Send + Sync {
     /// Returns the static definition of the card (Title, Description, etc.)

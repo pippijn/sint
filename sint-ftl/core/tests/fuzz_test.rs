@@ -1,7 +1,5 @@
-use rand::seq::SliceRandom;
-use rand::thread_rng;
-use sint_core::logic::actions::get_valid_actions;
-use sint_core::{GameLogic, GamePhase};
+use rand::{seq::SliceRandom, thread_rng};
+use sint_core::{logic::actions::get_valid_actions, GameLogic, GamePhase};
 
 #[test]
 fn test_fuzz_random_walk() {

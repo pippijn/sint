@@ -1,7 +1,7 @@
-use sint_core::logic::cards::get_behavior;
-use sint_core::HazardType;
-use sint_core::ItemType;
-use sint_core::{Action, CardId, CardType, GameLogic, GamePhase};
+use sint_core::{
+    logic::cards::get_behavior, Action, CardId, CardType, GameLogic, GamePhase, HazardType,
+    ItemType,
+};
 
 #[test]
 fn test_card_slippery_deck() {

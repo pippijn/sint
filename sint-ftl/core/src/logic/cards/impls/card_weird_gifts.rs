@@ -1,5 +1,7 @@
-use crate::logic::cards::behavior::CardBehavior;
-use crate::types::{Card, CardId, CardSolution, CardType, GameState, HazardType};
+use crate::{
+    logic::cards::behavior::CardBehavior,
+    types::{Card, CardId, CardSolution, CardType, GameState, HazardType},
+};
 
 pub struct WeirdGiftsCard;
 

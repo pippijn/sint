@@ -1,8 +1,8 @@
-use crate::logic::cards::behavior::CardBehavior;
-use crate::types::GameState;
-use crate::types::{Card, CardId, CardType};
-use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
+use crate::{
+    logic::cards::behavior::CardBehavior,
+    types::{Card, CardId, CardType, GameState},
+};
+use rand::{rngs::StdRng, Rng, SeedableRng};
 
 pub struct HighPressureCard;
 

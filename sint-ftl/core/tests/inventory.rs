@@ -1,5 +1,4 @@
-use sint_core::GameError;
-use sint_core::{Action, GameLogic, GamePhase, ItemType};
+use sint_core::{Action, GameError, GameLogic, GamePhase, ItemType};
 
 #[test]
 fn test_throw_item() {

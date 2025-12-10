@@ -6,8 +6,7 @@ pub mod resolution;
 pub use actions::apply_action;
 
 use crate::types::*;
-use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
+use rand::{rngs::StdRng, Rng, SeedableRng};
 use std::collections::HashMap;
 use thiserror::Error;
 

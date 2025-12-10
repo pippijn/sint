@@ -1,7 +1,6 @@
 use super::get_behavior;
 use crate::types::*;
-use rand::rngs::StdRng;
-use rand::seq::SliceRandom;
+use rand::{rngs::StdRng, seq::SliceRandom};
 
 pub fn initialize_deck(rng: &mut StdRng) -> Vec<Card> {
     let mut deck = crate::logic::cards::registry::get_all_cards();
