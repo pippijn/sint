@@ -1,15 +1,15 @@
 import json
 from typing import Any, Dict, List, Tuple
-import google.generativeai as genai
-from google.generativeai.types import Tool, FunctionDeclaration
+from google import genai
+from google.genai import types
 import sint_core # type: ignore
 
-def load_game_tools() -> Tuple[Tool, Dict[str, str]]:
+def load_game_tools() -> Tuple[types.Tool, Dict[str, str]]:
     """Dynamically converts Rust Schema into Gemini Tools."""
     schema_json: str = sint_core.get_schema_json()
     schema = json.loads(schema_json)
     
-    funcs: List[FunctionDeclaration] = []
+    funcs: List[types.FunctionDeclaration] = []
     name_map: Dict[str, str] = {}
     
     if "oneOf" in schema:
@@ -32,13 +32,13 @@ def load_game_tools() -> Tuple[Tool, Dict[str, str]]:
             
             clean_schema(payload_schema)
             
-            funcs.append(FunctionDeclaration(
+            funcs.append(types.FunctionDeclaration(
                 name=tool_name,
                 description=f"Propose action: {action_name}",
                 parameters=payload_schema
             ))
             
-    return Tool(function_declarations=funcs), name_map
+    return types.Tool(function_declarations=funcs), name_map
 
 def clean_schema(s: Dict[str, Any]) -> None:
     """Sanitizes JSON schema for Gemini."""

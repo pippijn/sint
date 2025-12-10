@@ -5,7 +5,8 @@ import websockets
 import textwrap
 import os
 from typing import Any, Dict, Optional
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 import sint_core # type: ignore
 from context import MemoryBank
 from tools import load_game_tools
@@ -25,11 +26,13 @@ class GameAgent:
         
         self.tools, self.tool_map = load_game_tools()
         
-        system_instr = self._load_system_prompt()
-        self.model = genai.GenerativeModel( # type: ignore
-            model_name='gemini-2.5-flash-lite',
-            system_instruction=system_instr,
+        self.client = genai.Client(
+            api_key=os.environ.get("GEMINI_API_KEY"),
+            http_options={'api_version': 'v1alpha'}
         )
+        self.model_name = 'gemini-2.5-flash-lite'
+        self.system_instr = self._load_system_prompt()
+
         self.websocket: Optional[Any] = None
 
     async def run(self) -> None:
@@ -167,7 +170,10 @@ class GameAgent:
             print("Summarizing history...")
             chunk = self.memory.get_chunk_to_summarize()
             summary_prompt = "Summarize these game events into a concise narrative:\n" + "\n".join(chunk)
-            resp = await self.model.generate_content_async(summary_prompt)
+            resp = await self.client.aio.models.generate_content(
+                model=self.model_name,
+                contents=summary_prompt
+            )
             if resp.text:
                 self.memory.commit_summary(resp.text)
 
@@ -307,17 +313,27 @@ class GameAgent:
                     allowed_names.add(tool_name)
             
         filtered_funcs = [fn for fn in all_funcs if fn.name in allowed_names]
-        current_tool_config = genai.types.Tool(function_declarations=filtered_funcs)
+        current_tool_config = types.Tool(function_declarations=filtered_funcs)
+
+        config = types.GenerateContentConfig(
+            system_instruction=self.system_instr,
+            tools=[current_tool_config]
+        )
 
         try:
-            response = await self.model.generate_content_async(contents=[prompt], tools=[current_tool_config])
+            response = await self.client.aio.models.generate_content(
+                model=self.model_name,
+                contents=[prompt],
+                config=config
+            )
             
-            for part in response.parts:
-                if fn := part.function_call:
-                    print(f"AI decided to: {fn.name}")
-                    await self.execute_tool(fn.name, dict(fn.args))
-                if part.text:
-                    print(f"AI Thought: {part.text}")
+            if response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
+                for part in response.candidates[0].content.parts:
+                    if fn := part.function_call:
+                        print(f"AI decided to: {fn.name}")
+                        await self.execute_tool(fn.name, dict(fn.args))
+                    if part.text:
+                        print(f"AI Thought: {part.text}")
                     
         except Exception as e:
             print(f"AI Generation Error: {e}")
