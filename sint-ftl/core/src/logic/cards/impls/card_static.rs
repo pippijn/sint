@@ -1,6 +1,6 @@
 use crate::{
     logic::cards::behavior::CardBehavior,
-    types::{Action, Card, CardId, CardSolution, CardType, GameState},
+    types::{Card, CardId, CardSolution, CardType, GameAction, GameState},
     GameError,
 };
 
@@ -27,9 +27,9 @@ impl CardBehavior for StaticNoiseCard {
         &self,
         _state: &GameState,
         _player_id: &str,
-        action: &Action,
+        action: &GameAction,
     ) -> Result<(), GameError> {
-        if let Action::Chat { message } = action {
+        if let GameAction::Chat { message } = action {
             // Check for non-emoji characters (simplified: alphabetic)
             if message.chars().any(|c| c.is_alphabetic()) {
                 return Err(GameError::Silenced);

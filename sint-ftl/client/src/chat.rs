@@ -1,6 +1,6 @@
 use crate::state::GameContext;
 use leptos::*;
-use sint_core::Action;
+use sint_core::{Action, GameAction};
 
 #[component]
 pub fn ChatView(ctx: GameContext) -> impl IntoView {
@@ -13,7 +13,9 @@ pub fn ChatView(ctx: GameContext) -> impl IntoView {
     let send_message = move || {
         let msg = input_value.get();
         if !msg.is_empty() {
-            ctx_send.perform_action.call(Action::Chat { message: msg });
+            ctx_send
+                .perform_action
+                .call(Action::Game(GameAction::Chat { message: msg }));
             set_input_value.set(String::new());
         }
     };

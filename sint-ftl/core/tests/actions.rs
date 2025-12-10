@@ -1,5 +1,7 @@
 use sint_core::{
-    logic::actions::get_valid_actions, Action, GameError, GameLogic, GamePhase, ItemType,
+    logic::actions::get_valid_actions,
+    types::{Action, GameAction},
+    GameError, GameLogic, GamePhase, ItemType,
 };
 
 #[test]
@@ -13,7 +15,12 @@ fn test_cannot_evade_from_dormitory() {
 
     // Attempt Evasive Maneuvers (Requires Room 9 Bridge)
     // Should fail
-    let res = GameLogic::apply_action(state.clone(), "P1", Action::EvasiveManeuvers, None);
+    let res = GameLogic::apply_action(
+        state.clone(),
+        "P1",
+        Action::Game(GameAction::EvasiveManeuvers),
+        None,
+    );
     assert!(
         res.is_err(),
         "Should not allow EvasiveManeuvers from Dormitory"
@@ -30,7 +37,12 @@ fn test_can_evade_from_bridge() {
         p.room_id = sint_core::types::SystemType::Bridge.as_u32();
     }
 
-    let res = GameLogic::apply_action(state, "P1", Action::EvasiveManeuvers, None);
+    let res = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Game(GameAction::EvasiveManeuvers),
+        None,
+    );
     assert!(res.is_ok());
 }
 
@@ -39,7 +51,7 @@ fn test_cannot_bake_from_dormitory() {
     let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
-    let res = GameLogic::apply_action(state, "P1", Action::Bake, None);
+    let res = GameLogic::apply_action(state, "P1", Action::Game(GameAction::Bake), None);
     assert!(res.is_err(), "Should not allow Bake from Dormitory");
 }
 
@@ -59,9 +71,9 @@ fn test_move_then_evade_valid() {
     let state = GameLogic::apply_action(
         state,
         "P1",
-        Action::Move {
+        Action::Game(GameAction::Move {
             to_room: sint_core::types::SystemType::Hallway.as_u32(),
-        },
+        }),
         None,
     )
     .unwrap();
@@ -69,16 +81,21 @@ fn test_move_then_evade_valid() {
     let state = GameLogic::apply_action(
         state,
         "P1",
-        Action::Move {
+        Action::Game(GameAction::Move {
             to_room: sint_core::types::SystemType::Bridge.as_u32(),
-        },
+        }),
         None,
     )
     .unwrap();
 
     // Now Queue Evasive Maneuvers
     // Projected room should be 9.
-    let res = GameLogic::apply_action(state, "P1", Action::EvasiveManeuvers, None);
+    let res = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Game(GameAction::EvasiveManeuvers),
+        None,
+    );
     assert!(
         res.is_ok(),
         "Should allow EvasiveManeuvers if projected to be in Bridge"
@@ -98,9 +115,9 @@ fn test_move_in_lobby() {
     assert_eq!(player.ap, 2);
 
     // Try to move to Hallway (7)
-    let action = Action::Move {
+    let action = Action::Game(GameAction::Move {
         to_room: sint_core::types::SystemType::Hallway.as_u32(),
-    };
+    });
 
     // This should now FAIL because we are in Lobby
     let res = GameLogic::apply_action(state.clone(), "Player1", action, None);
@@ -130,12 +147,18 @@ fn test_lookout_action() {
     }
 
     // Action: Lookout
-    let res = GameLogic::apply_action(state.clone(), "P1", Action::Lookout, None);
+    let res = GameLogic::apply_action(state.clone(), "P1", Action::Game(GameAction::Lookout), None);
     assert!(res.is_ok(), "Lookout should be valid in Bow");
 
     // Check Chat Log (Resolution)
     let mut state = res.unwrap();
-    state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Game(GameAction::VoteReady { ready: true }),
+        None,
+    )
+    .unwrap();
 
     // Verify Chat Log contains "LOOKOUT REPORT"
     let last_msg = state.chat_log.last().unwrap();
@@ -162,17 +185,29 @@ fn test_first_aid_action() {
     let res = GameLogic::apply_action(
         state.clone(),
         "P1",
-        Action::FirstAid {
+        Action::Game(GameAction::FirstAid {
             target_player: "P2".to_string(),
-        },
+        }),
         None,
     );
     assert!(res.is_ok(), "First Aid valid on neighbor");
 
     // Resolve
     let mut state = res.unwrap();
-    state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
-    state = GameLogic::apply_action(state, "P2", Action::VoteReady { ready: true }, None).unwrap();
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Game(GameAction::VoteReady { ready: true }),
+        None,
+    )
+    .unwrap();
+    state = GameLogic::apply_action(
+        state,
+        "P2",
+        Action::Game(GameAction::VoteReady { ready: true }),
+        None,
+    )
+    .unwrap();
 
     // Check P2 HP
     assert_eq!(state.players["P2"].hp, 2, "P2 should heal 1 HP");
@@ -196,9 +231,9 @@ fn test_first_aid_invalid_range() {
     let res = GameLogic::apply_action(
         state,
         "P1",
-        Action::FirstAid {
+        Action::Game(GameAction::FirstAid {
             target_player: "P2".to_string(),
-        },
+        }),
         None,
     );
     assert!(res.is_err(), "First Aid should fail if target too far");
@@ -213,7 +248,7 @@ fn test_pass_with_ap_works() {
     let p1 = state.players.get("P1").unwrap();
     assert_eq!(p1.ap, 2);
 
-    let res = GameLogic::apply_action(state.clone(), "P1", Action::Pass, None);
+    let res = GameLogic::apply_action(state.clone(), "P1", Action::Game(GameAction::Pass), None);
     assert!(res.is_ok());
 
     let new_state = res.unwrap();
@@ -234,7 +269,7 @@ fn test_pass_with_0_ap_fails() {
         p.ap = 0;
     }
 
-    let res = GameLogic::apply_action(state, "P1", Action::Pass, None);
+    let res = GameLogic::apply_action(state, "P1", Action::Game(GameAction::Pass), None);
     assert!(res.is_err());
 
     let err = res.err().unwrap();
@@ -253,7 +288,12 @@ fn test_vote_ready_works_any_ap() {
     if let Some(p) = state.players.get_mut("P1") {
         p.ap = 0;
     }
-    let res = GameLogic::apply_action(state.clone(), "P1", Action::VoteReady { ready: true }, None);
+    let res = GameLogic::apply_action(
+        state.clone(),
+        "P1",
+        Action::Game(GameAction::VoteReady { ready: true }),
+        None,
+    );
     assert!(res.is_ok());
     let s = res.unwrap();
     assert_eq!(s.phase, GamePhase::Execution);
@@ -265,7 +305,7 @@ fn test_vote_ready_works_any_ap() {
     let res2 = GameLogic::apply_action(
         state2.clone(),
         "P1",
-        Action::VoteReady { ready: true },
+        Action::Game(GameAction::VoteReady { ready: true }),
         None,
     );
     assert!(res2.is_ok());
@@ -280,15 +320,33 @@ fn test_planning_loop() {
     let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
 
     // 1. Start Game -> Morning
-    state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Game(GameAction::VoteReady { ready: true }),
+        None,
+    )
+    .unwrap();
     assert_eq!(state.phase, GamePhase::MorningReport);
 
     // 2. Ready -> Telegraph
-    state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Game(GameAction::VoteReady { ready: true }),
+        None,
+    )
+    .unwrap();
     assert_eq!(state.phase, GamePhase::EnemyTelegraph);
 
     // 3. Ready -> Planning
-    state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Game(GameAction::VoteReady { ready: true }),
+        None,
+    )
+    .unwrap();
     assert_eq!(state.phase, GamePhase::TacticalPlanning);
     assert_eq!(state.players["P1"].ap, 3);
 
@@ -296,60 +354,96 @@ fn test_planning_loop() {
     state = GameLogic::apply_action(
         state,
         "P1",
-        Action::Move {
+        Action::Game(GameAction::Move {
             to_room: sint_core::types::SystemType::Hallway.as_u32(),
-        },
+        }),
         None,
     )
     .unwrap();
     assert_eq!(state.players["P1"].ap, 2);
 
     // 5. Ready -> Execution
-    state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Game(GameAction::VoteReady { ready: true }),
+        None,
+    )
+    .unwrap();
     assert_eq!(state.phase, GamePhase::Execution);
 
     // 6. Ready (in Execution, with AP 2) -> SHOULD GO BACK TO PLANNING
-    state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Game(GameAction::VoteReady { ready: true }),
+        None,
+    )
+    .unwrap();
     assert_eq!(state.phase, GamePhase::TacticalPlanning);
 
     // 7. Move again (AP 2 -> 1)
     state = GameLogic::apply_action(
         state,
         "P1",
-        Action::Move {
+        Action::Game(GameAction::Move {
             to_room: sint_core::types::SystemType::Kitchen.as_u32(),
-        },
+        }),
         None,
     )
     .unwrap();
     assert_eq!(state.players["P1"].ap, 1);
 
     // 8. Ready -> Execution
-    state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Game(GameAction::VoteReady { ready: true }),
+        None,
+    )
+    .unwrap();
     assert_eq!(state.phase, GamePhase::Execution);
 
     // 9. Ready (in Execution, with AP 1) -> SHOULD GO BACK TO PLANNING
-    state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Game(GameAction::VoteReady { ready: true }),
+        None,
+    )
+    .unwrap();
     assert_eq!(state.phase, GamePhase::TacticalPlanning);
 
     // 10. Move again (AP 1 -> 0) - Move back to Hallway
     state = GameLogic::apply_action(
         state,
         "P1",
-        Action::Move {
+        Action::Game(GameAction::Move {
             to_room: sint_core::types::SystemType::Hallway.as_u32(),
-        },
+        }),
         None,
     )
     .unwrap();
     assert_eq!(state.players["P1"].ap, 0);
 
     // 11. Ready -> Execution
-    state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Game(GameAction::VoteReady { ready: true }),
+        None,
+    )
+    .unwrap();
     assert_eq!(state.phase, GamePhase::Execution);
 
     // 12. Ready (in Execution, with AP 0) -> SHOULD GO TO ENEMY ACTION
-    state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Game(GameAction::VoteReady { ready: true }),
+        None,
+    )
+    .unwrap();
     assert_eq!(state.phase, GamePhase::EnemyAction);
 }
 
@@ -369,7 +463,7 @@ fn test_projected_location_validation() {
     let has_move_7 = actions.iter().any(|a| {
         matches!(
             a,
-            Action::Move { to_room } if *to_room == sint_core::types::SystemType::Hallway.as_u32()
+            Action::Game(GameAction::Move { to_room }) if *to_room == sint_core::types::SystemType::Hallway.as_u32()
         )
     });
     assert!(has_move_7, "Should be able to move to Room 7");
@@ -378,9 +472,9 @@ fn test_projected_location_validation() {
     state = GameLogic::apply_action(
         state,
         "P1",
-        Action::Move {
+        Action::Game(GameAction::Move {
             to_room: sint_core::types::SystemType::Hallway.as_u32(),
-        },
+        }),
         None,
     )
     .unwrap();
@@ -393,7 +487,7 @@ fn test_projected_location_validation() {
     let has_move_7 = actions.iter().any(|a| {
         matches!(
             a,
-            Action::Move { to_room } if *to_room == sint_core::types::SystemType::Hallway.as_u32()
+            Action::Game(GameAction::Move { to_room }) if *to_room == sint_core::types::SystemType::Hallway.as_u32()
         )
     });
     assert!(
@@ -405,13 +499,15 @@ fn test_projected_location_validation() {
     let has_move_6 = actions.iter().any(|a| {
         matches!(
             a,
-            Action::Move { to_room } if *to_room == sint_core::types::SystemType::Kitchen.as_u32()
+            Action::Game(GameAction::Move { to_room }) if *to_room == sint_core::types::SystemType::Kitchen.as_u32()
         )
     });
     assert!(has_move_6, "Should be able to move to Room 6 (Kitchen)");
 
     // Should NOT be able to Bake (requires being in Kitchen)
-    let has_bake = actions.iter().any(|a| matches!(a, Action::Bake));
+    let has_bake = actions
+        .iter()
+        .any(|a| matches!(a, Action::Game(GameAction::Bake)));
     assert!(!has_bake, "Should NOT be able to Bake from Hallway");
 }
 
@@ -429,16 +525,18 @@ fn test_projected_system_availability() {
     state = GameLogic::apply_action(
         state,
         "P1",
-        Action::Move {
+        Action::Game(GameAction::Move {
             to_room: sint_core::types::SystemType::Kitchen.as_u32(),
-        },
+        }),
         None,
     )
     .unwrap();
 
     // Projected: In Kitchen.
     let actions = get_valid_actions(&state, "P1");
-    let has_bake = actions.iter().any(|a| matches!(a, Action::Bake));
+    let has_bake = actions
+        .iter()
+        .any(|a| matches!(a, Action::Game(GameAction::Bake)));
     assert!(has_bake, "Should be able to Bake after moving to Kitchen");
 }
 
@@ -452,16 +550,18 @@ fn test_projected_ap_exhaustion() {
     state = GameLogic::apply_action(
         state,
         "P1",
-        Action::Move {
+        Action::Game(GameAction::Move {
             to_room: sint_core::types::SystemType::Hallway.as_u32(),
-        },
+        }),
         None,
     )
     .unwrap();
 
     // Remaining AP: 1.
     let actions = get_valid_actions(&state, "P1");
-    let has_move = actions.iter().any(|a| matches!(a, Action::Move { .. }));
+    let has_move = actions
+        .iter()
+        .any(|a| matches!(a, Action::Game(GameAction::Move { .. })));
     assert!(has_move, "Should still be able to move with 1 AP");
 
     // Queue another Move (1 AP).
@@ -469,23 +569,29 @@ fn test_projected_ap_exhaustion() {
     state = GameLogic::apply_action(
         state,
         "P1",
-        Action::Move {
+        Action::Game(GameAction::Move {
             to_room: sint_core::types::SystemType::Kitchen.as_u32(),
-        },
+        }),
         None,
     )
     .unwrap();
 
     // Remaining AP: 0.
     let actions = get_valid_actions(&state, "P1");
-    let has_move = actions.iter().any(|a| matches!(a, Action::Move { .. }));
-    let has_bake = actions.iter().any(|a| matches!(a, Action::Bake));
+    let has_move = actions
+        .iter()
+        .any(|a| matches!(a, Action::Game(GameAction::Move { .. })));
+    let has_bake = actions
+        .iter()
+        .any(|a| matches!(a, Action::Game(GameAction::Bake)));
 
     assert!(!has_move, "Should NOT be able to move with 0 AP");
     assert!(!has_bake, "Should NOT be able to bake with 0 AP");
 
     // Free actions should still be valid
-    let has_chat = actions.iter().any(|a| matches!(a, Action::Chat { .. }));
+    let has_chat = actions
+        .iter()
+        .any(|a| matches!(a, Action::Game(GameAction::Chat { .. })));
     assert!(has_chat, "Should be able to chat with 0 AP");
 }
 
@@ -509,9 +615,9 @@ fn test_projected_item_pickup() {
     let has_pickup = actions.iter().any(|a| {
         matches!(
             a,
-            Action::PickUp {
+            Action::Game(GameAction::PickUp {
                 item_type: ItemType::Peppernut
-            }
+            })
         )
     });
     assert!(has_pickup, "Should be able to pickup item");
@@ -520,16 +626,18 @@ fn test_projected_item_pickup() {
     state = GameLogic::apply_action(
         state,
         "P1",
-        Action::PickUp {
+        Action::Game(GameAction::PickUp {
             item_type: ItemType::Peppernut,
-        },
+        }),
         None,
     )
     .unwrap();
 
     // Projected: Item is in inventory, not room.
     let actions = get_valid_actions(&state, "P1");
-    let has_pickup = actions.iter().any(|a| matches!(a, Action::PickUp { .. }));
+    let has_pickup = actions
+        .iter()
+        .any(|a| matches!(a, Action::Game(GameAction::PickUp { .. })));
     assert!(
         !has_pickup,
         "Should NOT be able to pickup item (already picked up in projection)"
@@ -548,9 +656,9 @@ fn test_undo_middle_of_chain() {
     state = GameLogic::apply_action(
         state,
         "P1",
-        Action::Move {
+        Action::Game(GameAction::Move {
             to_room: sint_core::types::SystemType::Hallway.as_u32(),
-        },
+        }),
         None,
     )
     .unwrap();
@@ -561,9 +669,9 @@ fn test_undo_middle_of_chain() {
     state = GameLogic::apply_action(
         state,
         "P1",
-        Action::Move {
+        Action::Game(GameAction::Move {
             to_room: sint_core::types::SystemType::Bridge.as_u32(),
-        },
+        }),
         None,
     )
     .unwrap();
@@ -574,9 +682,9 @@ fn test_undo_middle_of_chain() {
     state = GameLogic::apply_action(
         state,
         "P1",
-        Action::Undo {
+        Action::Game(GameAction::Undo {
             action_id: id_move_7,
-        },
+        }),
         None,
     )
     .unwrap();
@@ -585,7 +693,7 @@ fn test_undo_middle_of_chain() {
     // a. Queue length should be 1
     assert_eq!(state.proposal_queue.len(), 1);
     // b. Remaining action should be Move 7 -> 9
-    if let Action::Move { to_room } = &state.proposal_queue[0].action {
+    if let GameAction::Move { to_room } = &state.proposal_queue[0].action {
         assert_eq!(*to_room, 9);
     } else {
         panic!("Remaining action should be Move to 9");
@@ -594,7 +702,13 @@ fn test_undo_middle_of_chain() {
     assert_eq!(state.players["P1"].ap, 1);
 
     // 4. Execute Batch
-    state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Game(GameAction::VoteReady { ready: true }),
+        None,
+    )
+    .unwrap();
     assert_eq!(state.phase, GamePhase::Execution);
 
     // Execution Logic runs here implicitly when entering Execution phase.
@@ -608,7 +722,13 @@ fn test_undo_middle_of_chain() {
     );
 
     // 5. Acknowledge Execution (Transition Execution -> TacticalPlanning)
-    state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Game(GameAction::VoteReady { ready: true }),
+        None,
+    )
+    .unwrap();
 
     // Phase should loop back to Planning because AP > 0
     assert_eq!(state.phase, GamePhase::TacticalPlanning);

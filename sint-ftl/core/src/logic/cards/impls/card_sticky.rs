@@ -1,6 +1,6 @@
 use crate::{
     logic::cards::behavior::CardBehavior,
-    types::{Action, Card, CardId, CardSolution, CardType, GameState},
+    types::{Card, CardId, CardSolution, CardType, GameAction, GameState},
 };
 
 pub struct StickyFloorCard;
@@ -26,10 +26,10 @@ impl CardBehavior for StickyFloorCard {
         &self,
         _state: &GameState,
         _player_id: &str,
-        action: &Action,
+        action: &GameAction,
         current_cost: i32,
     ) -> i32 {
-        if let Action::Move { to_room } = action {
+        if let GameAction::Move { to_room } = action {
             if *to_room == crate::types::SystemType::Hallway.as_u32() {
                 return current_cost + 1;
             }

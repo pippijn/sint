@@ -3,7 +3,7 @@ use futures::channel::mpsc;
 use futures::{SinkExt, StreamExt};
 use gloo_net::websocket::{futures::WebSocket, Message};
 use leptos::*;
-use sint_core::{Action, GameLogic, GameState, ProposedAction};
+use sint_core::{Action, GameLogic, GameState, MetaAction, PlayerEvent};
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::rc::Rc;
@@ -38,12 +38,12 @@ pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
     // Internal State for Rollback Logic
     struct InternalState {
         verified_state: GameState,
-        pending_actions: VecDeque<ProposedAction>,
+        pending_events: VecDeque<PlayerEvent>,
     }
 
     let internal = Rc::new(RefCell::new(InternalState {
         verified_state: initial_state.clone(),
-        pending_actions: VecDeque::new(),
+        pending_events: VecDeque::new(),
     }));
 
     // Connection Status Signal
@@ -90,12 +90,12 @@ pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
             .await;
 
         // Send Join Action (Game State)
-        let join_action = ProposedAction {
+        let join_action = PlayerEvent {
             id: Uuid::new_v4().to_string(),
             player_id: pid_ws.clone(),
-            action: Action::Join {
+            action: Action::Meta(MetaAction::Join {
                 name: pid_ws.clone(),
-            },
+            }),
         };
 
         let event_msg = ClientMessage::Event {
@@ -130,14 +130,14 @@ pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
                                 Ok(ServerMessage::Event { sequence_id, data }) => {
                                     let mut guard = internal_ws.borrow_mut();
 
-                                    if let Ok(proposed) = serde_json::from_value::<ProposedAction>(data) {
+                                    if let Ok(event) = serde_json::from_value::<PlayerEvent>(data) {
                                         leptos::logging::log!("Recv Seq: {}", sequence_id);
 
                                         // 1. Apply to Verified
                                         let res = GameLogic::apply_action(
                                             guard.verified_state.clone(),
-                                            &proposed.player_id,
-                                            proposed.action,
+                                            &event.player_id,
+                                            event.action.clone(),
                                             None
                                         );
 
@@ -146,9 +146,9 @@ pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
                                                 guard.verified_state = new_state;
 
                                                 // 2. Prune Pending (Match UUID)
-                                                if let Some(front) = guard.pending_actions.front() {
-                                                    if front.id == proposed.id {
-                                                        guard.pending_actions.pop_front();
+                                                if let Some(front) = guard.pending_events.front() {
+                                                    if front.id == event.id {
+                                                        guard.pending_events.pop_front();
                                                     }
                                                 }
 
@@ -156,7 +156,7 @@ pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
                                                 let mut predicted = guard.verified_state.clone();
                                                 let mut valid_pending = VecDeque::new();
 
-                                                for p in guard.pending_actions.iter() {
+                                                for p in guard.pending_events.iter() {
                                                     if let Ok(next) = GameLogic::apply_action(
                                                         predicted.clone(),
                                                         &p.player_id,
@@ -169,7 +169,7 @@ pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
                                                         leptos::logging::warn!("Replay invalid: {:?}", p.action);
                                                     }
                                                 }
-                                                guard.pending_actions = valid_pending;
+                                                guard.pending_events = valid_pending;
                                                 set_state_ws.set(predicted);
                                             }
                                             Err(e) => {
@@ -186,12 +186,12 @@ pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
                                         let guard = internal_ws.borrow();
                                         if guard.verified_state.sequence_id > 0 {
                                             leptos::logging::log!("Providing Sync State");
-                                            let sync_action = ProposedAction {
+                                            let sync_action = PlayerEvent {
                                                 id: Uuid::new_v4().to_string(),
                                                 player_id: pid_ws.clone(),
-                                                action: Action::FullSync {
+                                                action: Action::Meta(MetaAction::FullSync {
                                                     state_json: serde_json::to_string(&guard.verified_state).unwrap()
-                                                },
+                                                }),
                                             };
                                             let msg = ClientMessage::Event {
                                                 sequence_id: guard.verified_state.sequence_id,
@@ -236,7 +236,7 @@ pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
 
         // 1. Optimistic Apply to CURRENT Predicted State
         let mut current_predicted = guard.verified_state.clone();
-        for p in &guard.pending_actions {
+        for p in &guard.pending_events {
             current_predicted =
                 GameLogic::apply_action(current_predicted, &p.player_id, p.action.clone(), None)
                     .unwrap();
@@ -249,17 +249,17 @@ pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
                 // Success
                 set_state.set(new_predicted);
 
-                let proposal = ProposedAction {
+                let event = PlayerEvent {
                     id: Uuid::new_v4().to_string(),
                     player_id: pid_action.clone(),
                     action: action.clone(),
                 };
 
-                guard.pending_actions.push_back(proposal.clone());
+                guard.pending_events.push_back(event.clone());
 
                 let msg = ClientMessage::Event {
                     sequence_id: 0,
-                    data: serde_json::to_value(&proposal).unwrap(),
+                    data: serde_json::to_value(&event).unwrap(),
                 };
 
                 let _ = tx_cell

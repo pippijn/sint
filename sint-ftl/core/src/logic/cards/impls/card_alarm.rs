@@ -1,5 +1,5 @@
 use crate::logic::cards::behavior::CardBehavior;
-use crate::types::{Action, Card, CardId, CardSolution, CardType, GameState};
+use crate::types::{Card, CardId, CardSolution, CardType, GameAction, GameState};
 use crate::GameError;
 
 pub struct WailingAlarmCard;
@@ -25,13 +25,13 @@ impl CardBehavior for WailingAlarmCard {
         &self,
         _state: &GameState,
         _player_id: &str,
-        action: &Action,
+        action: &GameAction,
     ) -> Result<(), GameError> {
         match action {
-            Action::RaiseShields => Err(GameError::InvalidAction(
+            GameAction::RaiseShields => Err(GameError::InvalidAction(
                 "Wailing Alarm! Shields are disabled.".to_string(),
             )),
-            Action::EvasiveManeuvers => Err(GameError::InvalidAction(
+            GameAction::EvasiveManeuvers => Err(GameError::InvalidAction(
                 "Wailing Alarm! Evasive Maneuvers are disabled.".to_string(),
             )),
             _ => Ok(()),

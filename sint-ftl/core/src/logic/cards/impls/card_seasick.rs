@@ -1,6 +1,6 @@
 use crate::{
     logic::cards::behavior::CardBehavior,
-    types::{Action, Card, CardId, CardSolution, CardType, GameState},
+    types::{Card, CardId, CardSolution, CardType, GameAction, GameState},
     GameError,
 };
 
@@ -27,7 +27,7 @@ impl CardBehavior for SeasickCard {
         &self,
         _state: &GameState,
         _player_id: &str,
-        _action: &Action,
+        _action: &GameAction,
     ) -> Result<(), GameError> {
         // Effect: You may EITHER Walk OR do Actions (not both).
         // Check if player has already spent AP on a conflicting type?

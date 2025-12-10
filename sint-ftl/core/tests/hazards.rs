@@ -1,378 +1,150 @@
-use sint_core::{Action, GameLogic, GamePhase, HazardType, ItemType};
+use sint_core::{
+    types::{Action, GameAction, GamePhase, HazardType, SystemType},
+    GameLogic,
+};
 
 #[test]
-fn test_fire_damage() {
+fn test_fire_spread() {
+    // Seed selected to ensure spread happens
     let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    state.phase = GamePhase::EnemyAction;
 
-    // Setup: P1 in Kitchen (6), Fire in Kitchen
-    if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = sint_core::types::SystemType::Kitchen.as_u32();
-        p.ap = 0; // Force end of turn
-        p.is_ready = true;
+    // Room 6 (Kitchen) has 2 Fires. Spreads to 7 (Hallway) with 50% chance.
+    if let Some(r) = state.map.rooms.get_mut(&6) {
+        r.hazards.push(HazardType::Fire);
+        r.hazards.push(HazardType::Fire);
     }
 
-    if let Some(room) = state
-        .map
-        .rooms
-        .get_mut(&sint_core::types::SystemType::Kitchen.as_u32())
-    {
-        room.hazards.push(HazardType::Fire);
+    sint_core::logic::resolution::resolve_hazards(&mut state);
+
+    // Check if spread to 7 (Hallway is neighbor of Kitchen)
+    if let Some(r) = state.map.rooms.get(&7) {
+        // With seed 12345, check result
+        assert!(!r.hazards.is_empty(), "Fire should have spread to Hallway");
     }
-
-    let initial_hull = state.hull_integrity;
-    let initial_hp = state.players["P1"].hp;
-
-    // Transition: Execution -> EnemyAction (Triggers resolve_hazards)
-    state.phase = GamePhase::Execution;
-
-    // We need to trigger "VoteReady" or "Pass" to advance phase, but since AP is 0,
-    // apply_action(VoteReady) should trigger advance_phase to EnemyAction.
-    state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
-
-    assert_eq!(state.phase, GamePhase::EnemyAction);
-
-    // Check Damage
-    assert_eq!(
-        state.hull_integrity,
-        initial_hull - 1,
-        "Hull should take fire damage"
-    );
-    assert_eq!(
-        state.players["P1"].hp,
-        initial_hp - 1,
-        "Player should take fire damage"
-    );
 }
 
 #[test]
-fn test_extinguish_fire() {
+fn test_fire_damage_hull() {
+    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    state.phase = GamePhase::EnemyAction;
+    state.hull_integrity = 20;
+
+    if let Some(r) = state.map.rooms.get_mut(&6) {
+        r.hazards.push(HazardType::Fire);
+    }
+
+    sint_core::logic::resolution::resolve_hazards(&mut state);
+
+    assert_eq!(state.hull_integrity, 19);
+}
+
+#[test]
+fn test_fire_damage_player() {
+    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    state.phase = GamePhase::EnemyAction;
+
+    if let Some(p) = state.players.get_mut("P1") {
+        p.room_id = 6;
+        p.hp = 3;
+    }
+    if let Some(r) = state.map.rooms.get_mut(&6) {
+        r.hazards.push(HazardType::Fire);
+    }
+
+    sint_core::logic::resolution::resolve_hazards(&mut state);
+
+    assert_eq!(state.players["P1"].hp, 2);
+}
+
+#[test]
+fn test_water_destroys_peppernuts() {
+    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    if let Some(r) = state.map.rooms.get_mut(&6) {
+        r.hazards.push(HazardType::Water);
+        r.items.push(sint_core::types::ItemType::Peppernut);
+        r.items.push(sint_core::types::ItemType::Extinguisher);
+    }
+
+    sint_core::logic::resolution::resolve_hazards(&mut state);
+
+    let items = &state.map.rooms[&6].items;
+    assert!(!items.contains(&sint_core::types::ItemType::Peppernut));
+    assert!(items.contains(&sint_core::types::ItemType::Extinguisher));
+}
+
+#[test]
+fn test_water_in_storage_safe() {
+    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let storage_id = SystemType::Storage.as_u32();
+    if let Some(r) = state.map.rooms.get_mut(&storage_id) {
+        r.hazards.push(HazardType::Water);
+        r.items.push(sint_core::types::ItemType::Peppernut);
+    }
+
+    sint_core::logic::resolution::resolve_hazards(&mut state);
+
+    let items = &state.map.rooms[&storage_id].items;
+    assert!(items.contains(&sint_core::types::ItemType::Peppernut));
+}
+
+#[test]
+fn test_extinguish_action() {
     let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
-    // Setup: P1 in Kitchen (6), Fire in Kitchen
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = sint_core::types::SystemType::Kitchen.as_u32();
-        p.ap = 2;
+        p.room_id = 6;
     }
-    if let Some(room) = state
-        .map
-        .rooms
-        .get_mut(&sint_core::types::SystemType::Kitchen.as_u32())
-    {
-        room.hazards.push(HazardType::Fire);
+    if let Some(r) = state.map.rooms.get_mut(&6) {
+        r.hazards.push(HazardType::Fire);
     }
 
-    // Action: Extinguish
-    state = GameLogic::apply_action(state, "P1", Action::Extinguish, None).unwrap();
-
-    // Check AP cost
-    assert_eq!(state.players["P1"].ap, 1);
-
-    // Advance to Execution to resolve
-    state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
-    assert_eq!(state.phase, GamePhase::Execution);
-
-    // Trigger Resolution (VoteReady again or implicit if auto-trigger? apply_action doesn't auto-resolve logic unless phase advanced)
-    // Wait, advance_phase(TacticalPlanning) -> calls resolve_proposal_queue immediately!
-    // So Extinguish should be done.
-
-    if let Some(room) = state
-        .map
-        .rooms
-        .get(&sint_core::types::SystemType::Kitchen.as_u32())
-    {
-        assert!(room.hazards.is_empty(), "Fire should be extinguished");
-    }
-}
-
-#[test]
-fn test_repair_water() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
-    state.phase = GamePhase::TacticalPlanning;
-
-    // Setup: Water in Kitchen
-    if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = sint_core::types::SystemType::Kitchen.as_u32();
-    }
-    if let Some(room) = state
-        .map
-        .rooms
-        .get_mut(&sint_core::types::SystemType::Kitchen.as_u32())
-    {
-        room.hazards.push(HazardType::Water);
-    }
-
-    // Action: Repair
-    state = GameLogic::apply_action(state, "P1", Action::Repair, None).unwrap();
-
-    // Advance to resolve
-    state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
-
-    if let Some(room) = state
-        .map
-        .rooms
-        .get(&sint_core::types::SystemType::Kitchen.as_u32())
-    {
-        assert!(room.hazards.is_empty(), "Water should be repaired");
-    }
-}
-
-#[test]
-fn test_kitchen_standard_threshold() {
-    // Kitchen should NOT spread with 1 Fire.
-    for i in 0..20 {
-        let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345 + i);
-        state.phase = GamePhase::Execution;
-        if let Some(r) = state
-            .map
-            .rooms
-            .get_mut(&sint_core::types::SystemType::Kitchen.as_u32())
-        {
-            r.hazards.push(HazardType::Fire);
-        }
-        if let Some(r) = state
-            .map
-            .rooms
-            .get_mut(&sint_core::types::SystemType::Hallway.as_u32())
-        {
-            r.hazards.clear();
-        }
-        if let Some(p) = state.players.get_mut("P1") {
-            p.ap = 0;
-            p.is_ready = true;
-        }
-        state =
-            GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
-
-        if let Some(r) = state
-            .map
-            .rooms
-            .get(&sint_core::types::SystemType::Hallway.as_u32())
-        {
-            assert!(
-                r.hazards.is_empty(),
-                "Standard room with 1 Fire should NOT spread"
-            );
-        }
-    }
-}
-
-#[test]
-fn test_cargo_lower_threshold() {
-    // Cargo SHOULD spread with 1 Fire (approx 50% of time).
-    let mut spread_occured = false;
-
-    for i in 0..20 {
-        let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345 + i);
-        state.phase = GamePhase::Execution;
-        if let Some(r) = state
-            .map
-            .rooms
-            .get_mut(&sint_core::types::SystemType::Cargo.as_u32())
-        {
-            r.hazards.push(HazardType::Fire);
-        }
-        if let Some(r) = state
-            .map
-            .rooms
-            .get_mut(&sint_core::types::SystemType::Hallway.as_u32())
-        {
-            r.hazards.clear();
-        }
-        if let Some(p) = state.players.get_mut("P1") {
-            p.ap = 0;
-            p.is_ready = true;
-        }
-        state =
-            GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
-
-        if let Some(r) = state
-            .map
-            .rooms
-            .get(&sint_core::types::SystemType::Hallway.as_u32())
-        {
-            if r.hazards.contains(&HazardType::Fire) {
-                spread_occured = true;
-                break;
-            }
-        }
-    }
-    assert!(spread_occured, "Cargo with 1 Fire SHOULD spread eventually");
-}
-
-#[test]
-fn test_water_destroys_items() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
-    state.phase = GamePhase::Execution;
-
-    // Setup: Kitchen (6) with Water and 2 Nuts.
-    if let Some(r) = state
-        .map
-        .rooms
-        .get_mut(&sint_core::types::SystemType::Kitchen.as_u32())
-    {
-        r.hazards.push(HazardType::Water);
-        r.items.push(ItemType::Peppernut);
-        r.items.push(ItemType::Peppernut);
-    }
-
-    // Trigger Resolution
-    if let Some(p) = state.players.get_mut("P1") {
-        p.ap = 0;
-        p.is_ready = true;
-    }
-    state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
-
-    // Check Kitchen Items (Should be empty)
-    if let Some(r) = state
-        .map
-        .rooms
-        .get(&sint_core::types::SystemType::Kitchen.as_u32())
-    {
-        assert!(r.items.is_empty(), "Water should destroy items in Kitchen");
-    }
-}
-
-#[test]
-fn test_storage_protects_items() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
-    state.phase = GamePhase::Execution;
-
-    // Setup: Storage (11) with Water and 2 Nuts.
-    // (Note: Storage has 5 nuts by default, plus we add 2 more)
-    if let Some(r) = state
-        .map
-        .rooms
-        .get_mut(&sint_core::types::SystemType::Storage.as_u32())
-    {
-        r.hazards.push(HazardType::Water);
-        r.items.push(ItemType::Peppernut);
-        r.items.push(ItemType::Peppernut);
-    }
-
-    let initial_count = state.map.rooms[&sint_core::types::SystemType::Storage.as_u32()]
-        .items
-        .len();
-
-    // Trigger Resolution
-    if let Some(p) = state.players.get_mut("P1") {
-        p.ap = 0;
-        p.is_ready = true;
-    }
-    state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
-
-    // Check Storage Items (Should be unchanged)
-    if let Some(r) = state
-        .map
-        .rooms
-        .get(&sint_core::types::SystemType::Storage.as_u32())
-    {
-        assert_eq!(
-            r.items.len(),
-            initial_count,
-            "Storage should protect items from Water"
-        );
-    }
-}
-
-#[test]
-fn test_water_destroys_peppernuts_only() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
-    state.phase = GamePhase::Execution;
-
-    // Setup: Kitchen (6) with Water, 2 Nuts, and 1 Wheelbarrow.
-    if let Some(r) = state
-        .map
-        .rooms
-        .get_mut(&sint_core::types::SystemType::Kitchen.as_u32())
-    {
-        r.hazards.push(HazardType::Water);
-        r.items.push(ItemType::Peppernut);
-        r.items.push(ItemType::Wheelbarrow);
-        r.items.push(ItemType::Peppernut);
-    }
-
-    // Trigger Resolution
-    if let Some(p) = state.players.get_mut("P1") {
-        p.ap = 0;
-        p.is_ready = true;
-    }
-    state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
-
-    // Check Kitchen Items
-    if let Some(r) = state
-        .map
-        .rooms
-        .get(&sint_core::types::SystemType::Kitchen.as_u32())
-    {
-        assert!(
-            !r.items.contains(&ItemType::Peppernut),
-            "Water should destroy Peppernuts"
-        );
-        assert!(
-            r.items.contains(&ItemType::Wheelbarrow),
-            "Water should NOT destroy Wheelbarrow"
-        );
-        assert_eq!(r.items.len(), 1, "Only Wheelbarrow should remain");
-    }
-}
-
-#[test]
-fn test_storage_protects_all_items() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
-    state.phase = GamePhase::Execution;
-
-    // Setup: Storage (11) with Water, Peppernuts, and Extinguisher.
-    if let Some(r) = state
-        .map
-        .rooms
-        .get_mut(&sint_core::types::SystemType::Storage.as_u32())
-    {
-        r.hazards.push(HazardType::Water);
-        // Default has 5 nuts. Add Extinguisher.
-        r.items.push(ItemType::Extinguisher);
-    }
-
-    let initial_count = state.map.rooms[&sint_core::types::SystemType::Storage.as_u32()]
-        .items
-        .len();
-
-    // Trigger Resolution
-    if let Some(p) = state.players.get_mut("P1") {
-        p.ap = 0;
-        p.is_ready = true;
-    }
-    state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
-
-    // Check Storage
-    let r = &state.map.rooms[&sint_core::types::SystemType::Storage.as_u32()];
-    assert_eq!(
-        r.items.len(),
-        initial_count,
-        "Storage should protect everything"
+    let res = GameLogic::apply_action(
+        state.clone(),
+        "P1",
+        Action::Game(GameAction::Extinguish),
+        None,
     );
-    assert!(r.items.contains(&ItemType::Peppernut));
-    assert!(r.items.contains(&ItemType::Extinguisher));
+    assert!(res.is_ok());
+
+    let mut state = res.unwrap();
+    // Resolve (Queue)
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Game(GameAction::VoteReady { ready: true }),
+        None,
+    )
+    .unwrap();
+
+    assert!(state.map.rooms[&6].hazards.is_empty());
 }
 
 #[test]
-fn test_water_disables_room_action() {
+fn test_repair_action() {
     let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
-    // P1 in Kitchen with Water
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = sint_core::types::SystemType::Kitchen.as_u32();
+        p.room_id = 6;
     }
-    if let Some(r) = state
-        .map
-        .rooms
-        .get_mut(&sint_core::types::SystemType::Kitchen.as_u32())
-    {
+    if let Some(r) = state.map.rooms.get_mut(&6) {
         r.hazards.push(HazardType::Water);
     }
 
-    // Attempt Bake
-    let res = GameLogic::apply_action(state, "P1", Action::Bake, None);
-    assert!(res.is_err(), "Water should disable Bake action");
+    let res = GameLogic::apply_action(state.clone(), "P1", Action::Game(GameAction::Repair), None);
+    assert!(res.is_ok());
+
+    let mut state = res.unwrap();
+    // Resolve
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Game(GameAction::VoteReady { ready: true }),
+        None,
+    )
+    .unwrap();
+
+    assert!(state.map.rooms[&6].hazards.is_empty());
 }

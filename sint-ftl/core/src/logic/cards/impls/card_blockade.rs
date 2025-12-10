@@ -1,6 +1,6 @@
 use crate::{
     logic::cards::behavior::CardBehavior,
-    types::{Action, Card, CardId, CardSolution, CardType, GameState},
+    types::{Card, CardId, CardSolution, CardType, GameAction, GameState},
     GameError,
 };
 
@@ -31,11 +31,11 @@ impl CardBehavior for BlockadeCard {
         &self,
         state: &GameState,
         player_id: &str,
-        action: &Action,
+        action: &GameAction,
     ) -> Result<(), GameError> {
         // Door to Cannons (8) is closed.
         // No one can enter or exit.
-        if let Action::Move { to_room } = action {
+        if let GameAction::Move { to_room } = action {
             if *to_room == crate::types::SystemType::Cannons.as_u32() {
                 return Err(GameError::InvalidAction(
                     format!(

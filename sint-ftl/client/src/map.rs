@@ -1,7 +1,8 @@
 use crate::state::GameContext;
 use leptos::*;
 use sint_core::{
-    logic::pathfinding::find_path, Action, GamePhase, HazardType, ItemType, Player, Room,
+    logic::pathfinding::find_path, Action, GameAction, GamePhase, HazardType, ItemType, Player,
+    Room,
 };
 
 #[derive(Clone, Copy, PartialEq)]
@@ -169,7 +170,7 @@ fn RoomCard(
             // but we need to track position.
             for prop in &s.proposal_queue {
                 if prop.player_id == *my_pid {
-                    if let Action::Move { to_room } = prop.action {
+                    if let GameAction::Move { to_room } = prop.action {
                         predicted_room_id = to_room;
                     }
                 }
@@ -190,7 +191,7 @@ fn RoomCard(
                     cost += sint_core::logic::actions::action_cost(
                         &s,
                         my_pid,
-                        &Action::Move { to_room: *step },
+                        &GameAction::Move { to_room: *step },
                     );
                 }
 
@@ -215,7 +216,7 @@ fn RoomCard(
             .proposal_queue
             .iter()
             .filter_map(|prop| {
-                if let Action::Move { to_room } = prop.action {
+                if let GameAction::Move { to_room } = prop.action {
                     if to_room == room.id {
                         return Some(prop.player_id.clone());
                     }
@@ -295,7 +296,7 @@ fn RoomCard(
                                 for step in steps {
                                     ctx_click_inner
                                         .perform_action
-                                        .call(Action::Move { to_room: step });
+                                        .call(Action::Game(GameAction::Move { to_room: step }));
                                 }
                             }
                         }

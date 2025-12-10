@@ -1,7 +1,7 @@
 use crate::scoring::ScoreAccumulator;
 use serde::{Deserialize, Serialize};
 use sint_core::logic::GameLogic;
-use sint_core::types::{Action, GamePhase, GameState, ItemType};
+use sint_core::types::{Action, GameAction, GamePhase, GameState, ItemType};
 use sint_core::GameError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -127,55 +127,55 @@ pub fn parse_solution_text(text: &str) -> (Vec<(String, Action)>, Option<u64>, O
 
         let action = if cmd.starts_with("Move") {
             let target: u32 = cmd.split_whitespace().nth(1).unwrap().parse().unwrap();
-            Action::Move { to_room: target }
+            Action::Game(GameAction::Move { to_room: target })
         } else if cmd == "Bake" {
-            Action::Bake
+            Action::Game(GameAction::Bake)
         } else if cmd == "Shoot" {
-            Action::Shoot
+            Action::Game(GameAction::Shoot)
         } else if cmd.starts_with("Throw") {
             let parts: Vec<&str> = cmd.split_whitespace().collect();
             let target = parts[1].to_string();
             let idx = parts[2].parse().unwrap();
-            Action::Throw {
+            Action::Game(GameAction::Throw {
                 target_player: target,
                 item_index: idx,
-            }
+            })
         } else if cmd == "Extinguish" {
-            Action::Extinguish
+            Action::Game(GameAction::Extinguish)
         } else if cmd == "Repair" {
-            Action::Repair
+            Action::Game(GameAction::Repair)
         } else if cmd == "PickUp" {
-            Action::PickUp {
+            Action::Game(GameAction::PickUp {
                 item_type: ItemType::Peppernut,
-            }
+            })
         } else if cmd.starts_with("Drop") {
             let idx = cmd.split_whitespace().nth(1).unwrap().parse().unwrap();
-            Action::Drop { item_index: idx }
+            Action::Game(GameAction::Drop { item_index: idx })
         } else if cmd == "Pass" {
-            Action::Pass
+            Action::Game(GameAction::Pass)
         } else if cmd == "Ready" {
-            Action::VoteReady { ready: true }
+            Action::Game(GameAction::VoteReady { ready: true })
         } else if cmd == "RaiseShields" {
-            Action::RaiseShields
+            Action::Game(GameAction::RaiseShields)
         } else if cmd == "EvasiveManeuvers" {
-            Action::EvasiveManeuvers
+            Action::Game(GameAction::EvasiveManeuvers)
         } else if cmd == "Lookout" {
-            Action::Lookout
+            Action::Game(GameAction::Lookout)
         } else if cmd == "Interact" {
-            Action::Interact
+            Action::Game(GameAction::Interact)
         } else if cmd.starts_with("Revive") {
             let target = cmd.split_whitespace().nth(1).unwrap().to_string();
-            Action::Revive {
+            Action::Game(GameAction::Revive {
                 target_player: target,
-            }
+            })
         } else if cmd.starts_with("FirstAid") {
             let target = cmd.split_whitespace().nth(1).unwrap().to_string();
-            Action::FirstAid {
+            Action::Game(GameAction::FirstAid {
                 target_player: target,
-            }
+            })
         } else if cmd.starts_with("Chat") {
             let msg = cmd.replace("Chat ", "").trim().to_string();
-            Action::Chat { message: msg }
+            Action::Game(GameAction::Chat { message: msg })
         } else {
             // Panic or ignore? The original code panicked.
             // Let's print error and continue or panic.
@@ -217,7 +217,7 @@ pub fn run_verification(
             // Just Vote Ready for everyone
             let pids: Vec<String> = state.players.keys().cloned().collect();
             for pid in pids {
-                let act = Action::VoteReady { ready: true };
+                let act = Action::Game(GameAction::VoteReady { ready: true });
                 match GameLogic::apply_action(state.clone(), &pid, act.clone(), None) {
                     Ok(s) => {
                         state = s;
@@ -238,7 +238,7 @@ pub fn run_verification(
                     if s.phase == GamePhase::TacticalPlanning {
                         if let Some(p) = s.players.get(&pid) {
                             if p.ap == 0 && !p.is_ready {
-                                let ready_act = Action::VoteReady { ready: true };
+                                let ready_act = Action::Game(GameAction::VoteReady { ready: true });
                                 match GameLogic::apply_action(
                                     s.clone(),
                                     &pid,

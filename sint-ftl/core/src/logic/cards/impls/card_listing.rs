@@ -1,6 +1,6 @@
 use crate::{
     logic::cards::behavior::CardBehavior,
-    types::{Action, Card, CardId, CardSolution, CardType, GameState},
+    types::{Card, CardId, CardSolution, CardType, GameAction, GameState},
 };
 
 pub struct ListingCard;
@@ -26,12 +26,12 @@ impl CardBehavior for ListingCard {
         &self,
         _state: &GameState,
         _player_id: &str,
-        action: &Action,
+        action: &GameAction,
         base_cost: i32,
     ) -> i32 {
         // Walking is FREE (0 AP). Actions cost DOUBLE (2 AP).
         match action {
-            Action::Move { .. } => 0,
+            GameAction::Move { .. } => 0,
             _ => {
                 if base_cost > 0 {
                     base_cost * 2

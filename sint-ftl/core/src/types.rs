@@ -208,12 +208,26 @@ pub struct ChatMessage {
 pub struct ProposedAction {
     pub id: String, // UUID
     pub player_id: PlayerId,
+    pub action: GameAction,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct PlayerEvent {
+    pub id: String, // UUID
+    pub player_id: PlayerId,
     pub action: Action,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(tag = "type", content = "payload")]
+#[serde(untagged)]
 pub enum Action {
+    Game(GameAction),
+    Meta(MetaAction),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "type", content = "payload")]
+pub enum GameAction {
     /// Move to an adjacent room (Costs 1 AP)
     Move { to_room: RoomId },
 
@@ -256,14 +270,19 @@ pub enum Action {
     VoteReady { ready: bool },
     /// Skip remaining AP for this round
     Pass,
+    /// Undo a queued proposed action
+    Undo { action_id: String },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "type", content = "payload")]
+pub enum MetaAction {
     /// Join the game dynamically
     Join { name: String },
     /// Set the player name (Only in Lobby)
     SetName { name: String },
     /// Receive a full state dump from a peer
     FullSync { state_json: String },
-    /// Undo a queued proposed action
-    Undo { action_id: String },
 }
 
 // --- Cards ---

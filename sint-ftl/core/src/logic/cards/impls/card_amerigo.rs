@@ -1,6 +1,6 @@
 use crate::{
     logic::cards::behavior::CardBehavior,
-    types::{Action, Card, CardId, CardSolution, CardType, GameState, ItemType},
+    types::{Card, CardId, CardSolution, CardType, GameAction, GameState, ItemType},
     GameError,
 };
 
@@ -31,7 +31,7 @@ impl CardBehavior for AmerigoCard {
         &self,
         state: &GameState,
         player_id: &str,
-        action: &Action,
+        action: &GameAction,
     ) -> Result<(), GameError> {
         // Effect: Ship Split. Can NOT go through the Hallway (crate::types::SystemType::Hallway.as_u32()).
         // Means you cannot Move TO crate::types::SystemType::Hallway.as_u32() or Move FROM crate::types::SystemType::Hallway.as_u32()?
@@ -58,7 +58,7 @@ impl CardBehavior for AmerigoCard {
         // Let's implement: "Cannot Move from Room 7 to anywhere else"?
         // "Walk around via The Bow (2)".
         // Let's block all Moves FROM 7.
-        if let Action::Move { .. } = action {
+        if let GameAction::Move { .. } = action {
             if let Some(p) = state.players.get(player_id) {
                 if p.room_id == crate::types::SystemType::Hallway.as_u32() {
                     return Err(GameError::InvalidAction(

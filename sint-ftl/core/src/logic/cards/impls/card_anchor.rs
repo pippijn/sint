@@ -1,6 +1,6 @@
 use crate::{
     logic::cards::behavior::CardBehavior,
-    types::{Action, Card, CardId, CardSolution, CardType, GameState},
+    types::{Card, CardId, CardSolution, CardType, GameAction, GameState},
     GameError,
 };
 
@@ -27,9 +27,9 @@ impl CardBehavior for AnchorStuckCard {
         &self,
         _state: &GameState,
         _player_id: &str,
-        action: &Action,
+        action: &GameAction,
     ) -> Result<(), GameError> {
-        if let Action::EvasiveManeuvers = action {
+        if let GameAction::EvasiveManeuvers = action {
             return Err(GameError::InvalidAction(
                 "Anchor Stuck! Cannot use Evasive Maneuvers.".to_string(),
             ));

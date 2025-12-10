@@ -1,5 +1,5 @@
 use sint_core::logic::GameLogic;
-use sint_core::types::{Action, GamePhase, GameState, HazardType, PlayerId};
+use sint_core::types::{Action, GameAction, GamePhase, GameState, HazardType, PlayerId};
 use std::fmt::Write;
 
 pub fn format_trajectory(initial_state: GameState, path: Vec<(PlayerId, Action)>) -> Vec<String> {
@@ -29,7 +29,7 @@ pub fn format_trajectory(initial_state: GameState, path: Vec<(PlayerId, Action)>
         match res {
             Ok(new_state) => {
                 match &action {
-                    Action::Chat { message } => {
+                    Action::Game(GameAction::Chat { message }) => {
                         if message.starts_with("[MACRO]") {
                             writeln!(
                                 current_buffer,
@@ -40,8 +40,8 @@ pub fn format_trajectory(initial_state: GameState, path: Vec<(PlayerId, Action)>
                             .unwrap();
                         }
                     }
-                    Action::VoteReady { .. } => {} // Silent
-                    Action::Pass => {
+                    Action::Game(GameAction::VoteReady { .. }) => {} // Silent
+                    Action::Game(GameAction::Pass) => {
                         writeln!(current_buffer, "  {} passes.", pid).unwrap();
                     }
                     _ => {

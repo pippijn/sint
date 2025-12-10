@@ -124,7 +124,7 @@ fn test_wailing_alarm_blocks() {
     let behavior = get_behavior(CardId::WailingAlarm);
 
     // Test Shield Block
-    let action = Action::RaiseShields;
+    let action = GameAction::RaiseShields;
     let res = behavior.validate_action(&state, "P1", &action);
     assert!(
         matches!(res, Err(GameError::InvalidAction(_))),
@@ -132,7 +132,7 @@ fn test_wailing_alarm_blocks() {
     );
 
     // Test Evasion Block
-    let action = Action::EvasiveManeuvers;
+    let action = GameAction::EvasiveManeuvers;
     let res = behavior.validate_action(&state, "P1", &action);
     assert!(
         matches!(res, Err(GameError::InvalidAction(_))),

@@ -1,13 +1,33 @@
-use sint_core::{Action, GameLogic, GamePhase};
+use sint_core::{
+    types::{Action, GameAction},
+    GameLogic, GamePhase,
+};
 
 #[test]
 fn test_deterministic_action_ids() {
     let state = GameLogic::new_game(vec!["P1".to_string()], 12345);
     // Move to TacticalPlanning
-    let mut state =
-        GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap(); // Lobby -> Morning
-    state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap(); // Morning -> Telegraph
-    state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap(); // Telegraph -> Planning
+    let mut state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Game(GameAction::VoteReady { ready: true }),
+        None,
+    )
+    .unwrap(); // Lobby -> Morning
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Game(GameAction::VoteReady { ready: true }),
+        None,
+    )
+    .unwrap(); // Morning -> Telegraph
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Game(GameAction::VoteReady { ready: true }),
+        None,
+    )
+    .unwrap(); // Telegraph -> Planning
 
     assert_eq!(state.phase, GamePhase::TacticalPlanning);
 
@@ -16,7 +36,7 @@ fn test_deterministic_action_ids() {
     let state2 = state.clone();
 
     // Action 1: Move to Hallway
-    let action = Action::Move { to_room: 7 };
+    let action = Action::Game(GameAction::Move { to_room: 7 });
 
     // Apply on State 1
     let state1_prime = GameLogic::apply_action(state1, "P1", action.clone(), None).unwrap();
@@ -36,7 +56,7 @@ fn test_deterministic_action_ids() {
     );
 
     // Action 2: Subsequent Move
-    let action3 = Action::Move { to_room: 6 };
+    let action3 = Action::Game(GameAction::Move { to_room: 6 });
 
     let state1_double = GameLogic::apply_action(state1_prime, "P1", action3.clone(), None).unwrap();
     let id1_next = state1_double.proposal_queue.last().unwrap().id.clone();

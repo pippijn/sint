@@ -21,68 +21,84 @@ fn deterministic_uuid(state: &mut GameState) -> String {
 }
 
 pub fn apply_action(
-    mut state: GameState,
+    state: GameState,
     player_id: &str,
     action: Action,
 ) -> Result<GameState, GameError> {
-    // 1. Handle Join & FullSync & SetName (Special Cases - Lobby/Sync)
-    if let Action::Join { name } = &action {
-        if state.players.contains_key(player_id) {
-            return Ok(state);
-        }
-        if state.players.values().any(|p| p.name == *name) {
-            return Err(GameError::InvalidAction("Name already taken".to_string()));
-        }
-        state.players.insert(
-            player_id.to_string(),
-            Player {
-                id: player_id.to_string(),
-                name: name.clone(),
-                room_id: SystemType::Dormitory.as_u32(),
-                hp: 3,
-                ap: 2,
-                inventory: vec![],
-                status: vec![],
-                is_ready: false,
-            },
-        );
-        state.sequence_id += 1;
-        return Ok(state);
+    match action {
+        Action::Meta(meta_action) => apply_meta_action(state, player_id, meta_action),
+        Action::Game(game_action) => apply_game_action(state, player_id, game_action),
     }
+}
 
-    if let Action::FullSync { state_json } = &action {
-        match serde_json::from_str::<GameState>(state_json) {
-            Ok(new_state) => return Ok(new_state),
-            Err(e) => return Err(GameError::InvalidAction(format!("Bad Sync: {}", e))),
+fn apply_meta_action(
+    mut state: GameState,
+    player_id: &str,
+    action: MetaAction,
+) -> Result<GameState, GameError> {
+    match action {
+        MetaAction::Join { name } => {
+            if state.players.contains_key(player_id) {
+                return Ok(state);
+            }
+            if state.players.values().any(|p| p.name == name) {
+                return Err(GameError::InvalidAction("Name already taken".to_string()));
+            }
+            state.players.insert(
+                player_id.to_string(),
+                Player {
+                    id: player_id.to_string(),
+                    name,
+                    room_id: SystemType::Dormitory.as_u32(),
+                    hp: 3,
+                    ap: 2,
+                    inventory: vec![],
+                    status: vec![],
+                    is_ready: false,
+                },
+            );
+            state.sequence_id += 1;
+            Ok(state)
+        }
+        MetaAction::FullSync { state_json } => {
+            match serde_json::from_str::<GameState>(&state_json) {
+                Ok(new_state) => Ok(new_state),
+                Err(e) => Err(GameError::InvalidAction(format!("Bad Sync: {}", e))),
+            }
+        }
+        MetaAction::SetName { name } => {
+            if state.phase != GamePhase::Lobby {
+                return Err(GameError::InvalidAction(
+                    "Cannot change name after game start".to_string(),
+                ));
+            }
+            if state
+                .players
+                .values()
+                .any(|p| p.name == name && p.id != player_id)
+            {
+                return Err(GameError::InvalidAction("Name already taken".to_string()));
+            }
+            if let Some(p) = state.players.get_mut(player_id) {
+                p.name = name;
+            } else {
+                return Err(GameError::PlayerNotFound);
+            }
+            state.sequence_id += 1;
+            Ok(state)
         }
     }
+}
 
-    if let Action::SetName { name } = &action {
-        if state.phase != GamePhase::Lobby {
-            return Err(GameError::InvalidAction(
-                "Cannot change name after game start".to_string(),
-            ));
-        }
-        if state
-            .players
-            .values()
-            .any(|p| p.name == *name && p.id != player_id)
-        {
-            return Err(GameError::InvalidAction("Name already taken".to_string()));
-        }
-        if let Some(p) = state.players.get_mut(player_id) {
-            p.name = name.clone();
-        } else {
-            return Err(GameError::PlayerNotFound);
-        }
-        state.sequence_id += 1;
-        return Ok(state);
-    }
-
+fn apply_game_action(
+    mut state: GameState,
+    player_id: &str,
+    action: GameAction,
+) -> Result<GameState, GameError> {
     // Phase Restriction: Gameplay actions only in TacticalPlanning
     if state.phase != GamePhase::TacticalPlanning {
         match action {
-            Action::Chat { .. } | Action::VoteReady { .. } => {}
+            GameAction::Chat { .. } | GameAction::VoteReady { .. } => {}
             _ => {
                 return Err(GameError::InvalidAction(format!(
                     "Cannot act during {:?}",
@@ -99,7 +115,7 @@ pub fn apply_action(
 
     // 0. Handle Immediate Actions (Bypass Projection)
     match &action {
-        Action::Chat { message } => {
+        GameAction::Chat { message } => {
             // CARD VALIDATION (Immediate)
             for card in &state.active_situations {
                 get_behavior(card.id).validate_action(&state, player_id, &action)?;
@@ -113,7 +129,7 @@ pub fn apply_action(
             state.sequence_id += 1;
             return Ok(state);
         }
-        Action::VoteReady { ready } => {
+        GameAction::VoteReady { ready } => {
             for card in &state.active_situations {
                 get_behavior(card.id).validate_action(&state, player_id, &action)?;
             }
@@ -128,7 +144,7 @@ pub fn apply_action(
             state.sequence_id += 1;
             return Ok(state);
         }
-        Action::Pass => {
+        GameAction::Pass => {
             for card in &state.active_situations {
                 get_behavior(card.id).validate_action(&state, player_id, &action)?;
             }
@@ -151,7 +167,7 @@ pub fn apply_action(
             state.sequence_id += 1;
             return Ok(state);
         }
-        Action::Undo { action_id } => {
+        GameAction::Undo { action_id } => {
             let idx = state.proposal_queue.iter().position(|p| p.id == *action_id);
             if let Some(i) = idx {
                 let proposal = &state.proposal_queue[i];
@@ -196,7 +212,7 @@ pub fn apply_action(
 
     // 3. Queue Logic (using Projected Context)
     match &action {
-        Action::Move { to_room } => {
+        GameAction::Move { to_room } => {
             let start_room = p_proj.room_id;
             if let Some(path) = find_path(&state.map, start_room, *to_room) {
                 let step_cost = base_cost;
@@ -211,7 +227,7 @@ pub fn apply_action(
                     state.proposal_queue.push(ProposedAction {
                         id,
                         player_id: player_id.to_string(),
-                        action: Action::Move { to_room: step_room },
+                        action: GameAction::Move { to_room: step_room },
                     });
                 }
                 let p = state.players.get_mut(player_id).unwrap();
@@ -220,7 +236,7 @@ pub fn apply_action(
                 return Err(GameError::InvalidMove);
             }
         }
-        Action::Extinguish => {
+        GameAction::Extinguish => {
             if let Some(room) = projected_state.map.rooms.get(&p_proj.room_id) {
                 if !room.hazards.contains(&HazardType::Fire) {
                     return Err(GameError::InvalidAction(
@@ -237,7 +253,7 @@ pub fn apply_action(
             let p = state.players.get_mut(player_id).unwrap();
             p.ap -= base_cost;
         }
-        Action::Repair => {
+        GameAction::Repair => {
             if let Some(room) = projected_state.map.rooms.get(&p_proj.room_id) {
                 if !room.hazards.contains(&HazardType::Water) {
                     return Err(GameError::InvalidAction(
@@ -254,17 +270,20 @@ pub fn apply_action(
             let p = state.players.get_mut(player_id).unwrap();
             p.ap -= base_cost;
         }
-        Action::Bake | Action::Shoot | Action::RaiseShields | Action::EvasiveManeuvers => {
+        GameAction::Bake
+        | GameAction::Shoot
+        | GameAction::RaiseShields
+        | GameAction::EvasiveManeuvers => {
             let room = projected_state
                 .map
                 .rooms
                 .get(&p_proj.room_id)
                 .ok_or(GameError::RoomNotFound)?;
             let expected_sys = match action {
-                Action::Bake => SystemType::Kitchen,
-                Action::Shoot => SystemType::Cannons,
-                Action::RaiseShields => SystemType::Engine,
-                Action::EvasiveManeuvers => SystemType::Bridge,
+                GameAction::Bake => SystemType::Kitchen,
+                GameAction::Shoot => SystemType::Cannons,
+                GameAction::RaiseShields => SystemType::Engine,
+                GameAction::EvasiveManeuvers => SystemType::Bridge,
                 _ => unreachable!(),
             };
             if room.system != Some(expected_sys) {
@@ -285,7 +304,7 @@ pub fn apply_action(
             let p = state.players.get_mut(player_id).unwrap();
             p.ap -= base_cost;
         }
-        Action::Lookout => {
+        GameAction::Lookout => {
             let room = projected_state
                 .map
                 .rooms
@@ -310,7 +329,7 @@ pub fn apply_action(
             let p = state.players.get_mut(player_id).unwrap();
             p.ap -= base_cost;
         }
-        Action::FirstAid { target_player } => {
+        GameAction::FirstAid { target_player } => {
             let room = projected_state
                 .map
                 .rooms
@@ -352,7 +371,7 @@ pub fn apply_action(
             let p = state.players.get_mut(player_id).unwrap();
             p.ap -= base_cost;
         }
-        Action::PickUp { item_type } => {
+        GameAction::PickUp { item_type } => {
             let room = projected_state
                 .map
                 .rooms
@@ -389,7 +408,7 @@ pub fn apply_action(
             let p = state.players.get_mut(player_id).unwrap();
             p.ap -= base_cost;
         }
-        Action::Throw {
+        GameAction::Throw {
             target_player,
             item_index,
         } => {
@@ -424,7 +443,7 @@ pub fn apply_action(
             let p = state.players.get_mut(player_id).unwrap();
             p.ap -= base_cost;
         }
-        Action::Drop { item_index } => {
+        GameAction::Drop { item_index } => {
             if *item_index >= p_proj.inventory.len() {
                 return Err(GameError::InvalidItem);
             }
@@ -453,7 +472,7 @@ pub fn apply_action(
             let p = state.players.get_mut(player_id).unwrap();
             p.ap -= base_cost;
         }
-        Action::Revive { target_player } => {
+        GameAction::Revive { target_player } => {
             let target = projected_state
                 .players
                 .get(target_player)
@@ -641,22 +660,19 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
     Ok(state)
 }
 
-pub fn action_cost(state: &GameState, player_id: &str, action: &Action) -> i32 {
+pub fn action_cost(state: &GameState, player_id: &str, action: &GameAction) -> i32 {
     let base = match action {
-        Action::Chat { .. } | Action::VoteReady { .. } => 0,
-        Action::Move { .. } => 1,
-        Action::Interact => 1,
-        Action::Bake | Action::Shoot | Action::Extinguish | Action::Repair => 1,
-        Action::Lookout | Action::FirstAid { .. } => 1,
-        Action::Throw { .. } | Action::PickUp { .. } => 1,
-        Action::Revive { .. } => 1,
-        Action::RaiseShields | Action::EvasiveManeuvers => 2,
-        Action::Drop { .. } => 0,
-        Action::Pass => 0,
-        Action::Undo { .. } => 0,
-        Action::Join { .. } => 0,
-        Action::SetName { .. } => 0,
-        Action::FullSync { .. } => 0,
+        GameAction::Chat { .. } | GameAction::VoteReady { .. } => 0,
+        GameAction::Move { .. } => 1,
+        GameAction::Interact => 1,
+        GameAction::Bake | GameAction::Shoot | GameAction::Extinguish | GameAction::Repair => 1,
+        GameAction::Lookout | GameAction::FirstAid { .. } => 1,
+        GameAction::Throw { .. } | GameAction::PickUp { .. } => 1,
+        GameAction::Revive { .. } => 1,
+        GameAction::RaiseShields | GameAction::EvasiveManeuvers => 2,
+        GameAction::Drop { .. } => 0,
+        GameAction::Pass => 0,
+        GameAction::Undo { .. } => 0,
     };
 
     let mut cost = base;
@@ -681,30 +697,30 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
     let mut actions = Vec::new();
 
     // Always allowed (technically)
-    actions.push(Action::Chat {
+    actions.push(Action::Game(GameAction::Chat {
         message: "".to_string(),
-    });
+    }));
 
     // Phase-specific checks
     match projected_state.phase {
         GamePhase::Lobby => {
-            actions.push(Action::VoteReady { ready: true });
-            actions.push(Action::VoteReady { ready: false });
-            actions.push(Action::SetName {
+            actions.push(Action::Game(GameAction::VoteReady { ready: true }));
+            actions.push(Action::Game(GameAction::VoteReady { ready: false }));
+            actions.push(Action::Meta(MetaAction::SetName {
                 name: "".to_string(),
-            });
+            }));
             return actions;
         }
         GamePhase::MorningReport
         | GamePhase::EnemyTelegraph
         | GamePhase::Execution
         | GamePhase::EnemyAction => {
-            actions.push(Action::VoteReady { ready: true });
+            actions.push(Action::Game(GameAction::VoteReady { ready: true }));
             return actions;
         }
         GamePhase::TacticalPlanning => {
-            actions.push(Action::VoteReady { ready: true });
-            actions.push(Action::Pass);
+            actions.push(Action::Game(GameAction::VoteReady { ready: true }));
+            actions.push(Action::Game(GameAction::Pass));
         }
         _ => {}
     }
@@ -718,9 +734,9 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
     if let Some(room) = projected_state.map.rooms.get(&p.room_id) {
         // Move
         for &neighbor in &room.neighbors {
-            let action = Action::Move { to_room: neighbor };
+            let action = GameAction::Move { to_room: neighbor };
             if p.ap >= action_cost(&projected_state, player_id, &action) {
-                actions.push(action);
+                actions.push(Action::Game(action));
             }
         }
 
@@ -731,17 +747,17 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
         if room_functional {
             if let Some(sys) = room.system {
                 let action = match sys {
-                    SystemType::Kitchen => Some(Action::Bake),
-                    SystemType::Cannons => Some(Action::Shoot),
-                    SystemType::Engine => Some(Action::RaiseShields),
-                    SystemType::Bridge => Some(Action::EvasiveManeuvers),
-                    SystemType::Bow => Some(Action::Lookout),
+                    SystemType::Kitchen => Some(GameAction::Bake),
+                    SystemType::Cannons => Some(GameAction::Shoot),
+                    SystemType::Engine => Some(GameAction::RaiseShields),
+                    SystemType::Bridge => Some(GameAction::EvasiveManeuvers),
+                    SystemType::Bow => Some(GameAction::Lookout),
                     _ => None,
                 };
 
                 if let Some(act) = action {
                     if p.ap >= action_cost(&projected_state, player_id, &act) {
-                        actions.push(act);
+                        actions.push(Action::Game(act));
                     }
                 }
 
@@ -751,15 +767,15 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
                         >= action_cost(
                             &projected_state,
                             player_id,
-                            &Action::FirstAid {
+                            &GameAction::FirstAid {
                                 target_player: "".to_string(),
                             },
                         )
                 {
                     // Target Self
-                    actions.push(Action::FirstAid {
+                    actions.push(Action::Game(GameAction::FirstAid {
                         target_player: player_id.to_string(),
-                    });
+                    }));
 
                     // Target Neighbors
                     for other_p in projected_state.players.values() {
@@ -770,9 +786,9 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
                         // Check if in neighbor or same room
                         if room.neighbors.contains(&other_p.room_id) || other_p.room_id == p.room_id
                         {
-                            actions.push(Action::FirstAid {
+                            actions.push(Action::Game(GameAction::FirstAid {
                                 target_player: other_p.id.clone(),
-                            });
+                            }));
                         }
                     }
                 }
@@ -781,15 +797,15 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
 
         // Hazards
         if room.hazards.contains(&HazardType::Fire) {
-            let action = Action::Extinguish;
+            let action = GameAction::Extinguish;
             if p.ap >= action_cost(&projected_state, player_id, &action) {
-                actions.push(action);
+                actions.push(Action::Game(action));
             }
         }
         if room.hazards.contains(&HazardType::Water) {
-            let action = Action::Repair;
+            let action = GameAction::Repair;
             if p.ap >= action_cost(&projected_state, player_id, &action) {
-                actions.push(action);
+                actions.push(Action::Game(action));
             }
         }
 
@@ -812,11 +828,11 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
                 }
 
                 if can_pickup {
-                    let action = Action::PickUp {
+                    let action = GameAction::PickUp {
                         item_type: item.clone(),
                     };
                     if p.ap >= action_cost(&projected_state, player_id, &action) {
-                        actions.push(action);
+                        actions.push(Action::Game(action));
                     }
                 }
                 seen_items.push(item.clone());
@@ -829,11 +845,11 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
                 && other_p.room_id == p.room_id
                 && other_p.status.contains(&PlayerStatus::Fainted)
             {
-                let action = Action::Revive {
+                let action = GameAction::Revive {
                     target_player: other_p.id.clone(),
                 };
                 if p.ap >= action_cost(&projected_state, player_id, &action) {
-                    actions.push(action);
+                    actions.push(Action::Game(action));
                 }
             }
         }
@@ -842,9 +858,9 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
     // Undo (Always valid if actions exist in original state queue)
     for prop in &state.proposal_queue {
         if prop.player_id == player_id {
-            actions.push(Action::Undo {
+            actions.push(Action::Game(GameAction::Undo {
                 action_id: prop.id.clone(),
-            });
+            }));
         }
     }
 

@@ -1,6 +1,6 @@
 use crate::{
     logic::cards::behavior::CardBehavior,
-    types::{Action, Card, CardId, CardSolution, CardType, GameState},
+    types::{Card, CardId, CardSolution, CardType, GameAction, GameState},
 };
 
 pub struct LightsOutCard;
@@ -26,11 +26,11 @@ impl CardBehavior for LightsOutCard {
         &self,
         _state: &GameState,
         _player_id: &str,
-        action: &Action,
+        action: &GameAction,
         base_cost: i32,
     ) -> i32 {
         // Effect: Walking costs DOUBLE (2 AP).
-        if let Action::Move { .. } = action {
+        if let GameAction::Move { .. } = action {
             if base_cost > 0 {
                 base_cost * 2
             } else {

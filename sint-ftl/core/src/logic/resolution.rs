@@ -191,7 +191,7 @@ pub fn resolve_proposal_queue(state: &mut GameState, simulation: bool) {
         }
 
         match &proposal.action {
-            Action::Move { to_room } => {
+            GameAction::Move { to_room } => {
                 let p = state.players.get(player_id).unwrap();
                 let current_room_id = p.room_id;
 
@@ -215,7 +215,7 @@ pub fn resolve_proposal_queue(state: &mut GameState, simulation: bool) {
                     p.room_id = *to_room;
                 }
             }
-            Action::RaiseShields => {
+            GameAction::RaiseShields => {
                 let p = state.players.get_mut(player_id).unwrap();
                 let room_id = p.room_id;
 
@@ -225,7 +225,7 @@ pub fn resolve_proposal_queue(state: &mut GameState, simulation: bool) {
                     }
                 }
             }
-            Action::EvasiveManeuvers => {
+            GameAction::EvasiveManeuvers => {
                 let p = state.players.get_mut(player_id).unwrap();
                 let room_id = p.room_id;
 
@@ -235,7 +235,7 @@ pub fn resolve_proposal_queue(state: &mut GameState, simulation: bool) {
                     }
                 }
             }
-            Action::Interact => {
+            GameAction::Interact => {
                 let p_copy = state.players.get(player_id).cloned().unwrap();
                 let mut solved_idx = None;
 
@@ -262,19 +262,6 @@ pub fn resolve_proposal_queue(state: &mut GameState, simulation: bool) {
                     // Trigger Reward Hook
                     get_behavior(card.id).on_solved(state);
 
-                    // Re-acquire card reference safely or just access by index if logic permits
-                    // But on_solved took &mut state, so we need to be careful with indices if on_solved modified active_situations
-                    // However, we found idx BEFORE on_solved.
-                    // If on_solved removed other cards, idx might be wrong.
-                    // But standard rewards usually just modify resources/status.
-                    // Safe approach: Find the card again by ID or assume on_solved doesn't shuffle active_situations.
-                    // Since we are about to remove THIS card, we should just remove it.
-                    // But wait, if on_solved modified the vector, we are in trouble.
-                    // Let's assume on_solved doesn't remove cards.
-
-                    // Actually, let's just use the index we found, assuming on_solved didn't change the list structure.
-                    // Most rewards are "Give HP", "Damage Enemy".
-
                     if let Some(sol) = &state.active_situations[idx].solution {
                         if let Some(req_item) = &sol.item_cost {
                             if let Some(p) = state.players.get_mut(player_id) {
@@ -287,7 +274,7 @@ pub fn resolve_proposal_queue(state: &mut GameState, simulation: bool) {
                     state.active_situations.remove(idx);
                 }
             }
-            Action::Extinguish => {
+            GameAction::Extinguish => {
                 let p = state.players.get(player_id).unwrap();
                 let has_extinguisher = p.inventory.contains(&ItemType::Extinguisher);
                 let room_id = p.room_id;
@@ -307,7 +294,7 @@ pub fn resolve_proposal_queue(state: &mut GameState, simulation: bool) {
                     }
                 }
             }
-            Action::Repair => {
+            GameAction::Repair => {
                 let room_id = state.players.get(player_id).unwrap().room_id;
                 if let Some(room) = state.map.rooms.get_mut(&room_id) {
                     if let Some(idx) = room.hazards.iter().position(|&h| h == HazardType::Water) {
@@ -315,7 +302,7 @@ pub fn resolve_proposal_queue(state: &mut GameState, simulation: bool) {
                     }
                 }
             }
-            Action::Bake => {
+            GameAction::Bake => {
                 let room_id = state.players.get(player_id).unwrap().room_id;
                 if let Some(room) = state.map.rooms.get(&room_id) {
                     if room.system != Some(SystemType::Kitchen) {
@@ -331,7 +318,7 @@ pub fn resolve_proposal_queue(state: &mut GameState, simulation: bool) {
                     room.items.push(ItemType::Peppernut);
                 }
             }
-            Action::Shoot => {
+            GameAction::Shoot => {
                 let p = state.players.get_mut(player_id).unwrap();
                 let room_id = p.room_id;
                 if let Some(room) = state.map.rooms.get(&room_id) {
@@ -390,7 +377,7 @@ pub fn resolve_proposal_queue(state: &mut GameState, simulation: bool) {
                     }
                 }
             }
-            Action::Lookout => {
+            GameAction::Lookout => {
                 let card = state.deck.last();
                 let msg = if let Some(c) = card {
                     format!(
@@ -407,14 +394,14 @@ pub fn resolve_proposal_queue(state: &mut GameState, simulation: bool) {
                     timestamp: 0,
                 });
             }
-            Action::FirstAid { target_player } => {
+            GameAction::FirstAid { target_player } => {
                 if let Some(target) = state.players.get_mut(target_player) {
                     if target.hp < 3 {
                         target.hp += 1;
                     }
                 }
             }
-            Action::PickUp { item_type } => {
+            GameAction::PickUp { item_type } => {
                 let room_id = state.players.get(player_id).unwrap().room_id;
                 if let Some(room) = state.map.rooms.get_mut(&room_id) {
                     if let Some(pos) = room.items.iter().position(|x| x == item_type) {
@@ -434,7 +421,7 @@ pub fn resolve_proposal_queue(state: &mut GameState, simulation: bool) {
                     }
                 }
             }
-            Action::Throw {
+            GameAction::Throw {
                 target_player,
                 item_index,
             } => {
@@ -450,7 +437,7 @@ pub fn resolve_proposal_queue(state: &mut GameState, simulation: bool) {
                     }
                 }
             }
-            Action::Drop { item_index } => {
+            GameAction::Drop { item_index } => {
                 let mut item = None;
                 let mut room_id = 0;
                 if let Some(p) = state.players.get_mut(player_id) {
@@ -465,7 +452,7 @@ pub fn resolve_proposal_queue(state: &mut GameState, simulation: bool) {
                     }
                 }
             }
-            Action::Revive { target_player } => {
+            GameAction::Revive { target_player } => {
                 // Check if target is in same room and Fainted
                 let mut valid = false;
                 let room_id = state.players.get(player_id).unwrap().room_id;

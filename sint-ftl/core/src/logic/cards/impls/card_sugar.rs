@@ -1,6 +1,6 @@
 use crate::{
     logic::cards::behavior::CardBehavior,
-    types::{Action, Card, CardId, CardSolution, CardType, GameState},
+    types::{Card, CardId, CardSolution, CardType, GameAction, GameState},
     GameError,
 };
 
@@ -27,10 +27,10 @@ impl CardBehavior for SugarRushCard {
         &self,
         _state: &GameState,
         _player_id: &str,
-        action: &Action,
+        action: &GameAction,
     ) -> Result<(), GameError> {
         // Negative: Cannons prohibited.
-        if let Action::Shoot = action {
+        if let GameAction::Shoot = action {
             return Err(GameError::InvalidAction(
                 "Sugar Rush! Too shaky to shoot.".to_string(),
             ));
@@ -42,12 +42,12 @@ impl CardBehavior for SugarRushCard {
         &self,
         _state: &GameState,
         _player_id: &str,
-        action: &Action,
+        action: &GameAction,
         base_cost: i32,
     ) -> i32 {
         // Positive: Move 1 room extra free.
         // Simplified: Move is free.
-        if let Action::Move { .. } = action {
+        if let GameAction::Move { .. } = action {
             0
         } else {
             base_cost

@@ -1,6 +1,6 @@
 use crate::{
     logic::cards::behavior::CardBehavior,
-    types::{Action, Card, CardId, CardSolution, CardType, GameState},
+    types::{Card, CardId, CardSolution, CardType, GameAction, GameState},
     GameError,
 };
 
@@ -27,7 +27,7 @@ impl CardBehavior for AfternoonNapCard {
         &self,
         state: &GameState,
         player_id: &str,
-        action: &Action,
+        action: &GameAction,
     ) -> Result<(), GameError> {
         // Logic: "The Reader" cannot spend AP.
         // Definition of "Reader": The player whose ID is lexicographically first.
@@ -44,13 +44,10 @@ impl CardBehavior for AfternoonNapCard {
                 // We'll duplicate the base cost logic slightly or just block all non-free actions.
                 let is_free = matches!(
                     action,
-                    Action::Chat { .. }
-                        | Action::VoteReady { .. }
-                        | Action::Pass
-                        | Action::Join { .. }
-                        | Action::SetName { .. }
-                        | Action::FullSync { .. }
-                        | Action::Undo { .. }
+                    GameAction::Chat { .. }
+                        | GameAction::VoteReady { .. }
+                        | GameAction::Pass
+                        | GameAction::Undo { .. }
                 );
 
                 if !is_free {

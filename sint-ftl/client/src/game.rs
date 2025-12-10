@@ -2,7 +2,7 @@ use crate::chat::ChatView;
 use crate::map::MapView;
 use crate::state::{provide_game_context, GameContext};
 use leptos::*;
-use sint_core::{Action, GamePhase, HazardType, SystemType};
+use sint_core::{Action, GameAction, GamePhase, HazardType, MetaAction, SystemType};
 
 #[component]
 fn PhaseTracker(phase: GamePhase) -> impl IntoView {
@@ -216,9 +216,11 @@ fn ProposalQueueView(ctx: GameContext) -> impl IntoView {
                                                     on:click=move |_| {
                                                         c_undo
                                                             .perform_action
-                                                            .call(Action::Undo {
-                                                                action_id: action_id.clone(),
-                                                            })
+                                                            .call(
+                                                                Action::Game(GameAction::Undo {
+                                                                    action_id: action_id.clone(),
+                                                                }),
+                                                            )
                                                     }
                                                 >
                                                     "UNDO"
@@ -399,7 +401,7 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                     let mut p = real_p.clone();
                     for prop in &s.proposal_queue {
                         if prop.player_id == pid {
-                            if let Action::Move { to_room } = prop.action {
+                            if let GameAction::Move { to_room } = prop.action {
                                 p.room_id = to_room;
                             }
                         }
@@ -433,9 +435,11 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                                         <button
                                             on:click=move |_| {
                                                 c_up.perform_action
-                                                    .call(Action::SetName {
-                                                        name: name_input.get(),
-                                                    })
+                                                    .call(
+                                                        Action::Meta(MetaAction::SetName {
+                                                            name: name_input.get(),
+                                                        }),
+                                                    )
                                             }
                                             style="padding: 6px 12px; background: #2196f3; color: white; border: none; border-radius: 4px; cursor: pointer;"
                                         >
@@ -513,7 +517,9 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                                                     )
                                                     on:click=move |_| {
                                                         if is_planning {
-                                                            c_drop.perform_action.call(Action::Drop { item_index: i });
+                                                            c_drop
+                                                                .perform_action
+                                                                .call(Action::Game(GameAction::Drop { item_index: i }));
                                                         }
                                                     }
                                                 >
@@ -532,9 +538,11 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                                         on:click=move |_| {
                                             c_ready_click
                                                 .perform_action
-                                                .call(Action::VoteReady {
-                                                    ready: !is_ready,
-                                                });
+                                                .call(
+                                                    Action::Game(GameAction::VoteReady {
+                                                        ready: !is_ready,
+                                                    }),
+                                                );
                                         }
                                         style=move || {
                                             if is_ready {
@@ -559,9 +567,11 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                                         on:click=move |_| {
                                             c_ready_click
                                                 .perform_action
-                                                .call(Action::VoteReady {
-                                                    ready: !is_ready,
-                                                });
+                                                .call(
+                                                    Action::Game(GameAction::VoteReady {
+                                                        ready: !is_ready,
+                                                    }),
+                                                );
                                         }
                                         style=move || {
                                             if is_ready {
@@ -625,7 +635,7 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                         let mut player = real_p.clone();
                         for prop in &s.proposal_queue {
                             if prop.player_id == pid {
-                                if let Action::Move { to_room } = prop.action {
+                                if let GameAction::Move { to_room } = prop.action {
                                     player.room_id = to_room;
                                 }
                             }
@@ -658,7 +668,11 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                                 on:click=move |_| {
                                                     c_move
                                                         .perform_action
-                                                        .call(Action::Move { to_room: neighbor })
+                                                        .call(
+                                                            Action::Game(GameAction::Move {
+                                                                to_room: neighbor,
+                                                            }),
+                                                        )
                                                 }
                                             >
                                                 "Move to "
@@ -688,7 +702,9 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                                     opacity,
                                                 )
                                                 disabled=disabled
-                                                on:click=move |_| c_bake.perform_action.call(Action::Bake)
+                                                on:click=move |_| {
+                                                    c_bake.perform_action.call(Action::Game(GameAction::Bake))
+                                                }
                                             >
                                                 "Bake Peppernuts"
                                             </button>
@@ -712,7 +728,9 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                                     opacity,
                                                 )
                                                 disabled=disabled
-                                                on:click=move |_| c_shoot.perform_action.call(Action::Shoot)
+                                                on:click=move |_| {
+                                                    c_shoot.perform_action.call(Action::Game(GameAction::Shoot))
+                                                }
                                             >
                                                 "Fire Cannons!"
                                             </button>
@@ -737,7 +755,9 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                                 )
                                                 disabled=disabled
                                                 on:click=move |_| {
-                                                    c_shields.perform_action.call(Action::RaiseShields)
+                                                    c_shields
+                                                        .perform_action
+                                                        .call(Action::Game(GameAction::RaiseShields))
                                                 }
                                             >
                                                 "Raise Shields (2 AP)"
@@ -763,7 +783,9 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                                 )
                                                 disabled=disabled
                                                 on:click=move |_| {
-                                                    c_evade.perform_action.call(Action::EvasiveManeuvers)
+                                                    c_evade
+                                                        .perform_action
+                                                        .call(Action::Game(GameAction::EvasiveManeuvers))
                                                 }
                                             >
                                                 "Evasive Maneuvers (2 AP)"
@@ -788,7 +810,9 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                                 )
                                                 disabled=disabled
                                                 on:click=move |_| {
-                                                    c_lookout.perform_action.call(Action::Lookout)
+                                                    c_lookout
+                                                        .perform_action
+                                                        .call(Action::Game(GameAction::Lookout))
                                                 }
                                             >
                                                 "Lookout (Next Event)"
@@ -817,9 +841,11 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                                 on:click=move |_| {
                                                     c_heal_self
                                                         .perform_action
-                                                        .call(Action::FirstAid {
-                                                            target_player: pid_clone.clone(),
-                                                        })
+                                                        .call(
+                                                            Action::Game(GameAction::FirstAid {
+                                                                target_player: pid_clone.clone(),
+                                                            }),
+                                                        )
                                                 }
                                             >
                                                 "Heal Self"
@@ -859,9 +885,11 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                                         on:click=move |_| {
                                                             c_heal_other
                                                                 .perform_action
-                                                                .call(Action::FirstAid {
-                                                                    target_player: target_id.clone(),
-                                                                })
+                                                                .call(
+                                                                    Action::Game(GameAction::FirstAid {
+                                                                        target_player: target_id.clone(),
+                                                                    }),
+                                                                )
                                                         }
                                                     >
                                                         "Heal "
@@ -890,7 +918,9 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                                 )
                                                 disabled=disabled
                                                 on:click=move |_| {
-                                                    c_ext.perform_action.call(Action::Extinguish)
+                                                    c_ext
+                                                        .perform_action
+                                                        .call(Action::Game(GameAction::Extinguish))
                                                 }
                                             >
                                                 "Extinguish Fire"
@@ -916,7 +946,7 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                                 )
                                                 disabled=disabled
                                                 on:click=move |_| {
-                                                    c_rep.perform_action.call(Action::Repair)
+                                                    c_rep.perform_action.call(Action::Game(GameAction::Repair))
                                                 }
                                             >
                                                 "Repair Leak"
@@ -952,9 +982,11 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                                     on:click=move |_| {
                                                         c_revive
                                                             .perform_action
-                                                            .call(Action::Revive {
-                                                                target_player: target_id.clone(),
-                                                            })
+                                                            .call(
+                                                                Action::Game(GameAction::Revive {
+                                                                    target_player: target_id.clone(),
+                                                                }),
+                                                            )
                                                     }
                                                 >
                                                     "Revive "
@@ -992,9 +1024,11 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                                     on:click=move |_| {
                                                         c_pick
                                                             .perform_action
-                                                            .call(Action::PickUp {
-                                                                item_type: i_clone.clone(),
-                                                            })
+                                                            .call(
+                                                                Action::Game(GameAction::PickUp {
+                                                                    item_type: i_clone.clone(),
+                                                                }),
+                                                            )
                                                     }
                                                 >
                                                     "Pick Up "
@@ -1037,7 +1071,9 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                                     )
                                                     disabled=disabled
                                                     on:click=move |_| {
-                                                        c_interact.perform_action.call(Action::Interact)
+                                                        c_interact
+                                                            .perform_action
+                                                            .call(Action::Game(GameAction::Interact))
                                                     }
                                                 >
                                                     "SOLVE: "
@@ -1060,7 +1096,9 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                 view! {
                                     <button
                                         style="padding: 10px; background: #555; border: none; color: white; border-radius: 4px; cursor: pointer;"
-                                        on:click=move |_| c_pass.perform_action.call(Action::Pass)
+                                        on:click=move |_| {
+                                            c_pass.perform_action.call(Action::Game(GameAction::Pass))
+                                        }
                                     >
                                         "End Turn (Pass)"
                                     </button>

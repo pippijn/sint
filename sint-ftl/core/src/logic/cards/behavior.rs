@@ -1,5 +1,5 @@
 use crate::{
-    types::{Action, Card, CardId, CardType, GameState},
+    types::{Card, CardId, CardType, GameAction, GameState},
     GameError,
 };
 
@@ -13,7 +13,7 @@ pub trait CardBehavior: Send + Sync {
         &self,
         _state: &GameState,
         _player_id: &str,
-        _action: &Action,
+        _action: &GameAction,
         base_cost: i32,
     ) -> i32 {
         base_cost
@@ -25,7 +25,7 @@ pub trait CardBehavior: Send + Sync {
         &self,
         _state: &GameState,
         _player_id: &str,
-        _action: &Action,
+        _action: &GameAction,
     ) -> Result<(), GameError> {
         Ok(())
     }
@@ -71,7 +71,7 @@ pub trait CardBehavior: Send + Sync {
         &self,
         _state: &mut GameState,
         _player_id: &str,
-        _action: &Action,
+        _action: &GameAction,
     ) -> Result<(), GameError> {
         Ok(())
     }

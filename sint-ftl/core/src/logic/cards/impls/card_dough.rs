@@ -1,6 +1,6 @@
 use crate::{
     logic::cards::behavior::CardBehavior,
-    types::{Action, Card, CardId, CardSolution, CardType, GameState},
+    types::{Card, CardId, CardSolution, CardType, GameAction, GameState},
     GameError,
 };
 
@@ -58,11 +58,11 @@ impl CardBehavior for MonsterDoughCard {
         &self,
         _state: &GameState,
         _player_id: &str,
-        action: &Action,
+        action: &GameAction,
     ) -> Result<(), GameError> {
         // If triggered (rounds_left == 0)
         // Block actions in Kitchen.
-        if let Action::Bake = action {
+        if let GameAction::Bake = action {
             // Check if triggered?
             // We need access to self state or query state.
             // We'll assume if this behavior is active, we check the card in state.

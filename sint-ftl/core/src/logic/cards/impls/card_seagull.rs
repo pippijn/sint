@@ -1,6 +1,6 @@
 use crate::{
     logic::cards::behavior::CardBehavior,
-    types::{Action, Card, CardId, CardSolution, CardType, GameState, ItemType},
+    types::{Card, CardId, CardSolution, CardType, GameAction, GameState, ItemType},
     GameError,
 };
 
@@ -27,9 +27,9 @@ impl CardBehavior for SeagullAttackCard {
         &self,
         state: &GameState,
         player_id: &str,
-        action: &Action,
+        action: &GameAction,
     ) -> Result<(), GameError> {
-        if let Action::Move { .. } = action {
+        if let GameAction::Move { .. } = action {
             if let Some(player) = state.players.get(player_id) {
                 if player.inventory.contains(&ItemType::Peppernut) {
                     return Err(GameError::InvalidAction(
@@ -45,7 +45,7 @@ impl CardBehavior for SeagullAttackCard {
         &self,
         state: &mut GameState,
         player_id: &str,
-        action: &Action,
+        action: &GameAction,
     ) -> Result<(), GameError> {
         self.validate_action(state, player_id, action)
     }
