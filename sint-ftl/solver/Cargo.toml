@@ -1,15 +1,23 @@
 [package]
-name = "solver"
+name = "sint-solver"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "sint_solver"
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
-sint-core = { path = "../core" }
+sint-core = { path = "../core", features = ["python"] }
 clap = { version = "4.4", features = ["derive"] }
-cursive = { version = "0.21", default-features = false, features = ["crossterm-backend"] }
-rayon = "1.8"
 log = "0.4"
 env_logger = "0.10"
 rand = "0.8"
 uuid = { version = "1.6", features = ["v4"] }
 chrono = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+pyo3 = { version = "0.27", features = ["extension-module"], optional = true }
+pythonize = { version = "0.27", optional = true }
+
+[features]
+python = ["dep:pyo3", "dep:pythonize"]

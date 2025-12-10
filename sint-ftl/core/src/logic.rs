@@ -7,10 +7,11 @@ pub use actions::apply_action;
 
 use crate::types::*;
 use rand::{rngs::StdRng, Rng, SeedableRng};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Serialize, Deserialize, Clone)]
 pub enum GameError {
     #[error("Player not found")]
     PlayerNotFound,

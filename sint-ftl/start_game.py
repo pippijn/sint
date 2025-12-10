@@ -39,18 +39,18 @@ def check_venv():
         run_cmd(f"{venv_python} -m pip install -r ai/requirements.txt")
         run_cmd(f"{venv_python} -m pip install maturin")
 
-def build_core():
-    print("🔨 Building Core & Python Bindings...")
+def build_lib():
+    print("🔨 Building libraries & Python Bindings...")
     # Build Rust lib
-    run_cmd("cargo build -p sint-core")
+    run_cmd("cargo build --all")
     # Build Python bindings using maturin in venv
     run_cmd("maturin develop --release", cwd=os.path.join(ROOT_DIR, "core"))
+    run_cmd("maturin develop --release", cwd=os.path.join(ROOT_DIR, "solver"))
 
 def run_tests():
     print("🧪 Running Tests...")
-    run_cmd("cargo test -p sint-core")
-    run_cmd("cargo check -p sint-client")
-    run_cmd("cargo check -p sint-server")
+    run_cmd("cargo check --all")
+    run_cmd("cargo test --all")
 
 def main():
     parser = argparse.ArgumentParser(description="Sint FTL Launcher")
@@ -67,7 +67,7 @@ def main():
     check_venv()
 
     # 2. Build & Test
-    build_core()
+    build_lib()
     run_tests()
     
     if args.build_only:
