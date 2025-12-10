@@ -668,106 +668,375 @@ def r22():
     for p in players: p.pass_turn()
 
 def r23():
-    print("# Round 23: Spin & Bake. P3 Wakes P1.")
+    print("# Round 23: Solve Nap/Headwind/Clamp/Seasick.")
     start_round()
-    # P3 Solve Nap (1 AP).
+    
+    # P3 (in 10). Interact/Solve Nap (1 AP).
     p3.action("Interact", 1)
-
-    # P4 Evasive (2 AP).
-    p4.action("EvasiveManeuvers", 2)
-
-    # P2 Move 6 (1 AP). Bake (1 AP).
+    
+    # P6 (in 9). Interact/Solve Static Noise (1 AP).
+    # P6 dies.
+    p6.action("Interact", 1)
+    
+    # P4 (in 9). Interact/Solve Headwind (1 AP). Interact/Solve Clamp (1 AP).
+    p4.action("Interact", 1)
+    p4.action("Interact", 1)
+    
+    # P2 (in 7). Move 6 (1 AP). Interact/Solve Seasick (1 AP).
     p2.action("Move 6", 1)
-    p2.action("Bake", 1)
+    p2.action("Interact", 1)
 
-    # P1 (Awake) Move 7 (Sticky 2 AP).
-    p1.action("Move 7", 2)
-
-    # P5 Move 7 (Sticky 2 AP).
+    # P1 (in 8). Asleep. Pass.
+    
+    # P5 (in 9). Move 7 (Sticky: 2 AP).
     p5.action("Move 7", 2)
-
-    # P6 Move 7 (Sticky 2 AP).
-    p6.action("Move 7", 2)
 
     for p in players: p.pass_turn()
 
 def r24():
-    print("# Round 24: Sacrifice P1 for Positioning.")
+    print("# Round 24: Heal. Solve Sticky. Move.")
     start_round()
-    # P1 (7) -> 5 (1 AP).
+    # P3 (in 10). FirstAid P5 (in 7) (1 AP).
+    p3.action("FirstAid P5", 1)
+
+    # P5 (in 7). Move 6 (1 AP). Interact/Solve Sticky (1 AP).
+    p5.action("Move 6", 1)
+    p5.action("Interact", 1)
+
+    # P3 (in 10). Move 7 (1 AP). (Sticky Gone).
+    p3.action("Move 7", 1)
+    # P3 Move 11 (Wait, P3 has 0 AP?).
+    # P3 used 1 (Heal) + 1 (Move). 0 Left.
+    # P3 cannot start Book Mission (Move 11).
+    # P3 ends in 7.
+    # R25 P3 needs to be in 7 to go to 9?
+    # R25 High Waves: 7 -> 5?
+    # If P3 in 7, R25 High Waves pushes to 5.
+    # P3 needs to be in 9 to solve Book.
+    # From 5? 5->7->9 (2 AP).
+    # Book Solved.
+    # So P3 ending in 7 is OK.
+
+    # P1 (in 8). Move 7 (1 AP). Move 5 (1 AP).
+    p1.action("Move 7", 1)
     p1.action("Move 5", 1)
 
-    # P2 (8) -> 7 (Sticky 2 AP).
-    p2.action("Move 7", 2)
+    # P2 (in 6). Bake (1 AP). PickUp (1 AP).
+    p2.action("Bake", 1)
+    p2.action("PickUp", 1)
 
-    # P3 (11) -> 7 (Sticky 2 AP).
-    p3.action("Move 7", 2)
-
-    # P4 (10) -> 7 (Sticky 2 AP).
-    p4.action("Move 7", 2)
+    # P4 (in 9). Move 7 (1 AP). Move 8 (1 AP).
+    p4.action("Move 7", 1)
+    p4.action("Move 8", 1)
+    
+    # P6 (Respawned in 3). Move 7 (1 AP). Move 8 (1 AP).
+    p6.action("Move 7", 1)
+    p6.action("Move 8", 1)
 
     for p in players: p.pass_turn()
 
 def r25():
-    print("# Round 25: Firefighting & Positioning.")
+    print("# Round 25: Extinguish. Bake. Shoot.")
     start_round()
-    # P2 (in 5) Extinguish (1 AP).
-    p2.action("Extinguish", 1)
+    # P4 (in 7). Move 9 (1 AP). Extinguish (1 AP).
+    # Fire in 9 killing us. Ignore Book (Bomb delay).
+    p4.action("Move 9", 1)
+    p4.action("Extinguish", 1)
 
-    # P3 Pass (Stay in 5 -> Shift to 6).
-    # P3 takes damage R25 end.
+    # P3 (in 5). Move 7 (1 AP). Move 6 (1 AP).
+    p3.action("Move 7", 1)
+    p3.action("Move 6", 1)
 
-    # P4 (5) -> 7 (Sticky 2 AP).
-    p4.action("Move 7", 2)
+    # P1 (in 5). Extinguish (1 AP).
+    p1.action("Extinguish", 1)
 
-    # P5 (5) -> 7 (Sticky 2 AP).
-    p5.action("Move 7", 2)
+    # P2 (in 7). Move 8 (1 AP). Shoot (1 AP).
+    p2.action("Move 8", 1)
+    p2.action("Shoot", 1)
 
-    # P6 (5) -> 7 (Sticky 2 AP).
-    p6.action("Move 7", 2)
-
-    # P1 (7) -> 8 (1 AP).
-    p1.action("Move 8", 1)
-
-    for p in players: p.pass_turn()
-
-def r26():
-    print("# Round 26: Load & Shift.")
-    start_round()
-    # P2 (in 6) Extinguish (1 AP). Solve Seasick (1 AP).
-    p2.action("Extinguish", 1)
-    p2.action("Interact", 1) # Solve Seasick
-
-    # P3 (in 6) Bake (1 AP). Pickup (1 AP).
-    p3.action("Bake", 1)
-    p3.action("PickUp", 1)
-
-    # P4 (7) -> 6 (1 AP). Pickup (1 AP).
-    p4.action("Move 6", 1)
-    p4.action("PickUp", 1)
-
-    # P5 (7) -> 6 (1 AP). Pickup (1 AP).
+    # P5 (in 7). Move 6 (1 AP). Bake (1 AP).
     p5.action("Move 6", 1)
-    p5.action("PickUp", 1)
+    p5.action("Bake", 1)
 
-    # P6 (7) -> 6 (1 AP). Pickup (1 AP).
-    p6.action("Move 6", 1)
-    p6.action("PickUp", 1)
-
-    # P1 (9). Solve Static (1 AP). Solve Headwind (1 AP).
-    p1.action("Interact", 1)
-    p1.action("Interact", 1)
+    # P6 (in 7). Move 8 (1 AP).
+    p6.action("Move 8", 1)
     
     for p in players: p.pass_turn()
 
-def r27():
-    print("# Round 27: Victory Volley.")
+def r26():
+    print("# Round 26: Seagull Attack. Extinguish & Relay.")
     start_round()
-    # P3, P4, P5, P6 Shoot (1 AP).
-    p3.action("Shoot", 1)
-    p4.action("Shoot", 1)
-    p5.action("Shoot", 1)
+    # P1 (in 5). Shield (2 AP).
+    p1.action("RaiseShields", 2)
+
+    # P3 (in 6). Extinguish (1 AP). PickUp (1 AP).
+    # Clear Fire in 6.
+    p3.action("Extinguish", 1)
+    p3.action("PickUp", 1)
+    
+    # P4 (in 9). Move 7 (1 AP).
+    p4.action("Move 7", 1)
+    
+    # P5 (in 6). PickUp (1 AP). Throw P4 (in 7) (1 AP).
+    p5.action("PickUp", 1)
+    p5.action("Throw P4 0", 1)
+    
+    # P4 (in 7). Has 1 Nut (from P5).
+    # P3 has Nut but cannot throw (0 AP).
+    # P4 Throw P6 (in 8) (1 AP).
+    p4.action("Throw P6 0", 1)
+    
+    # P6 (in 8). Shoot (1 AP).
     p6.action("Shoot", 1)
+    
+    # Monster HP 3 -> 2.
+    # Hull Damage?
+    # 5/6/9 Cleared.
+    # Attack Blocked.
+    # Hull Stable.
+
+    for p in players: p.pass_turn()
+
+def r27():
+    print("# Round 27: Big Leak. Victory.")
+    start_round()
+    # P1 Shield (2 AP).
+    p1.action("RaiseShields", 2)
+    
+    # P3 (in 6). Has Nut from R26.
+    # Throw P4 (in 7) (1 AP).
+    p3.action("Throw P4 0", 1)
+    
+    # P5 (in 6). PickUp (1 AP). Throw P4 (1 AP).
+    p5.action("PickUp", 1)
+    p5.action("Throw P4 0", 1)
+    
+    # P4 (in 7). Throw P6 (1). Throw P2 (1).
+    p4.action("Throw P6 0", 1)
+    p4.action("Throw P2 0", 1)
+    
+    # P6 Shoot.
+    p6.action("Shoot", 1)
+    
+    # P2 Shoot.
+    p2.action("Shoot", 1)
+    
+    # Monster Dead.
+
+    for p in players: p.pass_turn()
+
+
+
+def r28():
+    print("# Round 28: Final Shot. Victory.")
+    start_round()
+    # Boss HP 1. Ammo 0.
+    # P5 (in 6). Bake (1 AP). PickUp (1 AP).
+    p5.action("Bake", 1)
+    p5.action("PickUp", 1)
+    
+    # P5 Throw P4 (in 7).
+    # P5 has 0 AP.
+    # P5 Throw requires 1 AP?
+    # Throw cost 1 AP.
+    # P5 used 2 AP (Bake, PickUp).
+    # P5 CANNOT Throw.
+    
+    # We need P3?
+    # P3 (in 6). PickUp (1 AP). Throw P4 (1 AP).
+    # P3 is in 6.
+    p3.action("PickUp", 1)
+    p3.action("Throw P4 0", 1)
+    
+    # P4 (in 7). Throw P6 (in 8) (1 AP).
+    p4.action("Throw P6 0", 1)
+    
+    # P6 (in 8). Shoot (1 AP).
+    p6.action("Shoot", 1)
+    
+    # P1 Shield? (If missed again?)
+    # P1 (in 5). Shield (2 AP).
+    p1.action("RaiseShields", 2)
+
+    for p in players: p.pass_turn()
+
+def r29():
+    print("# Round 29: Attack Wave. Shield & Kill.")
+    start_round()
+    # P1 Shield (2 AP). Essential.
+    p1.action("RaiseShields", 2)
+    
+    # P5 (in 6) has Nut.
+    # Throw P4 (in 7) (1 AP).
+    p5.action("Throw P4 0", 1)
+    
+    # P3 (in 6). PickUp last Nut (1 AP).
+    p3.action("PickUp", 1)
+    # Throw P4 (1 AP).
+    p3.action("Throw P4 0", 1)
+    
+    # P4 (in 7). Has 2 Nuts.
+    # Throw P6 (1 AP). Throw P2 (1 AP).
+    p4.action("Throw P6 0", 1)
+    p4.action("Throw P2 0", 1)
+    
+    # P6 Shoot (1 AP).
+    p6.action("Shoot", 1)
+    
+    # P2 Shoot (1 AP).
+    p2.action("Shoot", 1)
+
+    for p in players: p.pass_turn()
+
+def r30():
+    print("# Round 30: High Pressure. Solve Attack Wave. Reload.")
+    start_round()
+    # P5 (in 7). Move 6 (1 AP). Bake (1 AP).
+    p5.action("Move 6", 1)
+    p5.action("Bake", 1)
+    
+    # P6 (in 7). Move 8 (1 AP). Interact/Solve Attack Wave (1 AP).
+    # Save the ship!
+    p6.action("Move 8", 1)
+    p6.action("Interact", 1)
+    
+    # P1 (in 7). Move 6 (1 AP). PickUp (1 AP).
+    # Stuck in 6 (Seagull).
+    p1.action("Move 6", 1)
+    p1.action("PickUp", 1)
+    
+    # P2 (in 7). Move 6 (1 AP). PickUp (1 AP).
+    p2.action("Move 6", 1)
+    p2.action("PickUp", 1)
+    
+    # P3 (in 7). Move 6 (1 AP). PickUp (1 AP).
+    p3.action("Move 6", 1)
+    p3.action("PickUp", 1)
+    
+    # P4 (in 3). Move 7 (1 AP).
+    p4.action("Move 7", 1)
+
+    for p in players: p.pass_turn()
+
+def r31():
+    print("# Round 31: Victory Relay (P5).")
+    start_round()
+    # P1 Shield (2 AP).
+    p1.action("RaiseShields", 2)
+    
+    # P5 (in 6). Move 7 (1 AP).
+    p5.action("Move 7", 1)
+    
+    # P1 (in 6). Throw P5 (in 7).
+    p1.action("Throw P5 0", 1)
+    
+    # P5 Throw P6 (in 8).
+    p5.action("Throw P6 0", 1)
+    
+    # P6 Shoot.
+    p6.action("Shoot", 1)
+    
+    # Second Shot.
+    # P2 (in 6). Throw P5 (in 7).
+    p2.action("Throw P5 0", 1)
+    
+    # P5 has 0 AP. (Move 7, Throw).
+    # P5 cannot Throw again.
+    # We need another Relay.
+    # P3 (in 6). Move 7 (1 AP).
+    p3.action("Move 7", 1)
+    # P3 Catch? No, P2 Threw to P5.
+    # P2 must Throw to P3.
+    
+    # Wait, P2 hasn't thrown yet.
+    # P2 Throw P3 (in 7).
+    # P3 Throw P6.
+    
+    # Retrying logic:
+    # P2 Throw P3 (who moved to 7).
+    # Need to order correctly.
+    # P3 Move 7.
+    # P2 Throw P3.
+    # P3 Throw P6.
+    # P6 Shoot.
+    
+    # Re-writing R31 sequence:
+    pass
+
+    # Actually writing it:
+    # P5 Relay Chain:
+    # P5 Move 7.
+    # P1 Throw P5.
+    # P5 Throw P6.
+    # P6 Shoot.
+    
+    # P3 Relay Chain:
+    # P3 Move 7.
+    # P2 Throw P3.
+    # P3 Throw P6.
+    # P6 Shoot.
+    
+    # Implementation:
+    # P5 Move 7.
+    # P3 Move 7.
+    # P1 Throw P5.
+    # P5 Throw P6.
+    # P6 Shoot.
+    # P2 Throw P3.
+    # P3 Throw P6.
+    # P6 Shoot.
+    
+    # Wait, P1 has 2 AP. But P1 Shielded (2 AP).
+    # P1 cannot Throw!
+    # P1 stuck with Nut.
+    
+    # We need 2 shots.
+    # P2 has Nut.
+    # P3 has Nut.
+    # P1 has Nut.
+    # P1 cannot act.
+    
+    # Use P2 and P3 nuts.
+    # P2 (in 6).
+    # P3 (in 6).
+    # P5 (in 6) Empty.
+    # P4 (in 3) Empty.
+    
+    # P5 Move 7.
+    # P2 Throw P5.
+    # P5 Throw P6.
+    # P6 Shoot.
+    
+    # P3 Move 7.
+    # P3 Throw P6.
+    # P6 Shoot.
+    
+    # This works. P3 delivers his own nut.
+    # P2 uses P5.
+    
+    # P1 holds nut (useless).
+    
+    # Corrected code below:
+    
+def r31():
+    print("# Round 31: Victory.")
+    start_round()
+    # P1 (in 6) has Nut. Stuck (Seagull).
+    
+    # P5 (in 6). Move 7 (1 AP).
+    p5.action("Move 7", 1)
+    
+    # P1 Throw P5 (in 7) (1 AP).
+    p1.action("Throw P5 0", 1)
+    
+    # P5 Throw P6 (in 8) (1 AP).
+    p5.action("Throw P6 0", 1)
+    
+    # P6 Shoot (1 AP).
+    p6.action("Shoot", 1)
+    
+    # Boss HP 1 -> 0.
+    # Victory.
 
     for p in players: p.pass_turn()
 
@@ -802,6 +1071,10 @@ def main():
     r25()
     r26()
     r27()
+    r28()
+    r29()
+    r30()
+    r31()
 
 if __name__ == "__main__":
     main()
