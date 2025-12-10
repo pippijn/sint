@@ -1,7 +1,7 @@
-use sint_core::{Action, CardId, CardType, GameLogic, GamePhase};
-use sint_core::HazardType;
 use sint_core::logic::cards::get_behavior;
+use sint_core::HazardType;
 use sint_core::ItemType;
+use sint_core::{Action, CardId, CardType, GameLogic, GamePhase};
 
 #[test]
 fn test_card_slippery_deck() {
@@ -310,7 +310,6 @@ fn test_seagull_attack_prevents_move_after_pickup() {
     }
 
     // 1. Queue PickUp (Cost 1 AP)
-    use sint_core::ItemType;
     let state = GameLogic::apply_action(
         state,
         "P1",

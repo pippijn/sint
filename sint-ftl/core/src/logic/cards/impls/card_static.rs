@@ -1,10 +1,9 @@
 use crate::logic::cards::behavior::CardBehavior;
 use crate::types::{Action, GameState};
+use crate::types::{Card, CardId, CardSolution, CardType};
 use crate::GameError;
 
 pub struct StaticNoiseCard;
-
-use crate::types::{Card, CardId, CardSolution, CardType};
 
 impl CardBehavior for StaticNoiseCard {
     fn get_struct(&self) -> Card {

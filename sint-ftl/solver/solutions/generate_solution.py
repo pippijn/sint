@@ -726,8 +726,8 @@ def r25():
     # P6 (5) -> 7 (Sticky 2 AP).
     p6.action("Move 7", 2)
 
-    # P1 (7) -> 11 (1 AP).
-    p1.action("Move 11", 1)
+    # P1 (7) -> 8 (1 AP).
+    p1.action("Move 8", 1)
 
     for p in players: p.pass_turn()
 
@@ -754,7 +754,8 @@ def r26():
     p6.action("Move 6", 1)
     p6.action("PickUp", 1)
 
-    # P1 (2). Solve Seagull (1 AP).
+    # P1 (9). Solve Static (1 AP). Solve Headwind (1 AP).
+    p1.action("Interact", 1)
     p1.action("Interact", 1)
     
     for p in players: p.pass_turn()

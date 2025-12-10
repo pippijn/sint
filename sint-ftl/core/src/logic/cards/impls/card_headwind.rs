@@ -1,9 +1,8 @@
 use crate::logic::cards::behavior::CardBehavior;
 use crate::types::GameState;
+use crate::types::{Card, CardId, CardSolution, CardType};
 
 pub struct StrongHeadwindCard;
-
-use crate::types::{Card, CardId, CardSolution, CardType};
 
 impl CardBehavior for StrongHeadwindCard {
     fn get_struct(&self) -> Card {

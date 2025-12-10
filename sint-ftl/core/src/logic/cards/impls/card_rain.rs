@@ -1,9 +1,8 @@
 use crate::logic::cards::behavior::CardBehavior;
+use crate::types::{Card, CardId, CardType};
 use crate::types::{GameState, ItemType};
 
 pub struct PeppernutRainCard;
-
-use crate::types::{Card, CardId, CardType};
 
 impl CardBehavior for PeppernutRainCard {
     fn get_struct(&self) -> Card {

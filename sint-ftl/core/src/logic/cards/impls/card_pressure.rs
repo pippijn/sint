@@ -1,11 +1,10 @@
 use crate::logic::cards::behavior::CardBehavior;
 use crate::types::GameState;
+use crate::types::{Card, CardId, CardType};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
 pub struct HighPressureCard;
-
-use crate::types::{Card, CardId, CardType};
 
 impl CardBehavior for HighPressureCard {
     fn get_struct(&self) -> Card {

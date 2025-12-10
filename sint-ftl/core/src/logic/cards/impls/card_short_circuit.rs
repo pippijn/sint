@@ -1,9 +1,8 @@
 use crate::logic::cards::behavior::CardBehavior;
+use crate::types::{Card, CardId, CardType};
 use crate::types::{GameState, HazardType};
 
 pub struct ShortCircuitCard;
-
-use crate::types::{Card, CardId, CardType};
 
 impl CardBehavior for ShortCircuitCard {
     fn get_struct(&self) -> Card {

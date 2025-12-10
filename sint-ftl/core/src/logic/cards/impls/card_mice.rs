@@ -1,9 +1,8 @@
 use crate::logic::cards::behavior::CardBehavior;
+use crate::types::{Card, CardId, CardSolution, CardType};
 use crate::types::{GameState, ItemType};
 
 pub struct MicePlagueCard;
-
-use crate::types::{Card, CardId, CardSolution, CardType};
 
 impl CardBehavior for MicePlagueCard {
     fn get_struct(&self) -> Card {

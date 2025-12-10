@@ -1,10 +1,9 @@
 use crate::logic::cards::behavior::CardBehavior;
 use crate::types::{Action, GameState};
+use crate::types::{Card, CardId, CardSolution, CardType, ItemType};
 use crate::GameError;
 
 pub struct JammedCannonCard;
-
-use crate::types::{Card, CardId, CardSolution, CardType, ItemType};
 
 impl CardBehavior for JammedCannonCard {
     fn get_struct(&self) -> Card {

@@ -274,7 +274,7 @@ P2: Extinguish
 P4: Move 7
 P5: Move 7
 P6: Move 7
-P1: Move 11
+P1: Move 8
 P1: Pass
 P2: Pass
 P3: Pass
@@ -290,7 +290,7 @@ P5: PickUp
 P6: Move 6
 P6: PickUp
 P1: Interact
-P1: Pass
+P1: Interact
 # Round 27: Victory Volley.
 P3: Shoot
 P4: Shoot

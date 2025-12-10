@@ -73,10 +73,7 @@ pub fn run(initial_state: GameState, beam_width: usize, status: Arc<Mutex<Search
         info!("Depth {}: Expanding {} nodes...", depth, frontier_size);
 
         // Parallel Expansion
-        let candidates: Vec<StateNode> = frontier
-            .par_iter()
-            .flat_map(expand_node)
-            .collect();
+        let candidates: Vec<StateNode> = frontier.par_iter().flat_map(expand_node).collect();
 
         // Scoring & Pruning (Selection)
         // We want the Top K candidates.

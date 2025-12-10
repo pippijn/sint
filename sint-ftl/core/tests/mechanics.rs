@@ -1,4 +1,5 @@
 use sint_core::{Action, GameLogic, GamePhase, ItemType};
+use sint_core::{HazardType, PlayerStatus};
 
 #[test]
 fn test_boss_progression() {
@@ -210,8 +211,6 @@ fn test_shields_block_damage() {
         assert!(room.hazards.is_empty(), "Shields should prevent fire spawn");
     }
 }
-
-use sint_core::{HazardType, PlayerStatus};
 
 #[test]
 fn test_game_over_hull_destruction() {

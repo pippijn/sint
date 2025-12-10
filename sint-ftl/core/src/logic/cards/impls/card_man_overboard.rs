@@ -1,12 +1,11 @@
 use crate::logic::cards::behavior::CardBehavior;
+use crate::types::{Card, CardSolution};
 use crate::types::{CardId, CardType, GameState};
 use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
 use rand::{Rng, SeedableRng};
 
 pub struct ManOverboardCard;
-
-use crate::types::{Card, CardSolution};
 
 impl CardBehavior for ManOverboardCard {
     fn get_struct(&self) -> Card {

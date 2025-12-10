@@ -1,10 +1,9 @@
 use crate::logic::cards::behavior::CardBehavior;
 use crate::types::{Action, GameState};
+use crate::types::{Card, CardId, CardSolution, CardType};
 use crate::GameError;
 
 pub struct AfternoonNapCard;
-
-use crate::types::{Card, CardId, CardSolution, CardType};
 
 impl CardBehavior for AfternoonNapCard {
     fn get_struct(&self) -> Card {

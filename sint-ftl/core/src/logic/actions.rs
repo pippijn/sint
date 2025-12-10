@@ -721,28 +721,27 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
                                 target_player: "".to_string(),
                             },
                         )
-                    {
-                        // Target Self
-                        actions.push(Action::FirstAid {
-                            target_player: player_id.to_string(),
-                        });
+                {
+                    // Target Self
+                    actions.push(Action::FirstAid {
+                        target_player: player_id.to_string(),
+                    });
 
-                        // Target Neighbors
-                        for other_p in projected_state.players.values() {
-                            if other_p.id == *player_id {
-                                continue;
-                            }
+                    // Target Neighbors
+                    for other_p in projected_state.players.values() {
+                        if other_p.id == *player_id {
+                            continue;
+                        }
 
-                            // Check if in neighbor or same room
-                            if room.neighbors.contains(&other_p.room_id)
-                                || other_p.room_id == p.room_id
-                            {
-                                actions.push(Action::FirstAid {
-                                    target_player: other_p.id.clone(),
-                                });
-                            }
+                        // Check if in neighbor or same room
+                        if room.neighbors.contains(&other_p.room_id) || other_p.room_id == p.room_id
+                        {
+                            actions.push(Action::FirstAid {
+                                target_player: other_p.id.clone(),
+                            });
                         }
                     }
+                }
             }
         }
 

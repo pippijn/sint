@@ -1,10 +1,9 @@
 use crate::logic::cards::behavior::CardBehavior;
 use crate::logic::pathfinding::find_path;
 use crate::types::GameState;
+use crate::types::{Card, CardId, CardType};
 
 pub struct HighWavesCard;
-
-use crate::types::{Card, CardId, CardType};
 
 impl CardBehavior for HighWavesCard {
     fn get_struct(&self) -> Card {

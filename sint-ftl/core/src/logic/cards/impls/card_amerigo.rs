@@ -1,10 +1,9 @@
 use crate::logic::cards::behavior::CardBehavior;
 use crate::types::{Action, GameState};
+use crate::types::{Card, CardId, CardSolution, CardType, ItemType};
 use crate::GameError;
 
 pub struct AmerigoCard;
-
-use crate::types::{Card, CardId, CardSolution, CardType, ItemType};
 
 impl CardBehavior for AmerigoCard {
     fn get_struct(&self) -> Card {
@@ -52,21 +51,10 @@ impl CardBehavior for AmerigoCard {
         // But Solution is "Interact".
         // So we can block "Move to 7".
         // BUT "Solution: Enter Hallway". This implies you MUST enter.
-        // Maybe the effect is: "Cannot Move FROM 7 to anywhere else"?
-        // Or "Cannot Move TO 7"?
-        // Text: "You can NOT go through the Hallway (7) from one side to the other."
-        // "Want to go to the other side? Walk around."
-        // This implies Room 7 is not a valid node for pathfinding?
-        // But we need to enter it to solve.
-        // Let's assume: You can enter 7, but you cannot EXIT 7?
-        // No, then you are trapped.
-        // Let's assume: It blocks movement *between* specific rooms?
-        // Simplified logic: "Hallway is blocked".
-        // But Solution says "Enter Hallway".
         // Maybe the restriction is: You cannot Move *from* 7?
         // If I move 6 -> 7. Next turn 7 -> 8.
         // If I block 7->Any, I can enter but not leave.
-        // Let's implement: "Cannot Move from Room 7 to any room except The Bow (2)?"
+        // Let's implement: "Cannot Move from Room 7 to anywhere else"?
         // "Walk around via The Bow (2)".
         // Let's block all Moves FROM 7.
         if let Action::Move { .. } = action {

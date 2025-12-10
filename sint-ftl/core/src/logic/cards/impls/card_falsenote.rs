@@ -1,9 +1,8 @@
 use crate::logic::cards::behavior::CardBehavior;
 use crate::types::GameState;
+use crate::types::{Card, CardId, CardType};
 
 pub struct FalseNoteCard;
-
-use crate::types::{Card, CardId, CardType};
 
 impl CardBehavior for FalseNoteCard {
     fn get_struct(&self) -> Card {

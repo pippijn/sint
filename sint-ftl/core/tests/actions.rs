@@ -1,7 +1,7 @@
-use sint_core::{Action, GameLogic, GamePhase};
-use sint_core::GameError;
 use sint_core::logic::actions::get_valid_actions;
+use sint_core::GameError;
 use sint_core::ItemType;
+use sint_core::{Action, GameLogic, GamePhase};
 
 #[test]
 fn test_cannot_evade_from_dormitory() {
