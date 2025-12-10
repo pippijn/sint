@@ -13,6 +13,10 @@ struct Args {
     /// Path to the solution text file
     #[arg(short, long)]
     file: PathBuf,
+
+    /// Print full trajectory even on failure
+    #[arg(short, long)]
+    verbose: bool,
 }
 
 fn main() {
@@ -36,7 +40,7 @@ fn main() {
     let (final_history, success) = run_verification(initial_state, file_actions);
 
     // Replay for visualization
-    if success {
+    if success || args.verbose {
         let state_for_print = GameLogic::new_game(player_ids, seed);
         replay::print_trajectory(state_for_print, final_history);
     }

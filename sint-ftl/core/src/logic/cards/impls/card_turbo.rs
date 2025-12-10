@@ -10,7 +10,7 @@ impl CardBehavior for TurboModeCard {
         Card {
             id: CardId::TurboMode,
             title: "Turbo Mode".to_string(),
-            description: "Advantage: 3 AP. Boom: 2 Fire in Engine, 1 in Hallway.".to_string(),
+            description: "Advantage: +1 AP. Boom: 2 Fire in Engine, 1 in Hallway.".to_string(),
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {
@@ -61,7 +61,7 @@ impl CardBehavior for TurboModeCard {
     }
 
     fn on_round_start(&self, state: &mut GameState) {
-        // Advantage: 3 AP.
+        // Advantage: +1 AP.
         for p in state.players.values_mut() {
             p.ap += 1;
         }
