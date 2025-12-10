@@ -714,8 +714,8 @@ def r25():
     # P2 (in 5) Extinguish (1 AP).
     p2.action("Extinguish", 1)
 
-    # P3 (5) -> 7 (Sticky 2 AP).
-    p3.action("Move 7", 2)
+    # P3 Pass (Stay in 5 -> Shift to 6).
+    # P3 takes damage R25 end.
 
     # P4 (5) -> 7 (Sticky 2 AP).
     p4.action("Move 7", 2)
@@ -726,8 +726,8 @@ def r25():
     # P6 (5) -> 7 (Sticky 2 AP).
     p6.action("Move 7", 2)
 
-    # P1 (7) -> 8 (1 AP).
-    p1.action("Move 8", 1)
+    # P1 (7) -> 11 (1 AP).
+    p1.action("Move 11", 1)
 
     for p in players: p.pass_turn()
 
@@ -738,9 +738,9 @@ def r26():
     p2.action("Extinguish", 1)
     p2.action("Interact", 1) # Solve Seasick
 
-    # P3 (7) -> 6 (1 AP). Bake (1 AP).
-    p3.action("Move 6", 1)
+    # P3 (in 6) Bake (1 AP). Pickup (1 AP).
     p3.action("Bake", 1)
+    p3.action("PickUp", 1)
 
     # P4 (7) -> 6 (1 AP). Pickup (1 AP).
     p4.action("Move 6", 1)
@@ -754,10 +754,20 @@ def r26():
     p6.action("Move 6", 1)
     p6.action("PickUp", 1)
 
-    # P1 (9). Solve Book (1 AP). Pickup (1 AP).
+    # P1 (2). Solve Seagull (1 AP).
     p1.action("Interact", 1)
-    p1.action("PickUp", 1)
     
+    for p in players: p.pass_turn()
+
+def r27():
+    print("# Round 27: Victory Volley.")
+    start_round()
+    # P3, P4, P5, P6 Shoot (1 AP).
+    p3.action("Shoot", 1)
+    p4.action("Shoot", 1)
+    p5.action("Shoot", 1)
+    p6.action("Shoot", 1)
+
     for p in players: p.pass_turn()
 
 def main():
@@ -790,6 +800,7 @@ def main():
     r24()
     r25()
     r26()
+    r27()
 
 if __name__ == "__main__":
     main()

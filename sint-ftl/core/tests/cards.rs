@@ -1,4 +1,7 @@
 use sint_core::{Action, CardId, CardType, GameLogic, GamePhase};
+use sint_core::HazardType;
+use sint_core::logic::cards::get_behavior;
+use sint_core::ItemType;
 
 #[test]
 fn test_card_slippery_deck() {
@@ -108,7 +111,6 @@ fn test_card_sing_a_song() {
     let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
 
     // Setup Hazards
-    use sint_core::HazardType;
     state
         .map
         .rooms
@@ -133,7 +135,6 @@ fn test_card_sing_a_song() {
         .unwrap();
 
     // Simulate Draw (Manual activation)
-    use sint_core::logic::cards::get_behavior;
     get_behavior(card.id).on_activate(&mut state);
 
     // Verify hazards removed

@@ -1,4 +1,7 @@
 use sint_core::{Action, GameLogic, GamePhase};
+use sint_core::GameError;
+use sint_core::logic::actions::get_valid_actions;
+use sint_core::ItemType;
 
 #[test]
 fn test_cannot_evade_from_dormitory() {
@@ -82,8 +85,6 @@ fn test_move_then_evade_valid() {
         "Should allow EvasiveManeuvers if projected to be in Bridge"
     );
 }
-
-use sint_core::GameError;
 
 #[test]
 fn test_move_in_lobby() {
@@ -332,9 +333,6 @@ fn test_planning_loop() {
     state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap();
     assert_eq!(state.phase, GamePhase::EnemyAction);
 }
-
-use sint_core::logic::actions::get_valid_actions;
-use sint_core::ItemType;
 
 #[test]
 fn test_projected_location_validation() {

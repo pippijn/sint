@@ -1,4 +1,6 @@
 use sint_core::{Action, GameLogic, GamePhase, HazardType};
+use sint_core::ItemType;
+use sint_core::PlayerStatus;
 
 #[test]
 fn test_fire_damage() {
@@ -199,8 +201,6 @@ fn test_cargo_lower_threshold() {
     }
     assert!(spread_occured, "Cargo with 1 Fire SHOULD spread eventually");
 }
-
-use sint_core::ItemType;
 
 #[test]
 fn test_water_destroys_items() {

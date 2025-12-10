@@ -1,4 +1,5 @@
 use sint_core::{Action, GameLogic, GamePhase, ItemType};
+use sint_core::GameError;
 
 #[test]
 fn test_throw_item() {
@@ -69,8 +70,6 @@ fn test_drop_item() {
     // I recall checking it and `Action::Drop` might be missing or empty?
     // I need to verify `resolution.rs` content again if this test fails.
 }
-
-use sint_core::GameError;
 
 #[test]
 fn test_inventory_limit_basic() {
