@@ -712,8 +712,8 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
                 }
 
                 // Sickbay (Targeted Action)
-                if sys == SystemType::Sickbay {
-                    if p.ap
+                if sys == SystemType::Sickbay
+                    && p.ap
                         >= action_cost(
                             &projected_state,
                             player_id,
@@ -743,7 +743,6 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
                             }
                         }
                     }
-                }
             }
         }
 

@@ -116,12 +116,11 @@ pub fn resolve_hazards(state: &mut GameState) {
     // 3. Water destroys items (Except in Storage)
     for room_id in &room_ids {
         if let Some(room) = state.map.rooms.get_mut(room_id) {
-            if room.hazards.contains(&HazardType::Water) {
-                if room.system != Some(SystemType::Storage) {
+            if room.hazards.contains(&HazardType::Water)
+                && room.system != Some(SystemType::Storage) {
                     // Only destroy Peppernuts. Special items survive.
                     room.items.retain(|i| *i != ItemType::Peppernut);
                 }
-            }
         }
     }
 

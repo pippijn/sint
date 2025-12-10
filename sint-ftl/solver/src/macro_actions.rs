@@ -58,7 +58,7 @@ pub fn generate_tasks(state: &GameState, player_id: &str) -> Vec<PlayerTask> {
                     let mut actions = Vec::new();
                     let mut cost_so_far = 0;
                     for step in &path {
-                        if cost_so_far + 1 <= ap {
+                        if cost_so_far < ap {
                             actions.push(Action::Move { to_room: *step });
                             cost_so_far += 1;
                         } else {
@@ -104,7 +104,7 @@ pub fn generate_tasks(state: &GameState, player_id: &str) -> Vec<PlayerTask> {
                     let mut actions = Vec::new();
                     let mut cost_so_far = 0;
                     for step in &path {
-                        if cost_so_far + 1 <= ap {
+                        if cost_so_far < ap {
                             actions.push(Action::Move { to_room: *step });
                             cost_so_far += 1;
                         } else {
@@ -146,7 +146,7 @@ pub fn generate_tasks(state: &GameState, player_id: &str) -> Vec<PlayerTask> {
             let mut actions = Vec::new();
             let mut cost_so_far = 0;
             for step in &path {
-                if cost_so_far + 1 <= ap {
+                if cost_so_far < ap {
                     actions.push(Action::Move { to_room: *step });
                     cost_so_far += 1;
                 } else {
@@ -187,7 +187,7 @@ pub fn generate_tasks(state: &GameState, player_id: &str) -> Vec<PlayerTask> {
                 let mut actions = Vec::new();
                 let mut cost_so_far = 0;
                 for step in &path {
-                    if cost_so_far + 1 <= ap {
+                    if cost_so_far < ap {
                         actions.push(Action::Move { to_room: *step });
                         cost_so_far += 1;
                     } else {
@@ -211,8 +211,8 @@ pub fn generate_tasks(state: &GameState, player_id: &str) -> Vec<PlayerTask> {
     // If we look global, the list gets too big.
     // Let's stick to "Current Room" for simple interactions to keep branching factor low.
     if let Some(room) = state.map.rooms.get(&start_room) {
-        if room.items.contains(&ItemType::Peppernut) {
-            if ap >= 1 {
+        if room.items.contains(&ItemType::Peppernut)
+            && ap >= 1 {
                 tasks.push(PlayerTask {
                     player_id: player_id.to_string(),
                     description: "Pickup Ammo".to_string(),
@@ -222,7 +222,6 @@ pub fn generate_tasks(state: &GameState, player_id: &str) -> Vec<PlayerTask> {
                     cost: 1,
                 });
             }
-        }
     }
 
     // 7. Revive (If fainted player in room)
@@ -235,8 +234,7 @@ pub fn generate_tasks(state: &GameState, player_id: &str) -> Vec<PlayerTask> {
                 && other
                     .status
                     .contains(&sint_core::types::PlayerStatus::Fainted)
-            {
-                if ap >= 1 {
+                && ap >= 1 {
                     tasks.push(PlayerTask {
                         player_id: player_id.to_string(),
                         description: format!("Revive {}", other.name),
@@ -246,7 +244,6 @@ pub fn generate_tasks(state: &GameState, player_id: &str) -> Vec<PlayerTask> {
                         cost: 1,
                     });
                 }
-            }
         }
     }
 

@@ -75,7 +75,7 @@ pub fn run(initial_state: GameState, beam_width: usize, status: Arc<Mutex<Search
         // Parallel Expansion
         let candidates: Vec<StateNode> = frontier
             .par_iter()
-            .flat_map(|node| expand_node(node))
+            .flat_map(expand_node)
             .collect();
 
         // Scoring & Pruning (Selection)
