@@ -261,7 +261,8 @@ pub fn resolve_proposal_queue(state: &mut GameState, simulation: bool) {
                     let mut removed = 0;
 
                     while removed < limit {
-                        if let Some(idx) = room.hazards.iter().position(|&h| h == HazardType::Fire) {
+                        if let Some(idx) = room.hazards.iter().position(|&h| h == HazardType::Fire)
+                        {
                             room.hazards.remove(idx);
                             removed += 1;
                         } else {

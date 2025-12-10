@@ -493,7 +493,11 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                                             };
                                             let c_drop = ctx_update.clone();
                                             let is_planning = s.phase == GamePhase::TacticalPlanning;
-                                            let cursor = if is_planning { "pointer" } else { "default" };
+                                            let cursor = if is_planning {
+                                                "pointer"
+                                            } else {
+                                                "default"
+                                            };
                                             let title = if is_planning {
                                                 format!("{} (Click to Drop)", name)
                                             } else {
@@ -509,11 +513,7 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                                                     )
                                                     on:click=move |_| {
                                                         if is_planning {
-                                                            c_drop
-                                                                .perform_action
-                                                                .call(Action::Drop {
-                                                                    item_index: i,
-                                                                });
+                                                            c_drop.perform_action.call(Action::Drop { item_index: i });
                                                         }
                                                     }
                                                 >
@@ -925,15 +925,12 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                             .into_view(),
                                     );
                             }
-                            // Check for Revive targets (Fainted players in same room)
                             for other_p in s.players.values() {
                                 if other_p.id == pid {
                                     continue;
                                 }
                                 if other_p.room_id == player.room_id
-                                    && other_p
-                                        .status
-                                        .contains(&sint_core::PlayerStatus::Fainted)
+                                    && other_p.status.contains(&sint_core::PlayerStatus::Fainted)
                                 {
                                     let c_revive = ctx_action.clone();
                                     let target_id = other_p.id.clone();
@@ -943,6 +940,7 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                     let cursor = if disabled { "not-allowed" } else { "pointer" };
                                     buttons
                                         .push(
+                                            // Check for Revive targets (Fainted players in same room)
                                             view! {
                                                 <button
                                                     style=format!(

@@ -1,10 +1,9 @@
-
 class Player:
     def __init__(self, name, ap=2):
         self.name = name
         self.max_ap = ap
         self.ap = ap
-    
+
     def reset_ap(self, ap=2):
         self.ap = ap
         self.max_ap = ap
@@ -61,7 +60,7 @@ def r2():
 def r3():
     print("# Round 3: Overheating. Enemy->5.")
     start_round()
-    p4.ap -= 1 
+    p4.ap -= 1
     p4.action("Move 7", 0)
     p3.action("Move 5", 0)
     p3.action("Move 9", 0)
@@ -118,80 +117,80 @@ def r8():
     print("# Round 8: ListingShip. Enemy->8. Fire in 9.")
     start_round()
     p4.action("Interact", 2) # Solve Listing. Costs Normal immediately after.
-    
+
     # Optimization: P2 (in 7) -> 9 (Free/Move 7->9). Extinguish (1 AP).
     # Wait, Listing Ship is solved by P4 FIRST.
     # So costs are NORMAL (1 AP). Moves are NOT Free.
     # So P2 (in 7) -> 9 (1 AP). Extinguish (1 AP). Total 2 AP.
     # P2 can do it!
-    
+
     p2.action("Move 9", 1)
     p2.action("Extinguish", 1) # Fire 9 Cleared.
-    
+
     # P3 (in 9) is Free to Evasive!
     p3.action("EvasiveManeuvers", 2) # Block Attack on 8!
-    
+
     # P5, P6 PickUp (Ammo from R5 Rain in 8).
     p5.action("PickUp", 1)
     p6.action("PickUp", 1)
-    
+
     # P5 Shoot.
     p5.action("Shoot", 1)
     p6.action("Shoot", 1)
-    
+
     p1.action("Move 6", 0)
     p1.action("PickUp", 1)
-    
+
     for p in players: p.pass_turn()
 
 def r9():
     print("# Round 9: WeirdGifts. Enemy->6.")
     start_round()
-    
+
     # Room 8 is Clear! No need to Extinguish.
     # P5 Shoot.
     p5.action("Shoot", 1)
     # Boss Dead.
-    
+
     # P1 Relay to P6.
     p1.action("Move 7", 1)
     p1.action("Throw P6 0", 1)
     p6.action("Shoot", 1)
-    
+
     # P3 Evasive (Block Attack on 6).
     p3.action("EvasiveManeuvers", 2)
-    
+
     # P2 (in 9) -> 7 -> 4.
     p2.action("Move 7", 1)
     p2.action("Move 4", 1)
-    
+
     # P4 (in 5) -> 4? Prep for WeirdGifts?
     # WeirdGifts solve in 4. P2 needs help?
     # P2 in 4. Interact (1 AP) in R10.
     # We solve it early.
-    
+
     for p in players: p.pass_turn()
 
 def r10():
     print("# Round 10: Kill Boss / Defense.")
     start_round()
-    
+
     # Enemy targets 2 (The Monster).
     # P3 (in 9). Evasive.
     p3.action("EvasiveManeuvers", 2)
-    
+
     # Short Circuit Fire in 5.
     # P4 (in 5). Extinguish.
     p4.action("Extinguish", 1)
     p4.action("Move 7", 1) # Escape Engine
-    
+
     # P2 (in 4). Interact (Solve WeirdGifts).
     p2.action("Interact", 1)
-    
+
     # P1 Stockpile.
     p1.action("Move 6", 1)
     p1.action("Bake", 1)
-    
+
     for p in players: p.pass_turn()
 
 def r11():
@@ -201,21 +200,21 @@ def r11():
     # P4 starts in R7.
     p4.action("Move 5", 1)
     p4.action("Interact", 1)
-    
+
     # P3: Evasive.
     p3.action("EvasiveManeuvers", 2)
-    
+
     # Logistics.
     # P1 in R6.
     p1.action("Bake", 1)
     # P1 has 1 AP left. Pass or prep?
     # P1 PickUp? Inventory limit 1.
     p1.action("PickUp", 1)
-    
+
     # P2 in R4. Move to 6 to fetch.
     p2.action("Move 7", 1)
     p2.action("Move 6", 1)
-    
+
     for p in players: p.pass_turn()
 
 def r12():
@@ -225,20 +224,20 @@ def r12():
     p1.action("Interact", 1)
     # P1 Move to 7.
     p1.action("Move 7", 1)
-    
+
     # P2: Pickup (from R11 Bake).
     p2.action("PickUp", 1)
     # P2 Move to 7.
     p2.action("Move 7", 1)
-    
+
     # P3 Evasive.
     p3.action("EvasiveManeuvers", 2)
-    
+
     # P4 (in 5) moves towards 2 to solve Fog Bank later?
     # 5 -> 7 -> 2.
     p4.action("Move 7", 1)
     p4.action("Move 2", 1)
-    
+
     for p in players: p.pass_turn()
 
 def r13():
@@ -247,22 +246,22 @@ def r13():
     # P4 Solve Fog Bank in Room 2.
     # Logic note: FogBank says 2 AP, but engine charges 1 AP for Interact.
     p4.action("Interact", 1)
-    
+
     # P1 (in 7) -> 8. Throw P5.
     p1.action("Move 8", 1)
     p1.action("Throw P5 0", 1)
-    
+
     # P2 (in 7) -> 8. Throw P6.
     p2.action("Move 8", 1)
     p2.action("Throw P6 0", 1)
-    
+
     # P5/P6 Shoot.
     p5.action("Shoot", 1)
     p6.action("Shoot", 1)
-    
+
     # P3 Evasive.
     p3.action("EvasiveManeuvers", 2)
-    
+
     for p in players: p.pass_turn()
 
 def r14():
@@ -271,35 +270,35 @@ def r14():
     # Event: Blockade. Door to Cannons (8) is closed.
     # P1, P2, P5, P6 are in 8.
     # P4 in 2.
-    
+
     # We must solve Blockade (Room 7, 2 Players).
     # P4 can go to 7.
     # P3 is in 9. Can go to 7.
-    
+
     # P4: 2 -> 7 (1 AP). Interact (1 AP).
     p4.action("Move 7", 1)
-    
+
     # Wait, Blockade requires 2 Players in Room 7?
     # CardSolution: room_id: 7, required_players: 2.
     # P4 is in 7.
     # P3 moves 9 -> 7 (1 AP).
     p3.action("Move 7", 1)
-    
+
     # Now P4 and P3 are in 7.
     # Interact only needs to be called by one?
     # Logic usually checks "required_players" by counting players in room_id.
-    
+
     p4.action("Interact", 1) # Solves Blockade.
-    
+
     # P1/P2 can leave 8.
     # P1 (in 8) -> 7 -> 6.
     p1.action("Move 7", 1)
     p1.action("Move 6", 1)
-    
+
     # P2 (in 8) -> 7 -> 6.
     p2.action("Move 7", 1)
     p2.action("Move 6", 1)
-    
+
     # P4 (in 7) -> 6?
     # R15 expects P4 in 7, but moves to 6.
     # Let's move P4 to 6 NOW in R14 so they are ready.
@@ -307,8 +306,8 @@ def r14():
     # P4 -> 6 (1 AP).
     # P4 has 0 AP.
     # P4 -> 6 (1 AP). CANNOT DO THIS.
-    # p4.action("Move 6", 1) 
-    
+    # p4.action("Move 6", 1)
+
     for p in players: p.pass_turn()
 
 def r15():
@@ -320,52 +319,52 @@ def r15():
     # P1: 8->7->6.
     # P2: 8->7->6.
     # P4: 7 (Ended R14 in 7 after Blockade solve).
-    
+
     # Logic in previous replace might have been:
     # P2: Move 7, Move 6.
-    
+
     # State Context says:
     # P1: Room 6.
     # P2: Room 7. (So P2 did not move to 6 in R14?)
     # P4: Room 8. (P4 was in 7, solved Blockade. Did P4 move to 8?)
-    
+
     # Let's check R14 again.
     # P4 solved blockade. AP=0.
     # P1 moved 7, 6.
     # P2 moved 7, 6.
-    
+
     # Why is P2 in 7?
     # Maybe R14 P2 actions were invalid?
-    # P2 started in 8. 
+    # P2 started in 8.
     # Blockade cleared.
     # P2 move 7 (1 AP).
     # P2 move 6 (1 AP).
-    
+
     # Why P2 in 7? Maybe I removed P2 Move 6 in previous edit?
     # I will reinforce R15 to handle P2 starting in 7 if needed.
-    
+
     # P1 Bake (1 AP).
     p1.action("Bake", 1)
     # P1 Pickup (1 AP).
     p1.action("PickUp", 1)
-    
+
     # P2 (in 7). Move 6 (1 AP). Pickup (1 AP).
     p2.action("Move 6", 1)
     p2.action("PickUp", 1)
     # P2 Ends in 6.
-    
+
     # P4 (in 8? Why 8? Maybe I messed up R14 P4 logic?).
     # If P4 is in 8, they need to go 7->6.
     # P4 move 7 (1 AP).
     # P4 move 6 (1 AP).
     # No AP for Pickup.
-    
+
     p4.action("Move 7", 1)
     p4.action("Move 6", 1)
-    
+
     # P3 (in 7) -> 9.
     p3.action("Move 9", 1)
-    
+
     for p in players: p.pass_turn()
 
 def r16():
@@ -373,25 +372,25 @@ def r16():
     start_round()
     # P3 in 9. Evasive.
     p3.action("EvasiveManeuvers", 2)
-    
+
     # P1 in 6. Move 7. Throw P5.
     p1.action("Move 7", 1)
     p1.action("Throw P5 0", 1) # Throw to 8
-    
+
     # P2 in 6. Move 7. Move 8? No AP.
     # P2 Move 7. Throw P6.
     p2.action("Move 7", 1)
-    
+
     # P2 Throw P6 (in 8). Distance 7->8 is OK (Adjacent).
     p2.action("Throw P6 0", 1)
-    
+
     # P4 in 6. Pickup (from R15 Bake, 3rd nut).
     p4.action("PickUp", 1)
     # P4 Move 7.
     p4.action("Move 7", 1)
-    
+
     # P5/P6 Shoot.
-    # Hazard in 8 (Fire?). 
+    # Hazard in 8 (Fire?).
     # State Context R16 Failure: "Room is blocked by hazard".
     # We must Extinguish 8.
     # P5/P6 are in 8.
@@ -402,7 +401,7 @@ def r16():
     # R14 P6 was in 8.
     # R13 P6 was in 8.
     # P6 never moved?
-    
+
     # Ah, P6 was in 8 in R14. "P1/P2 can leave 8." P5/P6 stayed?
     # R15 P5/P6 took damage?
     # R15 P6 passed.
@@ -411,57 +410,57 @@ def r16():
     # HP 1. Status [].
     # Maybe Panic? R7 everyone to 3.
     # P6 moved back to 8 in R7.
-    
+
     # Wait, "Failed Action: P6 performs Shoot -> Invalid Action ... you will be in Kitchen (6)".
     # This implies P6 IS in 6.
     # HOW?
     # Let's check R14 again.
     # P1/P2 left 8.
     # P5/P6 stayed.
-    
+
     # R15 log output from verify might show movement?
     # R15 Actions: P1 Bake/Pick, P2 Pick/Move7, P4 Pick/Move7, P3 Move 9.
     # P6 did nothing.
-    
+
     # Maybe "FullSync" or something shifted them?
     # Or "Static Noise"? No.
-    
+
     # Let's assume P6 IS in 6 for some reason (maybe I misread R14).
     # If P6 is in 6, they need to move to 8.
     # P6 -> 7 -> 8. (2 AP).
     # P6 has 2 AP.
     # But P6 needs to Shoot (1 AP).
     # Not enough AP.
-    
+
     # If P6 is in 6, why?
     # R7 Panic -> 3.
     # R7 P6 moved 7, 8.
     # So P6 WAS in 8.
-    
+
     # Did P6 move in R14? No.
     # Did P6 move in R15? No.
-    
+
     # Is it possible P6 fled?
     # "False Note" R? No.
     # "Panic"? R7.
-    
+
     # Wait, look at Failure Summary AGAIN.
     # P6: Room 6.
     # P5: Room 8.
     # P1/P2/P4: Room 6. (P4 moved back to 6 in R15?).
-    
+
     # Maybe P6 was thrown to?
     # R16: P2 Throw P6 0.
     # Throw doesn't move players.
-    
+
     # I suspect P6 DIED and respawned?
     # HP 1. Max 3.
     # If died, respawn in 3.
     # 3 != 6.
-    
+
     # Is it possible I mistook P6 for P2?
     # P2 is in 6.
-    
+
     # Let's Force P6 to move to 8 if they are in 6.
     # But verify says P6 is in 6.
     # I will add movement for P6.
@@ -469,12 +468,12 @@ def r16():
     p6.action("Move 7", 1)
     p6.action("Move 8", 1)
     # P6 cannot shoot.
-    
+
     # P5 Extinguish (1 AP).
     p5.action("Extinguish", 1)
     # P5 Shoot (1 AP).
     p5.action("Shoot", 1)
-    
+
     for p in players: p.pass_turn()
 
 def r17():
@@ -482,41 +481,41 @@ def r17():
     start_round()
     # P3 Evasive.
     p3.action("EvasiveManeuvers", 2)
-    
+
     # P5 used ammo in R16. Has 0.
     # P4 in 7 has ammo.
     # P4 -> 8 (1 AP). Throw P5 (1 AP).
     p4.action("Move 8", 1)
     p4.action("Throw P5 0", 1)
-    
+
     # P5 Shoot (1 AP).
     p5.action("Shoot", 1)
-    
+
     # P6 is in 8 (from R16 move).
     # P6 has 0 ammo (P2 threw to P6 in R16, but P6 was in 6, P2 was in 7. Throw 7->6 OK).
     # P6 moved to 8. Carrying ammo?
     # Inventory check: P6 has 0?
     # R16 P2 threw to P6.
     # So P6 SHOULD have ammo.
-    
+
     # P6 Shoot (1 AP).
     p6.action("Shoot", 1)
-    
+
     # P1 in 7.
     # P1 needs to fetch from 6.
     p1.action("Move 6", 1)
     # Hazard in 6 (Fire?). "Room is blocked by hazard".
     p1.action("Extinguish", 1)
     # P1 has 0 AP. Cannot Bake.
-    
+
     # P2 in 7. -> 6. Bake.
     p2.action("Move 6", 1)
     p2.action("Bake", 1) # P2 has 0 AP.
-    
+
     # P4 in 8. -> 7.
     # P4 has 0 AP? No, P4 moved 8 (1) Throw (1) in prev edit.
     # P4 has 0 AP.
-    
+
     for p in players: p.pass_turn()
 
 def r18():
@@ -524,30 +523,30 @@ def r18():
     start_round()
     # P1, P2 in 6. 3 Nuts available (from R17 P2 Bake).
     # P4 in 8.
-    
+
     # P1 PickUp (1).
     p1.action("PickUp", 1)
     # P1 Move 7 (1).
     p1.action("Move 7", 1)
-    
+
     # P2 PickUp (1).
     p2.action("PickUp", 1)
     # P2 Move 7 (1).
     p2.action("Move 7", 1)
-    
+
     # P4 (in 8) -> 7 -> 6.
     p4.action("Move 7", 1)
     p4.action("Move 6", 1)
     # P4 PickUp (0 AP left? No. 2 AP used).
     # Cannot Pickup.
-    
+
     # P6 (in 8) -> 7 -> 6.
     p6.action("Move 7", 1)
     p6.action("Move 6", 1)
-    
+
     # P3 Evasive.
     p3.action("EvasiveManeuvers", 2)
-    
+
     for p in players: p.pass_turn()
 
 def r19():
@@ -555,34 +554,34 @@ def r19():
     start_round()
     # P3 Evasive.
     p3.action("EvasiveManeuvers", 2)
-    
+
     # State check from failure:
     # P1: Room 7.
     # P2: Room 7.
     # P6: Room 6.
-    
+
     # P1 (in 7) -> 8. Throw P5.
     p1.action("Move 8", 1)
     p1.action("Throw P5 0", 1)
-    
+
     # P2 (in 7) -> 8. Throw P6 (where is P6? In 6).
     # P2 (in 8) -> 7 -> 6? No.
     # P6 is in 6. P2 is in 8. Not adjacent.
     # We need P6 to be in 7 or 8.
-    
+
     # P6 (in 6) -> 7 -> 8.
     p6.action("Move 7", 1)
     p6.action("Move 8", 1)
-    
+
     # Now P6 is in 8. P2 is in 8.
     # P2 (in 7) -> 8.
     p2.action("Move 8", 1)
     p2.action("Throw P6 0", 1)
-    
+
     # P5 Shoot.
     p5.action("Shoot", 1)
     # P6 Shoot (0 AP left). Cannot Shoot.
-    
+
     # P4 (in 6? Failure context says Room 6).
     # P4 has 1 nut.
     # P4 -> 7 -> 8.
@@ -592,7 +591,7 @@ def r19():
     # Wait, in R19 replacement, I removed this.
     # P4 has 0 AP.
     # P4 move 7, 8.
-    
+
     for p in players: p.pass_turn()
 
 def r20():
@@ -600,13 +599,13 @@ def r20():
     start_round()
     # P3 Evasive.
     p3.action("EvasiveManeuvers", 2)
-    
+
     # P5 has 1 nut (from R19 P1).
     p5.action("Shoot", 1)
-    
+
     # P6 has 1 nut (from R19 P2).
     p6.action("Shoot", 1)
-    
+
     # P4 in 8?
     # P4 has 0 nuts.
     # P1/P2/P4/P5/P6 in 8.
@@ -614,14 +613,14 @@ def r20():
     # P1/P2 -> 7 -> 6.
     p1.action("Move 7", 1)
     p1.action("Move 6", 1)
-    
+
     p2.action("Move 7", 1)
     p2.action("Move 6", 1)
-    
+
     # P4 -> 7 -> 6.
     p4.action("Move 7", 1)
     p4.action("Move 6", 1)
-    
+
     for p in players: p.pass_turn()
 
 def r21():
@@ -629,22 +628,22 @@ def r21():
     start_round()
     # Event: Afternoon Nap. P1 (Reader) cannot spend AP.
     # P1/P2/P4 in 6.
-    
+
     # P2 Bake (1 AP).
     p2.action("Bake", 1)
     # P2 Pickup (1 AP).
     p2.action("PickUp", 1)
-    
+
     # P4 Pickup (1 AP).
     p4.action("PickUp", 1)
     # P4 Move 7.
     p4.action("Move 7", 1)
-    
+
     # P1 Pass (Asleep).
-    
+
     # P3 Evasive.
     p3.action("EvasiveManeuvers", 2)
-    
+
     for p in players: p.pass_turn()
 
 def r22():
@@ -652,138 +651,20 @@ def r22():
     start_round()
     # P3 Evasive.
     p3.action("EvasiveManeuvers", 2)
-    
+
     # P2 in 6. Move 7. Throw P5 (in 8).
     p2.action("Move 7", 1)
     p2.action("Throw P5 0", 1)
-    
+
     # P4 in 7. Move 8. Throw P6.
     p4.action("Move 8", 1)
     p4.action("Throw P6 0", 1)
-    
+
     # P5 Shoot.
     p5.action("Shoot", 1)
     # P6 Shoot.
     p6.action("Shoot", 1)
-    
-    for p in players: p.pass_turn()
 
-def r23():
-    print("# Round 23: Single Shot (Corrected Costs).")
-    start_round()
-    
-    # 2-step moves cost 2 AP (Star Map).
-    p3.action("Move 9", 2)
-    p3.pass_turn()
-    
-    p4.action("Move 8", 2)
-    p4.pass_turn()
-    
-    p5.action("Move 8", 2)
-    p5.pass_turn()
-    
-    p6.action("Move 8", 2)
-    p6.pass_turn()
-    
-    p2.action("Move 6", 1)
-    p2.action("PickUp", 1) # P2 has 1 AP left. PickUp Ammo.
-    p2.pass_turn()
-    
-    for p in players: p.pass_turn()
-
-def r24():
-    print("# Round 24: Loop Resolution.")
-    start_round()
-    
-    # Batch 1: P3, P4, P5 (Rolls 10-12). P4 Success.
-    p3.action("Move 9", 1)
-    p4.action("Move 8", 1)
-    p5.action("Move 8", 1)
-    for p in players: print(f"{p.name}: Ready")
-    
-    # Batch 2: P3, P5 (Rolls 13-14). P3, P5 Success.
-    p3.action("Move 9", 1)
-    p5.action("Move 8", 1)
-    for p in players: print(f"{p.name}: Ready")
-    
-    for p in players: p.pass_turn()
-
-def r25():
-    print("# Round 25: Survival (Pure Wait).")
-    start_round()
-    
-    # Sync Python State with Verify State (Unknown why AP is 0).
-    p1.ap = 0
-    p2.ap = 0
-    p4.ap = 0
-    p6.ap = 0
-    
-    # P3, P5 have AP. They will Pass.
-    for p in players: p.pass_turn()
-
-def r26():
-    print("# Round 26: Stabilize (Solve Headwind + Positioning).")
-    start_round()
-    
-    # P3 (in 9). Solve Headwind. Safe from Sticky (not moving).
-    p3.action("Interact", 1) 
-    
-    # P6 (in 7). Target 8. Try twice (Sticky).
-    # If Move 1 succeeds, Shoot 1 works.
-    # If Move 1 fails, AP refund. Move 2 tries.
-    p6.action("Move 8", 1)
-    p6.action("Shoot", 1)
-    
-    p6.action("Move 8", 1)
-    p6.action("Shoot", 1)
-    
-    # P2 (in 7). Target 6. Try twice.
-    p2.action("Move 6", 1)
-    # If success, Interact (Seasick).
-    p2.action("Interact", 1)
-    
-    # Retry Move if first failed.
-    p2.action("Move 6", 1)
-    
-    for p in players: p.pass_turn()
-
-def r27():
-    print("# Round 27: Reload (Bake).")
-    start_round()
-    
-    # P2 (in 6). Bake + PickUp.
-    p2.action("Bake", 1)
-    p2.action("PickUp", 1)
-    
-    # P4, P5 (in 7). Move to 8 (Cannons).
-    p4.action("Move 8", 1)
-    p5.action("Move 8", 1)
-    
-    # P1 (in 7). Move to 6 to help carry?
-    p1.action("Move 6", 1)
-    p1.action("PickUp", 1)
-    
-    for p in players: p.pass_turn()
-
-def r28():
-    print("# Round 28: Barrage.")
-    start_round()
-    
-    # P2 (in 6). Move 7. Throw P4 (in 8).
-    p2.action("Move 7", 1)
-    p2.action("Throw P4 0", 1)
-    
-    # P1 (in 6). Move 7. Throw P5 (in 8).
-    p1.action("Move 7", 1)
-    p1.action("Throw P5 0", 1)
-    
-    # P6 (in 8). Has Ammo? (Used in R26).
-    # P4 (in 8). Has Ammo (from P2). Shoot.
-    p4.action("Shoot", 1)
-    
-    # P5 (in 8). Has Ammo (from P1). Shoot.
-    p5.action("Shoot", 1)
-    
     for p in players: p.pass_turn()
 
 def main():
@@ -812,12 +693,6 @@ def main():
     r20()
     r21()
     r22()
-    r23()
-    r24()
-    r25()
-    r26()
-    r27()
-    r28()
 
 if __name__ == "__main__":
     main()

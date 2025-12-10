@@ -70,7 +70,10 @@ fn test_flu_wave_effect_application() {
     state = GameLogic::apply_action(state, "P1", Action::VoteReady { ready: true }, None).unwrap(); // To Planning
 
     // Verify AP persists (since Telegraph no longer resets it)
-    assert_eq!(state.players["P1"].ap, 1, "AP Penalty should persist to Planning");
+    assert_eq!(
+        state.players["P1"].ap, 1,
+        "AP Penalty should persist to Planning"
+    );
 
     // 6. Complete this round (Planning -> Execution)
     // Spend the 1 AP to Pass (or just Pass)
@@ -92,5 +95,8 @@ fn test_flu_wave_effect_application() {
     assert_eq!(state.phase, GamePhase::TacticalPlanning);
 
     // 8. Verify AP restored to 2
-    assert_eq!(state.players["P1"].ap, 2, "AP should be restored to 2 in next round");
+    assert_eq!(
+        state.players["P1"].ap, 2,
+        "AP should be restored to 2 in next round"
+    );
 }
