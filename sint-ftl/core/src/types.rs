@@ -6,6 +6,14 @@ use std::collections::HashMap;
 pub type PlayerId = String;
 pub type RoomId = u32;
 
+// --- Map Layout ---
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Default)]
+pub enum MapLayout {
+    #[default]
+    Star,
+    Torus,
+}
+
 // --- Top Level State ---
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
@@ -24,6 +32,9 @@ pub struct GameState {
     pub hull_integrity: i32,
     /// Current Boss Level (0-3)
     pub boss_level: u32,
+
+    /// The Map Layout (Star, Torus, etc.)
+    pub layout: MapLayout,
 
     /// The Map
     pub map: GameMap,
@@ -280,6 +291,8 @@ pub enum MetaAction {
     Join { name: String },
     /// Set the player name (Only in Lobby)
     SetName { name: String },
+    /// Set the map layout (Only in Lobby)
+    SetMapLayout { layout: MapLayout },
     /// Receive a full state dump from a peer
     FullSync { state_json: String },
 }

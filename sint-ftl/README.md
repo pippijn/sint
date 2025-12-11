@@ -80,6 +80,7 @@ trunk serve
 ```
 *Opens in browser at `http://localhost:8080`.*
 *If you are not automatically joined, click the **"JOIN GAME"** button.*
+*New in v2.1: Use the dropdown in the **Status Report** panel (Lobby Phase) to select **Star** or **Torus** map layout.*
 
 ### **Terminal 3: AI Agent**
 The autonomous Gemini-powered crewmate.

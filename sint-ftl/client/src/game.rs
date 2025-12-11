@@ -2,7 +2,9 @@ use crate::chat::ChatView;
 use crate::map::MapView;
 use crate::state::{provide_game_context, GameContext};
 use leptos::*;
-use sint_core::{Action, GameAction, GamePhase, HazardType, MetaAction, SystemType};
+use sint_core::{
+    types::MapLayout, Action, GameAction, GamePhase, HazardType, MetaAction, SystemType,
+};
 
 #[component]
 fn PhaseTracker(phase: GamePhase) -> impl IntoView {
@@ -421,36 +423,68 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                             // Name Input or Display
                             {if is_lobby {
                                 let c_up = ctx_update.clone();
+                                let c_map = ctx_update.clone();
+                                let current_layout = s.layout;
                                 view! {
-                                    <div style="width: 100%; display: flex; gap: 5px; margin-bottom: 5px;">
-                                        <input
-                                            type="text"
-                                            prop:value=name_input
-                                            on:input=move |ev| {
-                                                set_name_input.set(event_target_value(&ev))
-                                            }
-                                            style="flex: 1; padding: 6px; border-radius: 4px; border: 1px solid #555; background: #222; color: white; min-width: 0;"
-                                        />
-                                        <button
-                                            on:click=move |_| {
-                                                c_up.perform_action
-                                                    .call(
-                                                        Action::Meta(MetaAction::SetName {
-                                                            name: name_input.get(),
-                                                        }),
-                                                    )
-                                            }
-                                            style="padding: 6px 12px; background: #2196f3; color: white; border: none; border-radius: 4px; cursor: pointer;"
-                                        >
-                                            "UPDATE"
-                                        </button>
+                                    <div style="width: 100%; display: flex; flex-direction: column; gap: 5px; margin-bottom: 5px;">
+                                        <div style="display: flex; gap: 5px;">
+                                            <input
+                                                type="text"
+                                                prop:value=name_input
+                                                on:input=move |ev| {
+                                                    set_name_input.set(event_target_value(&ev))
+                                                }
+                                                style="flex: 1; padding: 6px; border-radius: 4px; border: 1px solid #555; background: #222; color: white; min-width: 0;"
+                                            />
+                                            <button
+                                                on:click=move |_| {
+                                                    c_up.perform_action
+                                                        .call(
+                                                            Action::Meta(MetaAction::SetName {
+                                                                name: name_input.get(),
+                                                            }),
+                                                        )
+                                                }
+                                                style="padding: 6px 12px; background: #2196f3; color: white; border: none; border-radius: 4px; cursor: pointer;"
+                                            >
+                                                "UPDATE"
+                                            </button>
+                                        </div>
+
+                                        // Map Layout Selector
+                                        <div style="display: flex; align-items: center; gap: 5px; background: #222; padding: 5px; border-radius: 4px;">
+                                            <span style="font-size: 0.9em; color: #aaa;">"Map:"</span>
+                                            <select
+                                                on:change=move |ev| {
+                                                    let val = event_target_value(&ev);
+                                                    let layout = match val.as_str() {
+                                                        "Torus" => MapLayout::Torus,
+                                                        _ => MapLayout::Star,
+                                                    };
+                                                    c_map
+                                                        .perform_action
+                                                        .call(Action::Meta(MetaAction::SetMapLayout { layout }));
+                                                }
+                                                prop:value=format!("{:?}", current_layout)
+                                                style="flex: 1; padding: 4px; border-radius: 2px; border: 1px solid #555; background: #333; color: white;"
+                                            >
+                                                <option value="Star">"Star Layout"</option>
+                                                <option value="Torus">"Torus Layout"</option>
+                                            </select>
+                                        </div>
                                     </div>
                                 }
                                     .into_view()
                             } else {
+                                let layout_name = format!("{:?}", s.layout);
                                 view! {
-                                    <div style="width: 100%; margin-bottom: 5px; font-size: 1.1em;">
-                                        "👤 " <strong>{p.name}</strong>
+                                    <div style="width: 100%; margin-bottom: 5px;">
+                                        <div style="font-size: 1.1em;">
+                                            "👤 " <strong>{p.name}</strong>
+                                        </div>
+                                        <div style="font-size: 0.8em; color: #888;">
+                                            "Map: " {layout_name}
+                                        </div>
                                     </div>
                                 }
                                     .into_view()
@@ -1046,7 +1080,10 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                             if let Some(sol) = &card.solution {
                                 let room_match = match sol.target_system {
                                     Some(sys) => {
-                                        s.map.rooms.get(&player.room_id).is_some_and(|r| r.system == Some(sys))
+                                        s.map
+                                            .rooms
+                                            .get(&player.room_id)
+                                            .is_some_and(|r| r.system == Some(sys))
                                     }
                                     None => true,
                                 };

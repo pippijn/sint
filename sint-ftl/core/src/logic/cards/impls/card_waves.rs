@@ -1,7 +1,5 @@
 use crate::{
-    logic::{
-        cards::behavior::CardBehavior, find_room_with_system, pathfinding::find_path,
-    },
+    logic::{cards::behavior::CardBehavior, find_room_with_system, pathfinding::find_path},
     types::{Card, CardId, CardType, GameState, SystemType},
 };
 

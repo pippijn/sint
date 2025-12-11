@@ -5,7 +5,7 @@ use sint_core::types::{Action, MetaAction, SystemType};
 fn test_join_action_spawns_in_dormitory() {
     // 1. Setup: Create a new game with no players
     let initial_state = GameLogic::new_game(vec![], 0);
-    
+
     // Find the canonical Dormitory room ID from the map itself
     let dormitory_id = initial_state
         .map

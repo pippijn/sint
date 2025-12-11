@@ -1,18 +1,35 @@
 use crate::state::GameContext;
 use leptos::*;
 use sint_core::{
-    logic::pathfinding::find_path, Action, GameAction, GamePhase, HazardType, ItemType, Player,
-    Room,
+    logic::pathfinding::find_path, types::MapLayout, Action, GameAction, GamePhase, HazardType,
+    ItemType, Player, Room,
 };
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum DoorDirection {
     Top,
     Bottom,
+    Left,
+    Right,
 }
 
 #[component]
 pub fn MapView(ctx: GameContext) -> impl IntoView {
+    let state = ctx.state;
+
+    view! {
+        {move || {
+            let layout_type = state.get().layout;
+            match layout_type {
+                MapLayout::Star => view! { <StarMapView ctx=ctx.clone() /> },
+                MapLayout::Torus => view! { <TorusMapView ctx=ctx.clone() /> },
+            }
+        }}
+    }
+}
+
+#[component]
+fn StarMapView(ctx: GameContext) -> impl IntoView {
     let state = ctx.state;
 
     // Layout Logic (Memoized)
@@ -25,22 +42,19 @@ pub fn MapView(ctx: GameContext) -> impl IntoView {
         }
 
         // Try to find room 0 specifically, or fallback to max neighbors
-        let hub = rooms
-            .iter()
-            .find(|r| r.id == 0)
-            .cloned()
-            .or_else(|| {
-                rooms.sort_by_key(|r| std::cmp::Reverse(r.neighbors.len()));
-                rooms.first().cloned()
-            });
+        let hub = rooms.iter().find(|r| r.id == 0).cloned().or_else(|| {
+            rooms.sort_by_key(|r| std::cmp::Reverse(r.neighbors.len()));
+            rooms.first().cloned()
+        });
 
         if let Some(hallway) = hub {
-             // 2. Split neighbors into Top/Bottom
+            // 2. Split neighbors into Top/Bottom
             let mut top_row = vec![];
             let mut bot_row = vec![];
 
             // Get all other rooms
-            let mut remaining: Vec<Room> = rooms.into_iter().filter(|r| r.id != hallway.id).collect();
+            let mut remaining: Vec<Room> =
+                rooms.into_iter().filter(|r| r.id != hallway.id).collect();
             remaining.sort_by_key(|r| r.id); // Stable sort
 
             for (i, room) in remaining.into_iter().enumerate() {
@@ -52,7 +66,7 @@ pub fn MapView(ctx: GameContext) -> impl IntoView {
             }
             (vec![hallway], top_row, bot_row)
         } else {
-             (vec![], vec![], vec![])
+            (vec![], vec![], vec![])
         }
     });
 
@@ -83,7 +97,7 @@ pub fn MapView(ctx: GameContext) -> impl IntoView {
                                     <RoomCard
                                         room=r.clone()
                                         ctx=ctx_top.clone()
-                                        door_dir=DoorDirection::Bottom
+                                        door_dir=Some(DoorDirection::Bottom)
                                     />
                                 }
                             })
@@ -104,7 +118,11 @@ pub fn MapView(ctx: GameContext) -> impl IntoView {
                             .map(|r| {
                                 view! {
                                     <div style="width: 100%; display: flex;">
-                                        <RoomCard room=r.clone() ctx=ctx_mid.clone() />
+                                        <RoomCard
+                                            room=r.clone()
+                                            ctx=ctx_mid.clone()
+                                            door_dir=None
+                                        />
                                     </div>
                                 }
                             })
@@ -127,7 +145,7 @@ pub fn MapView(ctx: GameContext) -> impl IntoView {
                                     <RoomCard
                                         room=r.clone()
                                         ctx=ctx_bot.clone()
-                                        door_dir=DoorDirection::Top
+                                        door_dir=Some(DoorDirection::Top)
                                     />
                                 }
                             })
@@ -140,11 +158,92 @@ pub fn MapView(ctx: GameContext) -> impl IntoView {
 }
 
 #[component]
-fn RoomCard(
-    room: Room,
-    ctx: GameContext,
-    #[prop(optional)] door_dir: Option<DoorDirection>,
-) -> impl IntoView {
+fn TorusMapView(ctx: GameContext) -> impl IntoView {
+    let state = ctx.state;
+
+    // Grid Layout: 4x4 Hollow Square
+    // 0  1  2  3
+    // 11 .  .  4
+    // 10 .  .  5
+    // 9  8  7  6
+
+    let grid_map = vec![
+        // Row 0
+        (0, 0, Some(DoorDirection::Right)),
+        (0, 1, Some(DoorDirection::Right)),
+        (0, 2, Some(DoorDirection::Right)),
+        (0, 3, Some(DoorDirection::Bottom)),
+        // Right Col
+        (1, 3, Some(DoorDirection::Bottom)),
+        (2, 3, Some(DoorDirection::Bottom)),
+        // Bottom Row (Reversed)
+        (3, 3, Some(DoorDirection::Left)),
+        (3, 2, Some(DoorDirection::Left)),
+        (3, 1, Some(DoorDirection::Left)),
+        (3, 0, Some(DoorDirection::Top)),
+        // Left Col (Reversed)
+        (2, 0, Some(DoorDirection::Top)),
+        (1, 0, Some(DoorDirection::Top)),
+    ];
+
+    // Map Room ID (index in vector) to Grid Position
+    // Room 0 -> (0,0), Room 1 -> (0,1)...
+    // The Torus generator creates IDs 0..11 sequentially.
+
+    let cells = create_memo(move |_| {
+        let s = state.get();
+        let mut cell_views = vec![];
+
+        for (room_idx, (row, col, door)) in grid_map.iter().enumerate() {
+            let rid = room_idx as u32;
+            if let Some(room) = s.map.rooms.get(&rid) {
+                cell_views.push((*row, *col, *door, room.clone()));
+            }
+        }
+        cell_views
+    });
+
+    view! {
+        <div style="
+        display: grid; 
+        grid-template-rows: repeat(4, 1fr); 
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px; 
+        background: #111; 
+        padding: 20px; 
+        border-radius: 12px;
+        border: 2px solid #333;
+        width: 100%;
+        height: 600px;
+        box-sizing: border-box;
+        ">
+            {{
+                let ctx_inner = ctx.clone();
+                move || {
+                    cells
+                        .get()
+                        .into_iter()
+                        .map(|(row, col, door, room)| {
+                            let grid_area = format!("{}/{}", row + 1, col + 1);
+                            // Grid Area Calculation: row / col are 0-based. CSS Grid is 1-based.
+                            view! {
+                                <div style=format!(
+                                    "grid-area: {}; min-width: 0; min-height: 0;",
+                                    grid_area,
+                                )>
+                                    <RoomCard room=room ctx=ctx_inner.clone() door_dir=door />
+                                </div>
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                }
+            }}
+        </div>
+    }
+}
+
+#[component]
+fn RoomCard(room: Room, ctx: GameContext, door_dir: Option<DoorDirection>) -> impl IntoView {
     let state_sig = ctx.state;
     let my_pid = ctx.player_id.clone();
     let ctx_click = ctx.clone();
@@ -315,17 +414,14 @@ fn RoomCard(
 
                     // Door Connector
                     {
-                        let d_style = "position: absolute; left: 50%; transform: translateX(-50%); width: 40px; height: 10px; z-index: 10;";
-                        let d_border = format!("2px {} {}", border_style, border_color);
+                        let d_style = "position: absolute; width: 20px; height: 20px; z-index: 10; background: #555; border: 1px solid #333;";
                         match door_dir {
                             Some(DoorDirection::Top) => {
 
                                 view! {
                                     <div style=format!(
-                                        "{}; background: {}; top: -12px; border: {}; border-bottom: none; border-radius: 4px 4px 0 0;",
+                                        "{}; top: -10px; left: 50%; transform: translateX(-50%);",
                                         d_style,
-                                        bg_color,
-                                        d_border,
                                     )></div>
                                 }
                                     .into_view()
@@ -333,10 +429,26 @@ fn RoomCard(
                             Some(DoorDirection::Bottom) => {
                                 view! {
                                     <div style=format!(
-                                        "{}; background: {}; bottom: -12px; border: {}; border-top: none; border-radius: 0 0 4px 4px;",
+                                        "{}; bottom: -10px; left: 50%; transform: translateX(-50%);",
                                         d_style,
-                                        bg_color,
-                                        d_border,
+                                    )></div>
+                                }
+                                    .into_view()
+                            }
+                            Some(DoorDirection::Left) => {
+                                view! {
+                                    <div style=format!(
+                                        "{}; left: -10px; top: 50%; transform: translateY(-50%);",
+                                        d_style,
+                                    )></div>
+                                }
+                                    .into_view()
+                            }
+                            Some(DoorDirection::Right) => {
+                                view! {
+                                    <div style=format!(
+                                        "{}; right: -10px; top: 50%; transform: translateY(-50%);",
+                                        d_style,
                                     )></div>
                                 }
                                     .into_view()

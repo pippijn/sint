@@ -39,7 +39,11 @@ fn test_amerigo_eats_peppernuts() {
     let mut state = new_test_game(vec!["P1".to_string()]);
     state.phase = GamePhase::MorningReport;
 
-    let storage_id = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Storage).unwrap();
+    let storage_id = sint_core::logic::find_room_with_system_in_map(
+        &state.map,
+        sint_core::types::SystemType::Storage,
+    )
+    .unwrap();
 
     // Place Peppernuts in Storage
     if let Some(r) = state.map.rooms.get_mut(&storage_id) {
@@ -71,7 +75,11 @@ fn test_afternoon_nap_blocks_actions() {
     };
     state.active_situations.push(card);
 
-    let kitchen = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Kitchen).unwrap();
+    let kitchen = sint_core::logic::find_room_with_system_in_map(
+        &state.map,
+        sint_core::types::SystemType::Kitchen,
+    )
+    .unwrap();
 
     if let Some(p) = state.players.get_mut("P1") {
         p.room_id = kitchen;
@@ -341,7 +349,11 @@ fn test_mice_plague_eats_nuts() {
     };
     state.active_situations.push(card);
 
-    let storage = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Storage).unwrap();
+    let storage = sint_core::logic::find_room_with_system_in_map(
+        &state.map,
+        sint_core::types::SystemType::Storage,
+    )
+    .unwrap();
 
     if let Some(r) = state.map.rooms.get_mut(&storage) {
         r.items.clear();
@@ -372,7 +384,11 @@ fn test_overheating_ap_loss() {
     };
     state.active_situations.push(card);
 
-    let engine = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Engine).unwrap();
+    let engine = sint_core::logic::find_room_with_system_in_map(
+        &state.map,
+        sint_core::types::SystemType::Engine,
+    )
+    .unwrap();
 
     if let Some(p) = state.players.get_mut("P1") {
         p.room_id = engine;
@@ -392,8 +408,16 @@ fn test_overheating_ap_loss() {
 #[test]
 fn test_panic_move() {
     let mut state = new_test_game(vec!["P1".to_string()]);
-    let bridge = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Bridge).unwrap();
-    let dorm = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Dormitory).unwrap();
+    let bridge = sint_core::logic::find_room_with_system_in_map(
+        &state.map,
+        sint_core::types::SystemType::Bridge,
+    )
+    .unwrap();
+    let dorm = sint_core::logic::find_room_with_system_in_map(
+        &state.map,
+        sint_core::types::SystemType::Dormitory,
+    )
+    .unwrap();
 
     if let Some(p) = state.players.get_mut("P1") {
         p.room_id = bridge;
@@ -502,7 +526,11 @@ fn test_short_circuit() {
     let behavior = get_behavior(CardId::ShortCircuit);
     behavior.on_activate(&mut state);
 
-    let engine_id = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Engine).unwrap();
+    let engine_id = sint_core::logic::find_room_with_system_in_map(
+        &state.map,
+        sint_core::types::SystemType::Engine,
+    )
+    .unwrap();
     let engine = state.map.rooms.get(&engine_id).unwrap();
     assert!(engine.hazards.contains(&sint_core::types::HazardType::Fire));
 }
@@ -562,11 +590,22 @@ fn test_sticky_floor() {
     };
     state.active_situations.push(card);
 
-    let kitchen = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Kitchen).unwrap();
-    let bridge = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Bridge).unwrap();
+    let kitchen = sint_core::logic::find_room_with_system_in_map(
+        &state.map,
+        sint_core::types::SystemType::Kitchen,
+    )
+    .unwrap();
+    let bridge = sint_core::logic::find_room_with_system_in_map(
+        &state.map,
+        sint_core::types::SystemType::Bridge,
+    )
+    .unwrap();
 
-    let cost_kitchen =
-        sint_core::logic::actions::action_cost(&state, "P1", &GameAction::Move { to_room: kitchen });
+    let cost_kitchen = sint_core::logic::actions::action_cost(
+        &state,
+        "P1",
+        &GameAction::Move { to_room: kitchen },
+    );
     assert_eq!(cost_kitchen, 2);
 
     let cost_other =

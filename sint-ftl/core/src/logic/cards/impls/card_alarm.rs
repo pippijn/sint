@@ -32,9 +32,13 @@ impl CardBehavior for WailingAlarmCard {
         match action {
             GameAction::Interact => {
                 let p = state.players.get(player_id).unwrap();
-                let room = state.map.rooms.get(&p.room_id).ok_or(GameError::RoomNotFound)?;
+                let room = state
+                    .map
+                    .rooms
+                    .get(&p.room_id)
+                    .ok_or(GameError::RoomNotFound)?;
                 if room.system.is_some() {
-                     return Err(GameError::InvalidAction(
+                    return Err(GameError::InvalidAction(
                         "Wailing Alarm must be silenced in an Empty Room.".to_string(),
                     ));
                 }

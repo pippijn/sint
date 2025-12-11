@@ -1,6 +1,7 @@
 pub mod actions;
 pub mod cards;
 pub mod handlers;
+pub mod map_gen;
 pub mod pathfinding;
 pub mod resolution;
 
@@ -34,69 +35,20 @@ pub enum GameError {
     InvalidAction(String),
 }
 
-// Room 0 is the Hub (None).
-// Rooms 1-9 are Systems.
-const ROOM_DEFINITIONS: &[(Option<SystemType>, &str)] = &[
-    (None, "Central Hallway"),              // 0
-    (Some(SystemType::Bow), "The Bow"),     // 1
-    (Some(SystemType::Dormitory), "Dormitory"), // 2
-    (Some(SystemType::Cargo), "Cargo"),     // 3
-    (Some(SystemType::Engine), "Engine"),   // 4
-    (Some(SystemType::Kitchen), "Kitchen"), // 5
-    (Some(SystemType::Cannons), "Cannons"), // 6
-    (Some(SystemType::Bridge), "Bridge"),   // 7
-    (Some(SystemType::Sickbay), "Sickbay"), // 8
-    (Some(SystemType::Storage), "Storage"), // 9
-];
-
 pub struct GameLogic;
 
 impl GameLogic {
     pub fn new_game(player_ids: Vec<String>, seed: u64) -> GameState {
-        let mut rooms = HashMap::new();
-        let hub_id = 0;
+        Self::new_game_with_layout(player_ids, seed, MapLayout::Star)
+    }
 
-        // Star Layout Construction
-        for (i, (sys, name)) in ROOM_DEFINITIONS.iter().enumerate() {
-            let id = i as u32;
-            let mut neighbors = vec![];
+    pub fn new_game_with_layout(
+        player_ids: Vec<String>,
+        seed: u64,
+        layout: MapLayout,
+    ) -> GameState {
+        let map = map_gen::generate_map(layout);
 
-            if id == hub_id {
-                // Hub connects to all other rooms (1..N)
-                for j in 1..ROOM_DEFINITIONS.len() {
-                    neighbors.push(j as u32);
-                }
-            } else {
-                // Spoke connects only to Hub
-                neighbors.push(hub_id);
-            }
-
-            // Special items
-            let items = if *sys == Some(SystemType::Storage) {
-                vec![ItemType::Peppernut; 5]
-            } else if *sys == Some(SystemType::Cargo) {
-                vec![ItemType::Wheelbarrow]
-            } else if *sys == Some(SystemType::Engine) {
-                vec![ItemType::Extinguisher]
-            } else {
-                vec![]
-            };
-
-            rooms.insert(
-                id,
-                Room {
-                    id,
-                    name: name.to_string(),
-                    system: *sys,
-                    hazards: vec![],
-                    items,
-                    neighbors,
-                },
-            );
-        }
-
-        let map = GameMap { rooms };
-        
         // Determine Start Room (Dormitory)
         let start_room = find_room_with_system_in_map(&map, SystemType::Dormitory).unwrap_or(0);
 
@@ -128,6 +80,7 @@ impl GameLogic {
             turn_count: 1,
             hull_integrity: 20,
             boss_level: 0,
+            layout,
             map,
             players,
             enemy: get_boss(0),
@@ -166,7 +119,10 @@ pub fn find_room_with_system_in_map(map: &GameMap, sys: SystemType) -> Option<Ro
 }
 
 pub fn find_empty_rooms(state: &GameState) -> Vec<RoomId> {
-    state.map.rooms.values()
+    state
+        .map
+        .rooms
+        .values()
         .filter(|r| r.system.is_none())
         .map(|r| r.id)
         .collect()

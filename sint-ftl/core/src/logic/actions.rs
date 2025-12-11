@@ -49,8 +49,8 @@ fn apply_meta_action(
             }
 
             // Correctly find the Dormitory's Room ID
-            let start_room = find_room_with_system_in_map(&state.map, SystemType::Dormitory)
-                .unwrap_or(0); // Fallback to 0 if not found
+            let start_room =
+                find_room_with_system_in_map(&state.map, SystemType::Dormitory).unwrap_or(0); // Fallback to 0 if not found
 
             state.players.insert(
                 player_id.to_string(),
@@ -92,6 +92,29 @@ fn apply_meta_action(
             } else {
                 return Err(GameError::PlayerNotFound);
             }
+            state.sequence_id += 1;
+            Ok(state)
+        }
+        MetaAction::SetMapLayout { layout } => {
+            if state.phase != GamePhase::Lobby {
+                return Err(GameError::InvalidAction(
+                    "Cannot change map layout after game start".to_string(),
+                ));
+            }
+
+            state.layout = layout;
+            state.map = crate::logic::map_gen::generate_map(layout);
+
+            // Move all players to the new Dormitory
+            let start_room =
+                find_room_with_system_in_map(&state.map, SystemType::Dormitory).unwrap_or(0);
+
+            for p in state.players.values_mut() {
+                p.room_id = start_room;
+                // Reset ready status so players must re-confirm
+                p.is_ready = false;
+            }
+
             state.sequence_id += 1;
             Ok(state)
         }
@@ -422,7 +445,8 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
             }
 
             // Respawn Logic
-            let dormitory_id = find_room_with_system_in_map(&state.map, SystemType::Dormitory).unwrap_or(0);
+            let dormitory_id =
+                find_room_with_system_in_map(&state.map, SystemType::Dormitory).unwrap_or(0);
             for p in state.players.values_mut() {
                 if p.status.contains(&PlayerStatus::Fainted) {
                     p.status.retain(|s| *s != PlayerStatus::Fainted);

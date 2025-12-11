@@ -32,9 +32,9 @@ impl CardBehavior for AmerigoCard {
             // Check if player is in Storage
             let p = state.players.get(player_id).unwrap();
             let storage_room = find_room_with_system(state, SystemType::Storage);
-            
+
             if Some(p.room_id) != storage_room {
-                 return Err(crate::GameError::InvalidAction(
+                return Err(crate::GameError::InvalidAction(
                     "Amerigo is in Storage. Go there to shoo him.".to_string(),
                 ));
             }

@@ -8,7 +8,11 @@ fn test_cannon_hit() {
     let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
-    let cannons = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Cannons).unwrap();
+    let cannons = sint_core::logic::find_room_with_system_in_map(
+        &state.map,
+        sint_core::types::SystemType::Cannons,
+    )
+    .unwrap();
 
     // Setup: P1 in Cannons, Has Nut. Enemy HP 5.
     if let Some(p) = state.players.get_mut("P1") {
@@ -43,8 +47,16 @@ fn test_shields_block_damage() {
     let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
-    let engine = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Engine).unwrap();
-    let kitchen = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Kitchen).unwrap();
+    let engine = sint_core::logic::find_room_with_system_in_map(
+        &state.map,
+        sint_core::types::SystemType::Engine,
+    )
+    .unwrap();
+    let kitchen = sint_core::logic::find_room_with_system_in_map(
+        &state.map,
+        sint_core::types::SystemType::Kitchen,
+    )
+    .unwrap();
 
     // P1 in Engine
     if let Some(p) = state.players.get_mut("P1") {
@@ -94,8 +106,16 @@ fn test_evasion_blocks_hit() {
     let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
-    let bridge = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Bridge).unwrap();
-    let kitchen = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Kitchen).unwrap();
+    let bridge = sint_core::logic::find_room_with_system_in_map(
+        &state.map,
+        sint_core::types::SystemType::Bridge,
+    )
+    .unwrap();
+    let kitchen = sint_core::logic::find_room_with_system_in_map(
+        &state.map,
+        sint_core::types::SystemType::Kitchen,
+    )
+    .unwrap();
 
     // P1 in Bridge
     if let Some(p) = state.players.get_mut("P1") {
@@ -141,7 +161,11 @@ fn test_boss_progression() {
     let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
-    let cannons = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Cannons).unwrap();
+    let cannons = sint_core::logic::find_room_with_system_in_map(
+        &state.map,
+        sint_core::types::SystemType::Cannons,
+    )
+    .unwrap();
 
     // Set Boss HP to 1
     state.enemy.hp = 1;
@@ -174,7 +198,11 @@ fn test_game_over_hull() {
     state.hull_integrity = 1;
     state.phase = GamePhase::EnemyAction;
 
-    let kitchen = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Kitchen).unwrap();
+    let kitchen = sint_core::logic::find_room_with_system_in_map(
+        &state.map,
+        sint_core::types::SystemType::Kitchen,
+    )
+    .unwrap();
 
     // Trigger hazard damage
     if let Some(r) = state.map.rooms.get_mut(&kitchen) {

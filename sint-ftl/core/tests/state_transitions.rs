@@ -49,11 +49,13 @@ fn test_actions_are_disallowed_outside_planning_phase() {
     // 1. Setup: Create a game with one player.
     let mut state = GameLogic::new_game(vec!["p1".to_string()], 0);
     let player_id = get_player_ids(&state)[0].clone();
-    
+
     // Find a valid room to move to
     let start_room = state.players.get(&player_id).unwrap().room_id;
     let target_room = state.map.rooms.get(&start_room).unwrap().neighbors[0];
-    let move_action = Action::Game(GameAction::Move { to_room: target_room });
+    let move_action = Action::Game(GameAction::Move {
+        to_room: target_room,
+    });
 
     // 2. Action & Assert: Test in various non-planning phases
     let disallowed_phases = [
@@ -73,7 +75,10 @@ fn test_actions_are_disallowed_outside_planning_phase() {
             phase
         );
         let error = result.unwrap_err();
-        assert!(matches!(error, sint_core::logic::GameError::InvalidAction(_)));
+        assert!(matches!(
+            error,
+            sint_core::logic::GameError::InvalidAction(_)
+        ));
     }
 }
 
@@ -84,10 +89,15 @@ fn test_full_phase_cycle() {
     let player_id = get_player_ids(&state)[0].clone();
 
     // 2. Action & Assert: Manually step through the phases
-    
+
     // Start of the game, players ready up in the lobby
     state.phase = GamePhase::Lobby;
-    state = apply_action(state, &player_id, Action::Game(GameAction::VoteReady { ready: true })).unwrap();
+    state = apply_action(
+        state,
+        &player_id,
+        Action::Game(GameAction::VoteReady { ready: true }),
+    )
+    .unwrap();
 
     // Morning Report (Turn 1)
     assert_eq!(state.phase, GamePhase::MorningReport);
@@ -95,9 +105,19 @@ fn test_full_phase_cycle() {
     assert_eq!(state.players.get(&player_id).unwrap().ap, 2); // AP is reset
 
     // Players ready up to advance
-    state = apply_action(state, &player_id, Action::Game(GameAction::VoteReady { ready: true })).unwrap();
+    state = apply_action(
+        state,
+        &player_id,
+        Action::Game(GameAction::VoteReady { ready: true }),
+    )
+    .unwrap();
     assert_eq!(state.phase, GamePhase::EnemyTelegraph);
-    state = apply_action(state, &player_id, Action::Game(GameAction::VoteReady { ready: true })).unwrap();
+    state = apply_action(
+        state,
+        &player_id,
+        Action::Game(GameAction::VoteReady { ready: true }),
+    )
+    .unwrap();
     assert_eq!(state.phase, GamePhase::TacticalPlanning);
 
     // Player takes their turn
@@ -106,14 +126,28 @@ fn test_full_phase_cycle() {
 
     // After execution, since all AP is used, it should automatically go to EnemyAction
     // Note: The `advance_phase` is called internally. We need to vote ready to trigger the check.
-    state = apply_action(state, &player_id, Action::Game(GameAction::VoteReady { ready: true })).unwrap();
+    state = apply_action(
+        state,
+        &player_id,
+        Action::Game(GameAction::VoteReady { ready: true }),
+    )
+    .unwrap();
     assert_eq!(state.phase, GamePhase::EnemyAction);
 
     // After EnemyAction, it should loop back to Morning Report for the next turn
-    state = apply_action(state, &player_id, Action::Game(GameAction::VoteReady { ready: true })).unwrap();
+    state = apply_action(
+        state,
+        &player_id,
+        Action::Game(GameAction::VoteReady { ready: true }),
+    )
+    .unwrap();
 
     // Morning Report (Turn 2)
     assert_eq!(state.phase, GamePhase::MorningReport);
     assert_eq!(state.turn_count, 2, "Turn count should have incremented");
-    assert_eq!(state.players.get(&player_id).unwrap().ap, 2, "AP should be reset for the new turn");
+    assert_eq!(
+        state.players.get(&player_id).unwrap().ap,
+        2,
+        "AP should be reset for the new turn"
+    );
 }

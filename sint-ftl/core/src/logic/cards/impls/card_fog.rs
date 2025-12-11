@@ -1,6 +1,8 @@
 use crate::{
     logic::{cards::behavior::CardBehavior, find_room_with_system},
-    types::{AttackEffect, Card, CardId, CardSolution, CardType, EnemyAttack, GameState, SystemType},
+    types::{
+        AttackEffect, Card, CardId, CardSolution, CardType, EnemyAttack, GameState, SystemType,
+    },
 };
 use rand::{rngs::StdRng, Rng, SeedableRng};
 

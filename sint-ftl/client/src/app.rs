@@ -16,6 +16,7 @@ pub fn App() -> impl IntoView {
         Some(rid) => {
             let pid = player_param
                 .unwrap_or_else(|| format!("Player_{}", &uuid::Uuid::new_v4().to_string()[..5]));
+
             view! { <GameView room_id=rid player_id=pid /> }
         }
         None => {

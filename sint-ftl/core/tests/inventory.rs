@@ -8,7 +8,11 @@ fn test_pickup_limit() {
     let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
-    let kitchen = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Kitchen).unwrap();
+    let kitchen = sint_core::logic::find_room_with_system_in_map(
+        &state.map,
+        sint_core::types::SystemType::Kitchen,
+    )
+    .unwrap();
 
     // Give P1 a Nut
     if let Some(p) = state.players.get_mut("P1") {
@@ -37,7 +41,11 @@ fn test_pickup_limit_with_wheelbarrow() {
     let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
-    let kitchen = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Kitchen).unwrap();
+    let kitchen = sint_core::logic::find_room_with_system_in_map(
+        &state.map,
+        sint_core::types::SystemType::Kitchen,
+    )
+    .unwrap();
 
     if let Some(p) = state.players.get_mut("P1") {
         p.inventory.push(ItemType::Wheelbarrow);
@@ -85,7 +93,11 @@ fn test_throw_item() {
     let mut state = GameLogic::new_game(vec!["P1".to_string(), "P2".to_string()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
-    let kitchen = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Kitchen).unwrap();
+    let kitchen = sint_core::logic::find_room_with_system_in_map(
+        &state.map,
+        sint_core::types::SystemType::Kitchen,
+    )
+    .unwrap();
     let hallway = 0;
 
     if let Some(p) = state.players.get_mut("P1") {

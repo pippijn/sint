@@ -43,7 +43,8 @@ impl CardBehavior for MonsterDoughCard {
         // Block actions in Kitchen.
         if let GameAction::Bake = action {
             let triggered = state.active_situations.iter().any(|c| {
-                c.id == CardId::MonsterDough && matches!(c.card_type, CardType::Timebomb { rounds_left: 0 })
+                c.id == CardId::MonsterDough
+                    && matches!(c.card_type, CardType::Timebomb { rounds_left: 0 })
             });
             if triggered {
                 return Err(GameError::InvalidAction(

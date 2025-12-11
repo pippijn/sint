@@ -102,6 +102,8 @@ Cards must no longer hardcode Room IDs. We will implement helper functions in `G
 
 ## 6. Client / UI
 
-*   **Status:** **Out of Scope.**
-*   The current client hardcodes a specific visual layout. Updates to the backend Map Topology will likely render the client map incorrectly (or break the layout logic). This is accepted for this iteration; the focus is on Backend Logic correctness.
+*   **Status:** **Implemented.**
+*   The **Map Layout Selector** is available in the **Game View** (under "Status Report") while in the **Lobby Phase**.
+*   **Star Layout:** Uses the classic visualizer (Hub + Rows).
+*   **Torus Layout:** Uses a **4x4 Grid** layout to visualize the ring topology (Room 0 at Top Left, winding clockwise).
 *   **Compatibility:** We preserve `target_room` in `EnemyAttack` so the Client (and AI Agent) can still visualize targets without schema breaking changes.

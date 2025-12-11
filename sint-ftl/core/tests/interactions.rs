@@ -62,13 +62,12 @@ fn test_multiple_situation_cards_stack_effects() {
     // 4. Action & Assert: Attempt to move, which should fail.
     let start_room = player.room_id;
     let target_room = state.map.rooms.get(&start_room).unwrap().neighbors[0];
-    let move_action = Action::Game(GameAction::Move { to_room: target_room });
+    let move_action = Action::Game(GameAction::Move {
+        to_room: target_room,
+    });
 
     let result = apply_action(state.clone(), &player_id, move_action);
-    assert!(
-        result.is_err(),
-        "Move action should fail with 0 AP."
-    );
+    assert!(result.is_err(), "Move action should fail with 0 AP.");
     let error = result.unwrap_err();
     assert!(
         matches!(error, sint_core::logic::GameError::NotEnoughAP),
@@ -83,7 +82,7 @@ fn test_hazard_blocks_card_effect() {
     let mut state = GameLogic::new_game(vec!["p1".to_string()], 0);
     state.phase = GamePhase::TacticalPlanning;
     let player_id = get_player_ids(&state)[0].clone();
-    
+
     // Add Seagull Attack card
     state.active_situations.push(Card {
         id: CardId::SeagullAttack,
@@ -93,19 +92,21 @@ fn test_hazard_blocks_card_effect() {
         options: vec![],
         solution: None,
     });
-    
+
     // Give the player a Peppernut, which is the condition for the blockade.
     let p = state.players.get_mut(&player_id).unwrap();
     p.inventory.push(ItemType::Peppernut);
-    
+
     let room_id = p.room_id;
 
     // 2. Action: Attempt to move.
     let target_room = state.map.rooms.get(&room_id).unwrap().neighbors[0];
-    let move_action = Action::Game(GameAction::Move { to_room: target_room });
-    
+    let move_action = Action::Game(GameAction::Move {
+        to_room: target_room,
+    });
+
     let result = apply_action(state.clone(), &player_id, move_action);
-    
+
     // 3. Assert: The move action is blocked because the player has a Peppernut.
     assert!(
         result.is_err(),

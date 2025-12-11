@@ -8,7 +8,11 @@ fn test_scenario_fire_in_kitchen() {
     let mut state = GameLogic::new_game(vec!["P1".to_string(), "P2".to_string()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
-    let kitchen = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Kitchen).unwrap();
+    let kitchen = sint_core::logic::find_room_with_system_in_map(
+        &state.map,
+        sint_core::types::SystemType::Kitchen,
+    )
+    .unwrap();
     let hallway = 0; // Hub
 
     if let Some(r) = state.map.rooms.get_mut(&kitchen) {
@@ -64,7 +68,9 @@ fn test_scenario_fire_in_kitchen() {
     assert!(state.map.rooms[&kitchen].hazards.is_empty());
     // P1 baked -> 3 nuts.
     // P1 picked up? No, items stay in room.
-    assert!(state.map.rooms[&kitchen].items.contains(&ItemType::Peppernut));
+    assert!(state.map.rooms[&kitchen]
+        .items
+        .contains(&ItemType::Peppernut));
 }
 
 #[test]
@@ -75,8 +81,16 @@ fn test_scenario_bucket_brigade() {
     );
     state.phase = GamePhase::TacticalPlanning;
 
-    let kitchen = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Kitchen).unwrap();
-    let cannons = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Cannons).unwrap();
+    let kitchen = sint_core::logic::find_room_with_system_in_map(
+        &state.map,
+        sint_core::types::SystemType::Kitchen,
+    )
+    .unwrap();
+    let cannons = sint_core::logic::find_room_with_system_in_map(
+        &state.map,
+        sint_core::types::SystemType::Cannons,
+    )
+    .unwrap();
     let hallway = 0; // Hub
 
     if let Some(p) = state.players.get_mut("P1") {
@@ -93,7 +107,8 @@ fn test_scenario_bucket_brigade() {
     }
 
     // P1
-    state = GameLogic::apply_action(state.clone(), "P1", Action::Game(GameAction::Bake), None).unwrap();
+    state =
+        GameLogic::apply_action(state.clone(), "P1", Action::Game(GameAction::Bake), None).unwrap();
     // Pickup baked item
     state = GameLogic::apply_action(
         state.clone(),
@@ -135,7 +150,8 @@ fn test_scenario_bucket_brigade() {
     .unwrap();
 
     // P3 Shoots.
-    state = GameLogic::apply_action(state.clone(), "P3", Action::Game(GameAction::Shoot), None).unwrap();
+    state = GameLogic::apply_action(state.clone(), "P3", Action::Game(GameAction::Shoot), None)
+        .unwrap();
 
     // Execute
     state = GameLogic::apply_action(
