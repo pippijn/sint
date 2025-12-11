@@ -20,22 +20,31 @@ This document outlines a verified strategy to defeat the first boss ("The Petty 
 
 ## Phase 1 Walkthrough (Rounds 1-10)
 
-### Setup (Round 1)
-*   **Goal:** Survive `Turbo Mode` fire; get everyone to station.
-*   **Move:** P3 to Bridge, P4 near Engine (but stay in Hallway to avoid initial fire), P5/P6 to Cannons, P1 to Kitchen.
+### Setup (Round 1) - "Ride the Lightning"
+*   **Goal:** **EXPLOIT Turbo Mode.** Do NOT solve it. We want the +1 AP per player for 3 rounds (Total +18 AP).
+*   **Strategy (Assuming Start in Dormitory - Room 2):**
+    *   **P1 (Baker):** Move to Kitchen (5). Path: 2->0->5 (2 AP). Bake (1 AP). Total 3 AP. (Result: 3 Peppernuts on Kitchen Floor).
+    *   **P2 (Courier):** Move to Kitchen (5). Path: 2->0->5 (2 AP). PickUp (1 AP). Total 3 AP. (Result: P2 holding 1 Peppernut in Kitchen).
+    *   **P3 (Pilot):** Move to Bridge (7). Path: 2->0->7 (2 AP). 1 AP Saved.
+    *   **P4 (Engineer):** Move to Engine (4). Path: 2->0->4 (2 AP). 1 AP Saved (Grab Extinguisher if needed/possible).
+    *   **P5/P6 (Gunners):** Move to Cannons (6). Path: 2->0->6 (2 AP). 1 AP Saved.
 
 ### Stabilization (Rounds 2-3)
-*   **Event:** `Sugar Rush` (Free Moves) is the MVP. Use it to fix positioning without AP cost.
+*   **Event:** `Sugar Rush` (Free Moves, NO SHOOTING). Combine this with Turbo Mode (3 AP) for massive mobility.
 *   **Actions:**
-    *   P4 moves into Engine, Extinguishes the start-of-game fire, and Solves `Turbo Mode`.
-    *   P3 begins the `Evasive Maneuvers` loop.
-    *   P1 solves `Sugar Rush` *after* everyone has moved.
+    *   **P1:** Bake nonstop.
+    *   **P2:** Ferry ammo to Cannons. **DO NOT SHOOT** (Sugar Rush forbids it). Stockpile ammo at Cannons.
+    *   **P3:** Evasive Maneuvers (if needed).
+    *   **P5/P6:** Reposition to Cannons. **DO NOT SHOOT**. Use free moves to help transport items if needed.
+    *   **Preparation for BOOM (Round 3):** P4 must end Round 3 in the Engine (4). P2 should be nearby (Hallway/Cargo) to assist.
+    *   **Round 4 (The Clean Up):** **CHECK FOR FIRES.** The Engine usually catches fire here (Turbo Mode end). **IF** there is fire, P4 and P2 extinguish it immediately. If not, prep for next round.
 
 ### The Grind (Rounds 4-7)
-*   **Events:** `Rudderless`, `No Light`, `Fog Bank`.
+*   **Status:** Check Enemy HP. Boss might already be dead or half-dead due to Turbo AP.
+*   **Events:** `Rudderless`, `No Light`, `Fog Bank` (Likely).
 *   **Strategy:**
-    *   P2 solves `No Light` in Cargo.
-    *   P4 solves `Rudderless` in Bridge (if needed) or P3 handles it.
+    *   **IF** `No Light` is active: P2 solves it in Cargo.
+    *   **IF** `Rudderless` is active: P4 solves it in Bridge (if needed) or P3 handles it.
     *   P3 continues Evasion.
     *   **Critical:** In Round 7 (`Panic!`), everyone is displaced to Dormitory. Use the remaining AP to rush back to stations. P3 likely fails to Evasive here, taking 1 hit.
 
