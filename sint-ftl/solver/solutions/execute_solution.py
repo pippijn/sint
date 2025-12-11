@@ -503,16 +503,22 @@ def r27():
         p4.action("Interact", 1)
         p4.action("Move 0", 1)
         
-        # P1 fetches ammo (P2 fainted)
+        # P2 Extinguishes Dormitory (2) then Recovers
+        # P2 starts in 2 (Respawned)
+        # p2.action("Extinguish", 1) # Fire not spawned yet!
+        p2.action("Move 0", 1)
+        
+        # P1 fetches ammo
         p1.action("Move 5", 1)
         p1.action("PickUp", 1)
         
-        # P2 Recovers
-        p2.action("Move 0", 1)
+        # P5 Extinguishes Kitchen (5)
+        p5.action("Move 5", 1)
+        p5.action("Extinguish", 1)
         
         # Gunners to Cannons
         p3.action("Move 6", 1)
-        p5.action("Move 6", 1)
+        # p5 moved to 5
         p6.action("Move 6", 1)
 
 def r28():
@@ -532,51 +538,68 @@ def r28():
         p1.action("Throw P3 0", 1)
         
         # Gunners Unleash Hell
-        # Recipe gives 1 nut. P3 gets +1 from P1.
-        p5.action("Shoot", 1) # Only 1 nut
-        p6.action("Shoot", 1) # Only 1 nut
-        p3.action("Shoot", 1); p3.action("Shoot", 1) # 2 nuts
+        # P5 moves from 5 to 6 first (Cost 2 AP). Cannot Shoot.
+        p5.action("Move 0", 1) # Intermediate step
+        p5.action("Move 6", 1)
+        # p5.action("Shoot", 1) # No AP
+        
+        p6.action("Shoot", 1) 
+        p3.action("Shoot", 1); p3.action("Shoot", 1)
 
 def r29():
     # print("# Round 29: Kill Monster. Cancel Attack Wave.")
     with RoundScope():
         
-        # P5 Extinguishes Cannons (Fire blocked shots)
-        p5.action("Extinguish", 1)
+        # P1 Extinguishes Dormitory (2)
+        p1.action("Move 2", 1)
+        p1.action("Extinguish", 1)
         
-        # P1 Feeds P5 and P3
-        p1.action("Throw P5 0", 1)
-        p1.action("Throw P3 0", 1)
-        
-        # P2 Feeds P6
+        # P2 Extinguishes Bridge (7)
+        p2.action("Extinguish", 1)
         p2.action("Move 0", 1)
-        p2.action("Throw P6 0", 1)
         
-        # P4 Feeds P3 (Second shot)
+        # P4 Feeds P3
         p4.action("Move 0", 1)
         p4.action("Throw P3 0", 1)
         
-        # FIRE!
-        p5.action("Shoot", 1) # 1 Shot
-        p6.action("Shoot", 1) # 1 Shot
-        p3.action("Shoot", 1); p3.action("Shoot", 1) # 2 Shots
+        # P5 Shoots (Cannons clear)
+        # p5.action("Extinguish", 1) # Not needed
+        p5.action("Shoot", 1)
         
-        # Ignore Hull. Kill or Die.
+        # P6 Shoots
+        p6.action("Shoot", 1)
+        
+        # P3 Shoots (1 own + 1 from P4)
+        p3.action("Shoot", 1)
+        p3.action("Shoot", 1)
 
 def r30():
     # print("# Round 30: High Pressure. Solve Attack Wave. Reload.")
     with RoundScope():
-        p5.action("Move 5", 1) # Kitchen (5)
-        p5.action("Bake", 1)
-        p6.action("Move 6", 1) # Cannons (6)
-        p6.action("Interact", 1)
-        p1.action("Move 5", 1) # Kitchen (5)
-        p1.action("PickUp", 1)
-        p2.action("Move 5", 1) # Kitchen (5)
-        p2.action("PickUp", 1)
-        p3.action("Move 5", 1) # Kitchen (5)
-        p3.action("PickUp", 1)
+        
+        # P5 Clears Cannons (Fire from R29 Attack)
+        p5.action("Move 6", 1)
+        p5.action("Extinguish", 1)
+        
+        # P1 Feeds P6
+        # p1.action("Move 0", 1) # Already in 0
+        p1.action("Throw P6 0", 1)
+        
+        # P4 Feeds P3
         p4.action("Move 0", 1)
+        p4.action("Throw P3 0", 1)
+        
+        # P2 Shoots (Already in 6)
+        p2.action("Shoot", 1)
+        p2.action("Shoot", 1)
+        
+        # P6 Moves and Shoots
+        p6.action("Move 6", 1)
+        p6.action("Shoot", 1)
+        
+        # P3 Moves and Shoots
+        p3.action("Move 6", 1)
+        p3.action("Shoot", 1)
 
 def r31():
     # print("# Round 31: Victory.")
