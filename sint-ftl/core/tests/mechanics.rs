@@ -8,9 +8,11 @@ fn test_cannon_hit() {
     let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
-    // Setup: P1 in Cannons (8), Has Nut. Enemy HP 5.
+    let cannons = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Cannons).unwrap();
+
+    // Setup: P1 in Cannons, Has Nut. Enemy HP 5.
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = 8;
+        p.room_id = cannons;
         p.inventory.push(ItemType::Peppernut);
     }
     // Set seed to guarantee hit (threshold 3). 12345 next rand is > 3?
@@ -41,9 +43,12 @@ fn test_shields_block_damage() {
     let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
-    // P1 in Engine (5)
+    let engine = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Engine).unwrap();
+    let kitchen = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Kitchen).unwrap();
+
+    // P1 in Engine
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = 5;
+        p.room_id = engine;
         p.ap = 2;
     }
 
@@ -71,7 +76,8 @@ fn test_shields_block_damage() {
     state.phase = GamePhase::EnemyAction;
     // Set up attack
     state.enemy.next_attack = Some(sint_core::types::EnemyAttack {
-        target_room: 6,
+        target_room: kitchen,
+        target_system: Some(sint_core::types::SystemType::Kitchen),
         effect: sint_core::types::AttackEffect::Fireball,
     });
 
@@ -80,7 +86,7 @@ fn test_shields_block_damage() {
     // Should block damage -> Hull remains 20 (or whatever it was)
     assert_eq!(state.hull_integrity, 20);
     // No fire
-    assert!(state.map.rooms[&6].hazards.is_empty());
+    assert!(state.map.rooms[&kitchen].hazards.is_empty());
 }
 
 #[test]
@@ -88,9 +94,12 @@ fn test_evasion_blocks_hit() {
     let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
-    // P1 in Bridge (9)
+    let bridge = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Bridge).unwrap();
+    let kitchen = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Kitchen).unwrap();
+
+    // P1 in Bridge
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = 9;
+        p.room_id = bridge;
         p.ap = 2;
     }
 
@@ -116,14 +125,15 @@ fn test_evasion_blocks_hit() {
     // Attack
     state.phase = GamePhase::EnemyAction;
     state.enemy.next_attack = Some(sint_core::types::EnemyAttack {
-        target_room: 6,
+        target_room: kitchen,
+        target_system: Some(sint_core::types::SystemType::Kitchen),
         effect: sint_core::types::AttackEffect::Fireball,
     });
 
     sint_core::logic::resolution::resolve_enemy_attack(&mut state);
 
     assert_eq!(state.hull_integrity, 20);
-    assert!(state.map.rooms[&6].hazards.is_empty());
+    assert!(state.map.rooms[&kitchen].hazards.is_empty());
 }
 
 #[test]
@@ -131,13 +141,15 @@ fn test_boss_progression() {
     let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
+    let cannons = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Cannons).unwrap();
+
     // Set Boss HP to 1
     state.enemy.hp = 1;
     state.boss_level = 0; // Petty Thief
 
     // P1 Shoot
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = 8;
+        p.room_id = cannons;
         p.inventory.push(ItemType::Peppernut);
     }
 
@@ -162,8 +174,10 @@ fn test_game_over_hull() {
     state.hull_integrity = 1;
     state.phase = GamePhase::EnemyAction;
 
+    let kitchen = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Kitchen).unwrap();
+
     // Trigger hazard damage
-    if let Some(r) = state.map.rooms.get_mut(&6) {
+    if let Some(r) = state.map.rooms.get_mut(&kitchen) {
         r.hazards.push(HazardType::Fire);
     }
 
@@ -192,7 +206,7 @@ fn test_game_over_hull() {
     if let Some(p) = state.players.get_mut("P1") {
         p.ap = 0;
     }
-    if let Some(r) = state.map.rooms.get_mut(&6) {
+    if let Some(r) = state.map.rooms.get_mut(&kitchen) {
         r.hazards.push(HazardType::Fire);
     }
 

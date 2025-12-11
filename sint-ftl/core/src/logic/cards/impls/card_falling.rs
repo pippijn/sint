@@ -1,6 +1,6 @@
 use crate::{
-    logic::cards::behavior::CardBehavior,
-    types::{Card, CardId, CardType, GameState, HazardType, ItemType},
+    logic::{cards::behavior::CardBehavior, find_room_with_system},
+    types::{Card, CardId, CardType, GameState, HazardType, ItemType, SystemType},
 };
 
 pub struct FallingGiftCard;
@@ -10,11 +10,7 @@ impl CardBehavior for FallingGiftCard {
         Card {
             id: CardId::FallingGift,
             title: "Falling Gift".to_string(),
-            description: format!(
-                "Leak in Cargo ({}). +2 Peppernuts in Cargo.",
-                crate::types::SystemType::Cargo.as_u32()
-            )
-            .to_string(),
+            description: "Leak in Cargo. +2 Peppernuts in Cargo.".to_string(),
             card_type: CardType::Flash,
             options: vec![],
             solution: None,
@@ -22,23 +18,12 @@ impl CardBehavior for FallingGiftCard {
     }
 
     fn on_activate(&self, state: &mut GameState) {
-        // Effect: Leak in Cargo (4). 1 Water.
-        if let Some(room) = state
-            .map
-            .rooms
-            .get_mut(&crate::types::SystemType::Cargo.as_u32())
-        {
-            room.hazards.push(HazardType::Water);
-        }
-
-        // Bonus: 2 Peppernuts in Room 4.
-        if let Some(room) = state
-            .map
-            .rooms
-            .get_mut(&crate::types::SystemType::Cargo.as_u32())
-        {
-            room.items.push(ItemType::Peppernut);
-            room.items.push(ItemType::Peppernut);
+        if let Some(cargo_id) = find_room_with_system(state, SystemType::Cargo) {
+            if let Some(room) = state.map.rooms.get_mut(&cargo_id) {
+                room.hazards.push(HazardType::Water);
+                room.items.push(ItemType::Peppernut);
+                room.items.push(ItemType::Peppernut);
+            }
         }
     }
 }

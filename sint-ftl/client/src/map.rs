@@ -18,32 +18,42 @@ pub fn MapView(ctx: GameContext) -> impl IntoView {
     // Layout Logic (Memoized)
     let layout = create_memo(move |_| {
         let s = state.get();
-        // 1. Find Hallway (Node with most neighbors)
+        // 1. Find Hub (Room 0)
         let mut rooms: Vec<Room> = s.map.rooms.values().cloned().collect();
         if rooms.is_empty() {
             return (vec![], vec![], vec![]);
         }
 
-        rooms.sort_by_key(|r| std::cmp::Reverse(r.neighbors.len()));
-        let hallway = rooms[0].clone();
+        // Try to find room 0 specifically, or fallback to max neighbors
+        let hub = rooms
+            .iter()
+            .find(|r| r.id == 0)
+            .cloned()
+            .or_else(|| {
+                rooms.sort_by_key(|r| std::cmp::Reverse(r.neighbors.len()));
+                rooms.first().cloned()
+            });
 
-        // 2. Split neighbors into Top/Bottom
-        let mut top_row = vec![];
-        let mut bot_row = vec![];
+        if let Some(hallway) = hub {
+             // 2. Split neighbors into Top/Bottom
+            let mut top_row = vec![];
+            let mut bot_row = vec![];
 
-        let mut remaining: Vec<Room> = rooms.into_iter().filter(|r| r.id != hallway.id).collect();
+            // Get all other rooms
+            let mut remaining: Vec<Room> = rooms.into_iter().filter(|r| r.id != hallway.id).collect();
+            remaining.sort_by_key(|r| r.id); // Stable sort
 
-        remaining.sort_by_key(|r| r.id); // Stable sort for consistent layout
-
-        for (i, room) in remaining.into_iter().enumerate() {
-            if i % 2 == 0 {
-                top_row.push(room);
-            } else {
-                bot_row.push(room);
+            for (i, room) in remaining.into_iter().enumerate() {
+                if i % 2 == 0 {
+                    top_row.push(room);
+                } else {
+                    bot_row.push(room);
+                }
             }
+            (vec![hallway], top_row, bot_row)
+        } else {
+             (vec![], vec![], vec![])
         }
-
-        (vec![hallway], top_row, bot_row)
     });
 
     view! {

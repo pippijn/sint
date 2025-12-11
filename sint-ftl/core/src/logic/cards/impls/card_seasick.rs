@@ -1,6 +1,6 @@
 use crate::{
-    logic::cards::behavior::CardBehavior,
-    types::{Card, CardId, CardSolution, CardType, GameAction, GameState},
+    logic::{cards::behavior::CardBehavior, find_room_with_system},
+    types::{Card, CardId, CardSolution, CardType, GameAction, GameState, SystemType},
     GameError,
 };
 
@@ -15,7 +15,7 @@ impl CardBehavior for SeasickCard {
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(crate::types::SystemType::Kitchen.as_u32()),
+                target_system: Some(SystemType::Kitchen),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 1,
@@ -25,12 +25,19 @@ impl CardBehavior for SeasickCard {
 
     fn validate_action(
         &self,
-        _state: &GameState,
-        _player_id: &str,
-        _action: &GameAction,
+        state: &GameState,
+        player_id: &str,
+        action: &GameAction,
     ) -> Result<(), GameError> {
-        // Effect: You may EITHER Walk OR do Actions (not both).
-        // Note: Strict validation skipped for now (requires tracking intent across batch).
+        if let GameAction::Interact = action {
+            let p = state.players.get(player_id).unwrap();
+            let kitchen = find_room_with_system(state, SystemType::Kitchen);
+            if Some(p.room_id) != kitchen {
+                return Err(crate::GameError::InvalidAction(
+                    "Must be in Kitchen to cure Seasick.".to_string(),
+                ));
+            }
+        }
         Ok(())
     }
 }

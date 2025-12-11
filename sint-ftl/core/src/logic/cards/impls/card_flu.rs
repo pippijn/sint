@@ -1,6 +1,6 @@
 use crate::{
-    logic::cards::behavior::CardBehavior,
-    types::{Card, CardId, CardSolution, CardType, GameState, ItemType},
+    logic::{cards::behavior::CardBehavior, find_room_with_system},
+    types::{Card, CardId, CardSolution, CardType, GameState, ItemType, SystemType},
 };
 
 pub struct FluWaveCard;
@@ -14,12 +14,30 @@ impl CardBehavior for FluWaveCard {
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(crate::types::SystemType::Sickbay.as_u32()),
+                target_system: Some(SystemType::Sickbay),
                 ap_cost: 1,
                 item_cost: Some(ItemType::Peppernut),
                 required_players: 1,
             }),
         }
+    }
+
+    fn validate_action(
+        &self,
+        state: &GameState,
+        player_id: &str,
+        action: &crate::types::GameAction,
+    ) -> Result<(), crate::GameError> {
+        if let crate::types::GameAction::Interact = action {
+            let p = state.players.get(player_id).unwrap();
+            let sickbay = find_room_with_system(state, SystemType::Sickbay);
+            if Some(p.room_id) != sickbay {
+                return Err(crate::GameError::InvalidAction(
+                    "Must be in Sickbay to cure Flu.".to_string(),
+                ));
+            }
+        }
+        Ok(())
     }
 
     fn on_round_end(&self, state: &mut GameState) {

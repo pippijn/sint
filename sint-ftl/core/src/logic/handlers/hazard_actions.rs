@@ -148,7 +148,11 @@ impl ActionHandler for InteractHandler {
         let mut valid = false;
         for card in &state.active_situations {
             if let Some(sol) = &card.solution {
-                let room_match = sol.room_id.is_none() || sol.room_id == Some(p.room_id);
+                let room_match = if let Some(sys) = sol.target_system {
+                    crate::logic::find_room_with_system(state, sys) == Some(p.room_id)
+                } else {
+                    true // If None, it means "Any Room"
+                };
                 let item_match = sol.item_cost.is_none()
                     || p.inventory.contains(sol.item_cost.as_ref().unwrap());
 
@@ -179,7 +183,11 @@ impl ActionHandler for InteractHandler {
 
         for (i, card) in state.active_situations.iter().enumerate() {
             if let Some(sol) = &card.solution {
-                let room_match = sol.room_id.is_none() || sol.room_id == Some(p_copy.room_id);
+                let room_match = if let Some(sys) = sol.target_system {
+                    crate::logic::find_room_with_system(state, sys) == Some(p_copy.room_id)
+                } else {
+                    true // If None, it means "Any Room"
+                };
                 let item_match = sol.item_cost.is_none()
                     || p_copy.inventory.contains(sol.item_cost.as_ref().unwrap());
 

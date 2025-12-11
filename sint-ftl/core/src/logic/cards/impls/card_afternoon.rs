@@ -15,7 +15,7 @@ impl CardBehavior for AfternoonNapCard {
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
-                room_id: None,
+                target_system: None, // Any room (Interacting wakes them up?)
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 1,

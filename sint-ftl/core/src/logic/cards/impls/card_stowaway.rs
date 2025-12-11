@@ -1,6 +1,6 @@
 use crate::{
-    logic::cards::behavior::CardBehavior,
-    types::{Card, CardId, CardSolution, CardType, GameState, ItemType},
+    logic::{cards::behavior::CardBehavior, find_room_with_system},
+    types::{Card, CardId, CardSolution, CardType, GameState, ItemType, SystemType},
 };
 
 pub struct StowawayCard;
@@ -14,12 +14,30 @@ impl CardBehavior for StowawayCard {
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(crate::types::SystemType::Dormitory.as_u32()),
+                target_system: Some(SystemType::Dormitory),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 1,
             }),
         }
+    }
+
+    fn validate_action(
+        &self,
+        state: &GameState,
+        player_id: &str,
+        action: &crate::types::GameAction,
+    ) -> Result<(), crate::GameError> {
+        if let crate::types::GameAction::Interact = action {
+            let p = state.players.get(player_id).unwrap();
+            let dorm = find_room_with_system(state, SystemType::Dormitory);
+            if Some(p.room_id) != dorm {
+                return Err(crate::GameError::InvalidAction(
+                    "Must be in Dormitory to find Stowaway.".to_string(),
+                ));
+            }
+        }
+        Ok(())
     }
 
     fn on_round_end(&self, state: &mut GameState) {

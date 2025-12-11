@@ -1,6 +1,6 @@
 use crate::{
-    logic::cards::behavior::CardBehavior,
-    types::{Card, CardId, CardType, GameState, HazardType},
+    logic::{cards::behavior::CardBehavior, find_room_with_system},
+    types::{Card, CardId, CardType, GameState, HazardType, SystemType},
 };
 
 pub struct LeakCard;
@@ -10,11 +10,7 @@ impl CardBehavior for LeakCard {
         Card {
             id: CardId::Leak,
             title: "Leak!".to_string(),
-            description: format!(
-                "Spawn 1 Water in the Cargo Room ({}) .",
-                crate::types::SystemType::Cargo.as_u32()
-            )
-            .to_string(),
+            description: "Spawn 1 Water in the Cargo Room.".to_string(),
             card_type: CardType::Flash,
             options: vec![],
             solution: None,
@@ -22,13 +18,10 @@ impl CardBehavior for LeakCard {
     }
 
     fn on_activate(&self, state: &mut GameState) {
-        // Effect: Spawn 1 Water in the Cargo Room (4).
-        if let Some(room) = state
-            .map
-            .rooms
-            .get_mut(&crate::types::SystemType::Cargo.as_u32())
-        {
-            room.hazards.push(HazardType::Water);
+        if let Some(cargo_id) = find_room_with_system(state, SystemType::Cargo) {
+            if let Some(room) = state.map.rooms.get_mut(&cargo_id) {
+                room.hazards.push(HazardType::Water);
+            }
         }
     }
 }

@@ -36,7 +36,7 @@ fn test_deterministic_action_ids() {
     let state2 = state.clone();
 
     // Action 1: Move to Hallway
-    let action = Action::Game(GameAction::Move { to_room: 7 });
+    let action = Action::Game(GameAction::Move { to_room: 0 });
 
     // Apply on State 1
     let state1_prime = GameLogic::apply_action(state1, "P1", action.clone(), None).unwrap();
@@ -56,7 +56,8 @@ fn test_deterministic_action_ids() {
     );
 
     // Action 2: Subsequent Move
-    let action3 = Action::Game(GameAction::Move { to_room: 6 });
+    let kitchen_id = sint_core::logic::find_room_with_system_in_map(&state1_prime.map, sint_core::types::SystemType::Kitchen).unwrap();
+    let action3 = Action::Game(GameAction::Move { to_room: kitchen_id });
 
     let state1_double = GameLogic::apply_action(state1_prime, "P1", action3.clone(), None).unwrap();
     let id1_next = state1_double.proposal_queue.last().unwrap().id.clone();

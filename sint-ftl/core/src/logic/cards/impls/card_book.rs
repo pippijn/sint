@@ -1,6 +1,6 @@
 use crate::{
-    logic::cards::behavior::CardBehavior,
-    types::{Card, CardId, CardSolution, CardType, GameState},
+    logic::{cards::behavior::CardBehavior, find_room_with_system},
+    types::{Card, CardId, CardSolution, CardType, GameState, SystemType},
 };
 
 pub struct TheBookCard;
@@ -10,23 +10,34 @@ impl CardBehavior for TheBookCard {
         Card {
             id: CardId::TheBook,
             title: "The Book".to_string(),
-            description: format!(
-                "Mission: {} ({}) -> {} ({}) . Reward: Skip Enemy Attack.",
-                "Storage",
-                crate::types::SystemType::Storage.as_u32(),
-                "Bridge",
-                crate::types::SystemType::Bridge.as_u32()
-            )
-            .to_string(),
+            description: "Mission: Storage -> Bridge. Reward: Skip Enemy Attack.".to_string(),
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(crate::types::SystemType::Bridge.as_u32()),
+                target_system: Some(SystemType::Bridge),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 1,
             }),
         }
+    }
+
+    fn validate_action(
+        &self,
+        state: &GameState,
+        player_id: &str,
+        action: &crate::types::GameAction,
+    ) -> Result<(), crate::GameError> {
+        if let crate::types::GameAction::Interact = action {
+            let p = state.players.get(player_id).unwrap();
+            let bridge = find_room_with_system(state, SystemType::Bridge);
+            if Some(p.room_id) != bridge {
+                return Err(crate::GameError::InvalidAction(
+                    "Mission complete at Bridge.".to_string(),
+                ));
+            }
+        }
+        Ok(())
     }
 
     fn on_solved(&self, state: &mut GameState) {
@@ -40,10 +51,6 @@ impl CardBehavior for TheBookCard {
     }
 
     fn on_round_end(&self, state: &mut GameState) {
-        // Reward is applied when the solution action (Interact) is successfully executed.
-        // Here we just handle the Timebomb countdown.
-
-        // Timebomb tick
         for card in state.active_situations.iter_mut() {
             if card.id == CardId::TheBook {
                 if let CardType::Timebomb { rounds_left } = &mut card.card_type {

@@ -15,7 +15,7 @@ impl CardBehavior for AnchorLooseCard {
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(2),
+                target_system: None, // Any room
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 2,
@@ -27,12 +27,16 @@ impl CardBehavior for AnchorLooseCard {
         // Start of every round (handled here as end of previous round + 1).
         // Place 1 Water token on random spot.
         let mut rng = StdRng::seed_from_u64(state.rng_seed);
-        // Roll 2d6 (2-12)? Rooms are 2-11.
-        let target = rng.gen_range(1..=6) + rng.gen_range(1..=6);
-        state.rng_seed = rng.gen();
+        
+        let room_keys: Vec<u32> = state.map.rooms.keys().cloned().collect();
+        if !room_keys.is_empty() {
+            let idx = rng.gen_range(0..room_keys.len());
+            let target = room_keys[idx];
+            state.rng_seed = rng.gen();
 
-        if let Some(room) = state.map.rooms.get_mut(&target) {
-            room.hazards.push(HazardType::Water);
+            if let Some(room) = state.map.rooms.get_mut(&target) {
+                room.hazards.push(HazardType::Water);
+            }
         }
     }
 }

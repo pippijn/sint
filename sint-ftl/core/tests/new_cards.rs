@@ -76,6 +76,7 @@ fn test_book_reward() {
     // Setup: Enemy attack queued
     state.enemy.next_attack = Some(EnemyAttack {
         target_room: 5,
+        target_system: Some(sint_core::types::SystemType::Engine),
         effect: AttackEffect::Fireball,
     });
 
@@ -97,9 +98,9 @@ fn test_rudderless_hazard_modifier() {
     let card = get_behavior(CardId::Rudderless).get_struct();
     state.active_situations.push(card);
 
-    // Setup Attack on Room 5 (Engine)
     state.enemy.next_attack = Some(EnemyAttack {
         target_room: 5,
+        target_system: Some(sint_core::types::SystemType::Engine),
         effect: AttackEffect::Fireball,
     });
 
@@ -148,6 +149,7 @@ fn test_fog_bank_masking() {
     // Setup: Initial Attack
     let mut attack = EnemyAttack {
         target_room: 5,
+        target_system: Some(sint_core::types::SystemType::Engine),
         effect: AttackEffect::Fireball,
     };
 

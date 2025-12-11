@@ -1,6 +1,6 @@
 use crate::{
-    logic::cards::behavior::CardBehavior,
-    types::{Card, CardId, CardSolution, CardType, GameState},
+    logic::{cards::behavior::CardBehavior, find_room_with_system},
+    types::{Card, CardId, CardSolution, CardType, GameState, SystemType},
 };
 
 pub struct GoldenNutCard;
@@ -10,20 +10,34 @@ impl CardBehavior for GoldenNutCard {
         Card {
             id: CardId::GoldenNut,
             title: "Golden Nut".to_string(),
-            description: format!(
-                "Mission: Go to Storage ({}) . Reward: Auto Hit.",
-                crate::types::SystemType::Storage.as_u32()
-            )
-            .to_string(),
+            description: "Mission: Go to Storage. Reward: Auto Hit.".to_string(),
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(crate::types::SystemType::Storage.as_u32()),
+                target_system: Some(SystemType::Storage),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 1,
             }),
         }
+    }
+
+    fn validate_action(
+        &self,
+        state: &GameState,
+        player_id: &str,
+        action: &crate::types::GameAction,
+    ) -> Result<(), crate::GameError> {
+        if let crate::types::GameAction::Interact = action {
+            let p = state.players.get(player_id).unwrap();
+            let storage = find_room_with_system(state, SystemType::Storage);
+            if Some(p.room_id) != storage {
+                return Err(crate::GameError::InvalidAction(
+                    "Must be in Storage to find Golden Nut.".to_string(),
+                ));
+            }
+        }
+        Ok(())
     }
 
     fn on_solved(&self, state: &mut GameState) {

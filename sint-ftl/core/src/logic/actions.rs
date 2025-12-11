@@ -32,6 +32,8 @@ pub fn apply_action(
     }
 }
 
+use crate::logic::find_room_with_system_in_map;
+
 fn apply_meta_action(
     mut state: GameState,
     player_id: &str,
@@ -45,12 +47,17 @@ fn apply_meta_action(
             if state.players.values().any(|p| p.name == name) {
                 return Err(GameError::InvalidAction("Name already taken".to_string()));
             }
+
+            // Correctly find the Dormitory's Room ID
+            let start_room = find_room_with_system_in_map(&state.map, SystemType::Dormitory)
+                .unwrap_or(0); // Fallback to 0 if not found
+
             state.players.insert(
                 player_id.to_string(),
                 Player {
                     id: player_id.to_string(),
                     name,
-                    room_id: SystemType::Dormitory.as_u32(),
+                    room_id: start_room,
                     hp: 3,
                     ap: 2,
                     inventory: vec![],
@@ -96,6 +103,23 @@ fn apply_game_action(
     player_id: &str,
     action: GameAction,
 ) -> Result<GameState, GameError> {
+    // Player Validation: Ensure the player exists for most actions.
+    // We check this early to return a clear PlayerNotFound error.
+    match &action {
+        GameAction::Chat { .. } | GameAction::VoteReady { .. } => {
+            // These actions might be used by spectators or have different validation.
+            // For now, we still require a valid player ID.
+            if !state.players.contains_key(player_id) {
+                return Err(GameError::PlayerNotFound);
+            }
+        }
+        _ => {
+            if !state.players.contains_key(player_id) {
+                return Err(GameError::PlayerNotFound);
+            }
+        }
+    }
+
     // Phase Restriction: Gameplay actions only in TacticalPlanning
     if state.phase != GamePhase::TacticalPlanning {
         match action {
@@ -290,13 +314,23 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
 
             // Generate telegraph normally
             let mut rng = StdRng::seed_from_u64(state.rng_seed);
-            // 2d6 distribution (2-12). 12 is a miss.
-            let target_room = rng.gen_range(1..=6) + rng.gen_range(1..=6);
+            // 2d6 distribution (2-12). 11-12 is a miss.
+            let roll = rng.gen_range(1..=6) + rng.gen_range(1..=6);
             state.rng_seed = rng.gen();
 
-            let mut attack = EnemyAttack {
-                target_room,
-                effect: AttackEffect::Fireball,
+            let mut attack = if let Some(sys) = SystemType::from_u32(roll) {
+                let room_id = find_room_with_system_in_map(&state.map, sys).unwrap_or(0);
+                EnemyAttack {
+                    target_room: room_id,
+                    target_system: Some(sys),
+                    effect: AttackEffect::Fireball,
+                }
+            } else {
+                EnemyAttack {
+                    target_room: 0,
+                    target_system: None,
+                    effect: AttackEffect::Miss,
+                }
             };
 
             // Allow cards to modify it (e.g. FogBank masking it)
@@ -388,11 +422,12 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
             }
 
             // Respawn Logic
+            let dormitory_id = find_room_with_system_in_map(&state.map, SystemType::Dormitory).unwrap_or(0);
             for p in state.players.values_mut() {
                 if p.status.contains(&PlayerStatus::Fainted) {
                     p.status.retain(|s| *s != PlayerStatus::Fainted);
                     p.hp = 3;
-                    p.room_id = SystemType::Dormitory.as_u32();
+                    p.room_id = dormitory_id;
                 }
             }
 

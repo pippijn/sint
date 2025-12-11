@@ -1,6 +1,6 @@
 use crate::{
-    logic::cards::behavior::CardBehavior,
-    types::{Card, CardId, CardSolution, CardType, GameState, HazardType},
+    logic::{cards::behavior::CardBehavior, find_room_with_system},
+    types::{Card, CardId, CardSolution, CardType, GameState, HazardType, SystemType},
 };
 
 pub struct TurboModeCard;
@@ -10,16 +10,34 @@ impl CardBehavior for TurboModeCard {
         Card {
             id: CardId::TurboMode,
             title: "Turbo Mode".to_string(),
-            description: "Advantage: +1 AP. Boom: 2 Fire in Engine, 1 in Hallway.".to_string(),
+            description: "Advantage: +1 AP. Boom: 2 Fire in Engine, 1 in neighbor.".to_string(),
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(crate::types::SystemType::Engine.as_u32()),
+                target_system: Some(SystemType::Engine),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 1,
             }),
         }
+    }
+
+    fn validate_action(
+        &self,
+        state: &GameState,
+        player_id: &str,
+        action: &crate::types::GameAction,
+    ) -> Result<(), crate::GameError> {
+        if let crate::types::GameAction::Interact = action {
+            let p = state.players.get(player_id).unwrap();
+            let engine = find_room_with_system(state, SystemType::Engine);
+            if Some(p.room_id) != engine {
+                return Err(crate::GameError::InvalidAction(
+                    "Must be in Engine to disable Turbo Mode.".to_string(),
+                ));
+            }
+        }
+        Ok(())
     }
 
     fn on_round_end(&self, state: &mut GameState) {
@@ -38,22 +56,41 @@ impl CardBehavior for TurboModeCard {
         }
 
         if triggered {
-            // Explosion
-            if let Some(room) = state
-                .map
-                .rooms
-                .get_mut(&crate::types::SystemType::Engine.as_u32())
-            {
-                room.hazards.push(HazardType::Fire);
-                room.hazards.push(HazardType::Fire);
+            if let Some(engine_id) = find_room_with_system(state, SystemType::Engine) {
+                // 1. Identify Target Neighbor
+                let mut target_neighbor = None;
+                if let Some(engine_room) = state.map.rooms.get(&engine_id) {
+                    let neighbors = engine_room.neighbors.clone();
+                    let mut best_non_empty_id = u32::MAX;
+
+                    for nid in neighbors {
+                        if let Some(n_room) = state.map.rooms.get(&nid) {
+                            if n_room.system.is_none() {
+                                target_neighbor = Some(nid);
+                                break; // Found empty room, priority 1
+                            }
+                            if nid < best_non_empty_id {
+                                best_non_empty_id = nid;
+                            }
+                        }
+                    }
+                    if target_neighbor.is_none() && best_non_empty_id != u32::MAX {
+                        target_neighbor = Some(best_non_empty_id);
+                    }
+                }
+
+                // 2. Apply Hazards
+                if let Some(room) = state.map.rooms.get_mut(&engine_id) {
+                    room.hazards.push(HazardType::Fire);
+                    room.hazards.push(HazardType::Fire);
+                }
+                if let Some(tid) = target_neighbor {
+                    if let Some(room) = state.map.rooms.get_mut(&tid) {
+                        room.hazards.push(HazardType::Fire);
+                    }
+                }
             }
-            if let Some(room) = state
-                .map
-                .rooms
-                .get_mut(&crate::types::SystemType::Hallway.as_u32())
-            {
-                room.hazards.push(HazardType::Fire);
-            }
+
             state
                 .active_situations
                 .retain(|c| c.id != CardId::TurboMode);

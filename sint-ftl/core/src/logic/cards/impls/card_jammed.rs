@@ -1,6 +1,6 @@
 use crate::{
-    logic::cards::behavior::CardBehavior,
-    types::{Card, CardId, CardSolution, CardType, GameAction, GameState, ItemType},
+    logic::{cards::behavior::CardBehavior, find_room_with_system},
+    types::{Card, CardId, CardSolution, CardType, GameAction, GameState, ItemType, SystemType},
     GameError,
 };
 
@@ -11,15 +11,11 @@ impl CardBehavior for JammedCannonCard {
         Card {
             id: CardId::JammedCannon,
             title: "Jammed Cannon".to_string(),
-            description: format!(
-                "Cannons ({}) are disabled.",
-                crate::types::SystemType::Cannons.as_u32()
-            )
-            .to_string(),
+            description: "Cannons are disabled.".to_string(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(crate::types::SystemType::Cannons.as_u32()),
+                target_system: Some(SystemType::Cannons),
                 ap_cost: 1,
                 item_cost: Some(ItemType::Peppernut),
                 required_players: 1,
@@ -29,10 +25,20 @@ impl CardBehavior for JammedCannonCard {
 
     fn validate_action(
         &self,
-        _state: &GameState,
-        _player_id: &str,
+        state: &GameState,
+        player_id: &str,
         action: &GameAction,
     ) -> Result<(), GameError> {
+        if let GameAction::Interact = action {
+            let p = state.players.get(player_id).unwrap();
+            let cannons = find_room_with_system(state, SystemType::Cannons);
+            if Some(p.room_id) != cannons {
+                return Err(crate::GameError::InvalidAction(
+                    "Must be in Cannons to unjam.".to_string(),
+                ));
+            }
+        }
+
         if let GameAction::Shoot = action {
             return Err(GameError::InvalidAction(
                 "Cannon Jammed! Cannot Shoot.".to_string(),

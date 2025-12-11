@@ -35,31 +35,25 @@ fn test_costume_party() {
 }
 
 #[test]
-fn test_amerigo_blocks_hallway_exit() {
+fn test_amerigo_eats_peppernuts() {
     let mut state = new_test_game(vec!["P1".to_string()]);
-    state.phase = GamePhase::TacticalPlanning;
+    state.phase = GamePhase::MorningReport;
 
-    let card = sint_core::types::Card {
-        id: CardId::Amerigo,
-        title: "Amerigo".to_string(),
-        description: "Block".to_string(),
-        card_type: sint_core::types::CardType::Situation,
-        options: vec![],
-        solution: None,
-    };
-    state.active_situations.push(card);
+    let storage_id = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Storage).unwrap();
 
-    if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = 7;
+    // Place Peppernuts in Storage
+    if let Some(r) = state.map.rooms.get_mut(&storage_id) {
+        r.items.push(ItemType::Peppernut);
+        r.items.push(ItemType::Peppernut);
     }
 
-    let res = GameLogic::apply_action(
-        state.clone(),
-        "P1",
-        Action::Game(GameAction::Move { to_room: 6 }),
-        None,
-    );
-    assert!(res.is_err(), "Amerigo should block exit from Hallway");
+    use sint_core::logic::cards::get_behavior;
+    let behavior = get_behavior(CardId::Amerigo);
+    behavior.on_round_end(&mut state);
+
+    // Should eat 1
+    // Note: Storage starts with 5 items by default + 2 added here = 7. Eating 1 -> 6.
+    assert_eq!(state.map.rooms[&storage_id].items.len(), 6);
 }
 
 #[test]
@@ -77,15 +71,17 @@ fn test_afternoon_nap_blocks_actions() {
     };
     state.active_situations.push(card);
 
+    let kitchen = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Kitchen).unwrap();
+
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = 6;
+        p.room_id = kitchen;
     }
 
     let res = GameLogic::apply_action(state.clone(), "P1", Action::Game(GameAction::Bake), None);
     assert!(res.is_err(), "P1 is Reader/Asleep, cannot act");
 
     if let Some(p) = state.players.get_mut("P2") {
-        p.room_id = 6;
+        p.room_id = kitchen;
     }
     let res2 = GameLogic::apply_action(state.clone(), "P2", Action::Game(GameAction::Bake), None);
     assert!(res2.is_ok(), "P2 is not Reader, can act");
@@ -345,7 +341,9 @@ fn test_mice_plague_eats_nuts() {
     };
     state.active_situations.push(card);
 
-    if let Some(r) = state.map.rooms.get_mut(&11) {
+    let storage = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Storage).unwrap();
+
+    if let Some(r) = state.map.rooms.get_mut(&storage) {
         r.items.clear();
         r.items.push(ItemType::Peppernut);
         r.items.push(ItemType::Peppernut);
@@ -356,7 +354,7 @@ fn test_mice_plague_eats_nuts() {
     let behavior = get_behavior(CardId::MicePlague);
     behavior.on_round_end(&mut state);
 
-    assert_eq!(state.map.rooms[&11].items.len(), 1);
+    assert_eq!(state.map.rooms[&storage].items.len(), 1);
 }
 
 #[test]
@@ -374,8 +372,10 @@ fn test_overheating_ap_loss() {
     };
     state.active_situations.push(card);
 
+    let engine = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Engine).unwrap();
+
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = 5;
+        p.room_id = engine;
     }
 
     if let Some(p) = state.players.get_mut("P1") {
@@ -392,15 +392,18 @@ fn test_overheating_ap_loss() {
 #[test]
 fn test_panic_move() {
     let mut state = new_test_game(vec!["P1".to_string()]);
+    let bridge = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Bridge).unwrap();
+    let dorm = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Dormitory).unwrap();
+
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = 9;
+        p.room_id = bridge;
     }
 
     use sint_core::logic::cards::get_behavior;
     let behavior = get_behavior(CardId::Panic);
     behavior.on_activate(&mut state);
 
-    assert_eq!(state.players["P1"].room_id, 3);
+    assert_eq!(state.players["P1"].room_id, dorm);
 }
 
 #[test]
@@ -499,7 +502,8 @@ fn test_short_circuit() {
     let behavior = get_behavior(CardId::ShortCircuit);
     behavior.on_activate(&mut state);
 
-    let engine = state.map.rooms.get(&5).unwrap();
+    let engine_id = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Engine).unwrap();
+    let engine = state.map.rooms.get(&engine_id).unwrap();
     assert!(engine.hazards.contains(&sint_core::types::HazardType::Fire));
 }
 
@@ -551,19 +555,22 @@ fn test_sticky_floor() {
     let card = sint_core::types::Card {
         id: CardId::StickyFloor,
         title: "Sticky".to_string(),
-        description: "Move to Hallway +1".to_string(),
+        description: "Move to Kitchen +1".to_string(),
         card_type: sint_core::types::CardType::Situation,
         options: vec![],
         solution: None,
     };
     state.active_situations.push(card);
 
-    let cost_hallway =
-        sint_core::logic::actions::action_cost(&state, "P1", &GameAction::Move { to_room: 7 });
-    assert_eq!(cost_hallway, 2);
+    let kitchen = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Kitchen).unwrap();
+    let bridge = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Bridge).unwrap();
+
+    let cost_kitchen =
+        sint_core::logic::actions::action_cost(&state, "P1", &GameAction::Move { to_room: kitchen });
+    assert_eq!(cost_kitchen, 2);
 
     let cost_other =
-        sint_core::logic::actions::action_cost(&state, "P1", &GameAction::Move { to_room: 6 });
+        sint_core::logic::actions::action_cost(&state, "P1", &GameAction::Move { to_room: bridge });
     assert_eq!(cost_other, 1);
 }
 

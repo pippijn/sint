@@ -1,6 +1,6 @@
 use crate::{
-    logic::cards::behavior::CardBehavior,
-    types::{Card, CardId, CardSolution, CardType, GameState},
+    logic::{cards::behavior::CardBehavior, find_room_with_system},
+    types::{Card, CardId, CardSolution, CardType, GameAction, GameState, SystemType},
 };
 
 pub struct RudderlessCard;
@@ -14,12 +14,30 @@ impl CardBehavior for RudderlessCard {
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(crate::types::SystemType::Bridge.as_u32()),
+                target_system: Some(SystemType::Bridge),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 2,
             }),
         }
+    }
+
+    fn validate_action(
+        &self,
+        state: &GameState,
+        player_id: &str,
+        action: &GameAction,
+    ) -> Result<(), crate::GameError> {
+        if let GameAction::Interact = action {
+            let p = state.players.get(player_id).unwrap();
+            let bridge = find_room_with_system(state, SystemType::Bridge);
+            if Some(p.room_id) != bridge {
+                return Err(crate::GameError::InvalidAction(
+                    "Must be in Bridge to fix Rudder.".to_string(),
+                ));
+            }
+        }
+        Ok(())
     }
 
     fn get_hazard_modifier(&self, _state: &GameState) -> u32 {

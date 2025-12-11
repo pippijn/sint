@@ -1,6 +1,6 @@
 use crate::{
-    logic::cards::behavior::CardBehavior,
-    types::{Card, CardId, CardSolution, CardType, GameAction, GameState},
+    logic::{cards::behavior::CardBehavior, find_room_with_system},
+    types::{Card, CardId, CardSolution, CardType, GameAction, GameState, SystemType},
     GameError,
 };
 
@@ -15,7 +15,7 @@ impl CardBehavior for NoLightCard {
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(crate::types::SystemType::Cargo.as_u32()),
+                target_system: Some(SystemType::Cargo),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 1,
@@ -25,10 +25,20 @@ impl CardBehavior for NoLightCard {
 
     fn validate_action(
         &self,
-        _state: &GameState,
-        _player_id: &str,
+        state: &GameState,
+        player_id: &str,
         action: &GameAction,
     ) -> Result<(), GameError> {
+        if let GameAction::Interact = action {
+            let p = state.players.get(player_id).unwrap();
+            let cargo = find_room_with_system(state, SystemType::Cargo);
+            if Some(p.room_id) != cargo {
+                return Err(crate::GameError::InvalidAction(
+                    "Must be in Cargo to fix Lights.".to_string(),
+                ));
+            }
+        }
+
         if let GameAction::Shoot = action {
             return Err(GameError::InvalidAction(
                 "No Light! Cannons can't aim.".to_string(),

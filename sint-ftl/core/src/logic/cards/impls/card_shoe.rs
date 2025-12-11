@@ -1,6 +1,6 @@
 use crate::{
-    logic::cards::behavior::CardBehavior,
-    types::{Card, CardId, CardSolution, CardType, GameState, ItemType},
+    logic::{cards::behavior::CardBehavior, find_room_with_system},
+    types::{Card, CardId, CardSolution, CardType, GameState, ItemType, SystemType},
 };
 
 pub struct ShoeSettingCard;
@@ -14,12 +14,30 @@ impl CardBehavior for ShoeSettingCard {
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(crate::types::SystemType::Engine.as_u32()),
+                target_system: Some(SystemType::Engine),
                 ap_cost: 1,
                 item_cost: Some(ItemType::Peppernut),
                 required_players: 1,
             }),
         }
+    }
+
+    fn validate_action(
+        &self,
+        state: &GameState,
+        player_id: &str,
+        action: &crate::types::GameAction,
+    ) -> Result<(), crate::GameError> {
+        if let crate::types::GameAction::Interact = action {
+            let p = state.players.get(player_id).unwrap();
+            let engine = find_room_with_system(state, SystemType::Engine);
+            if Some(p.room_id) != engine {
+                return Err(crate::GameError::InvalidAction(
+                    "Must be in Engine to fix Shoe Setting.".to_string(),
+                ));
+            }
+        }
+        Ok(())
     }
 
     fn on_round_end(&self, state: &mut GameState) {
@@ -39,13 +57,9 @@ impl CardBehavior for ShoeSettingCard {
 
         if triggered {
             // Boom: All players lose their next turn.
-            // Note: We set rounds_left to 0 to signal the penalty for on_round_start.
-        } else {
-            // Remove if solved?
         }
     }
 
-    // We need `on_round_start` to enforce AP loss if triggered.
     fn on_round_start(&self, state: &mut GameState) {
         let mut triggered = false;
         for card in &state.active_situations {
@@ -62,7 +76,6 @@ impl CardBehavior for ShoeSettingCard {
             for p in state.players.values_mut() {
                 p.ap = 0;
             }
-            // Now remove it so it only affects one turn
             state
                 .active_situations
                 .retain(|c| c.id != CardId::ShoeSetting);

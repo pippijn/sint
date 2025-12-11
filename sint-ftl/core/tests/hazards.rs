@@ -9,16 +9,19 @@ fn test_fire_spread() {
     let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
     state.phase = GamePhase::EnemyAction;
 
-    // Room 6 (Kitchen) has 2 Fires. Spreads to 7 (Hallway) with 50% chance.
-    if let Some(r) = state.map.rooms.get_mut(&6) {
+    let kitchen = sint_core::logic::find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap();
+    let hallway = 0; // Default Hub
+
+    // Kitchen has 2 Fires. Spreads to Hallway with 50% chance.
+    if let Some(r) = state.map.rooms.get_mut(&kitchen) {
         r.hazards.push(HazardType::Fire);
         r.hazards.push(HazardType::Fire);
     }
 
     sint_core::logic::resolution::resolve_hazards(&mut state);
 
-    // Check if spread to 7 (Hallway is neighbor of Kitchen)
-    if let Some(r) = state.map.rooms.get(&7) {
+    // Check if spread to Hallway (Hub is neighbor of Kitchen)
+    if let Some(r) = state.map.rooms.get(&hallway) {
         // With seed 12345, check result
         assert!(!r.hazards.is_empty(), "Fire should have spread to Hallway");
     }
@@ -30,7 +33,9 @@ fn test_fire_damage_hull() {
     state.phase = GamePhase::EnemyAction;
     state.hull_integrity = 20;
 
-    if let Some(r) = state.map.rooms.get_mut(&6) {
+    let kitchen = sint_core::logic::find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap();
+
+    if let Some(r) = state.map.rooms.get_mut(&kitchen) {
         r.hazards.push(HazardType::Fire);
     }
 
@@ -44,11 +49,13 @@ fn test_fire_damage_player() {
     let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
     state.phase = GamePhase::EnemyAction;
 
+    let kitchen = sint_core::logic::find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap();
+
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = 6;
+        p.room_id = kitchen;
         p.hp = 3;
     }
-    if let Some(r) = state.map.rooms.get_mut(&6) {
+    if let Some(r) = state.map.rooms.get_mut(&kitchen) {
         r.hazards.push(HazardType::Fire);
     }
 
@@ -60,7 +67,9 @@ fn test_fire_damage_player() {
 #[test]
 fn test_water_destroys_peppernuts() {
     let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
-    if let Some(r) = state.map.rooms.get_mut(&6) {
+    let kitchen = sint_core::logic::find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap();
+
+    if let Some(r) = state.map.rooms.get_mut(&kitchen) {
         r.hazards.push(HazardType::Water);
         r.items.push(sint_core::types::ItemType::Peppernut);
         r.items.push(sint_core::types::ItemType::Extinguisher);
@@ -68,7 +77,7 @@ fn test_water_destroys_peppernuts() {
 
     sint_core::logic::resolution::resolve_hazards(&mut state);
 
-    let items = &state.map.rooms[&6].items;
+    let items = &state.map.rooms[&kitchen].items;
     assert!(!items.contains(&sint_core::types::ItemType::Peppernut));
     assert!(items.contains(&sint_core::types::ItemType::Extinguisher));
 }
@@ -76,7 +85,7 @@ fn test_water_destroys_peppernuts() {
 #[test]
 fn test_water_in_storage_safe() {
     let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
-    let storage_id = SystemType::Storage.as_u32();
+    let storage_id = sint_core::logic::find_room_with_system_in_map(&state.map, SystemType::Storage).unwrap();
     if let Some(r) = state.map.rooms.get_mut(&storage_id) {
         r.hazards.push(HazardType::Water);
         r.items.push(sint_core::types::ItemType::Peppernut);
@@ -93,10 +102,12 @@ fn test_extinguish_action() {
     let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
+    let kitchen = sint_core::logic::find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap();
+
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = 6;
+        p.room_id = kitchen;
     }
-    if let Some(r) = state.map.rooms.get_mut(&6) {
+    if let Some(r) = state.map.rooms.get_mut(&kitchen) {
         r.hazards.push(HazardType::Fire);
     }
 
@@ -118,7 +129,7 @@ fn test_extinguish_action() {
     )
     .unwrap();
 
-    assert!(state.map.rooms[&6].hazards.is_empty());
+    assert!(state.map.rooms[&kitchen].hazards.is_empty());
 }
 
 #[test]
@@ -126,10 +137,12 @@ fn test_repair_action() {
     let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
+    let kitchen = sint_core::logic::find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap();
+
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = 6;
+        p.room_id = kitchen;
     }
-    if let Some(r) = state.map.rooms.get_mut(&6) {
+    if let Some(r) = state.map.rooms.get_mut(&kitchen) {
         r.hazards.push(HazardType::Water);
     }
 
@@ -146,5 +159,5 @@ fn test_repair_action() {
     )
     .unwrap();
 
-    assert!(state.map.rooms[&6].hazards.is_empty());
+    assert!(state.map.rooms[&kitchen].hazards.is_empty());
 }

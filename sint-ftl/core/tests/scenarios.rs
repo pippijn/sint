@@ -8,21 +8,18 @@ fn test_scenario_fire_in_kitchen() {
     let mut state = GameLogic::new_game(vec!["P1".to_string(), "P2".to_string()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
-    // Scenario: Fire in Kitchen (6). P1 in Hallway (7). P2 in Kitchen.
-    // P2 tries to Bake (Fail).
-    // P2 Extinguish (Success).
-    // P1 moves to Kitchen.
-    // P1 Bake (Success).
+    let kitchen = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Kitchen).unwrap();
+    let hallway = 0; // Hub
 
-    if let Some(r) = state.map.rooms.get_mut(&6) {
+    if let Some(r) = state.map.rooms.get_mut(&kitchen) {
         r.hazards.push(sint_core::types::HazardType::Fire);
     }
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = 7;
+        p.room_id = hallway;
         p.ap = 2;
     }
     if let Some(p) = state.players.get_mut("P2") {
-        p.room_id = 6;
+        p.room_id = kitchen;
         p.ap = 2;
     }
 
@@ -34,11 +31,11 @@ fn test_scenario_fire_in_kitchen() {
     let mut state =
         GameLogic::apply_action(state, "P2", Action::Game(GameAction::Extinguish), None).unwrap();
 
-    // P1 Move 7 -> 6
+    // P1 Move Hallway -> Kitchen
     state = GameLogic::apply_action(
         state,
         "P1",
-        Action::Game(GameAction::Move { to_room: 6 }),
+        Action::Game(GameAction::Move { to_room: kitchen }),
         None,
     )
     .unwrap();
@@ -64,10 +61,10 @@ fn test_scenario_fire_in_kitchen() {
     .unwrap();
 
     // Check results
-    assert!(state.map.rooms[&6].hazards.is_empty());
+    assert!(state.map.rooms[&kitchen].hazards.is_empty());
     // P1 baked -> 3 nuts.
     // P1 picked up? No, items stay in room.
-    assert!(state.map.rooms[&6].items.contains(&ItemType::Peppernut));
+    assert!(state.map.rooms[&kitchen].items.contains(&ItemType::Peppernut));
 }
 
 #[test]
@@ -78,27 +75,28 @@ fn test_scenario_bucket_brigade() {
     );
     state.phase = GamePhase::TacticalPlanning;
 
-    // Chain: P1 (Kitchen 6) -> P2 (Hallway 7) -> P3 (Cannons 8).
-    // P1 Bakes. P1 Throws to P2. P2 Throws to P3. P3 Shoots.
+    let kitchen = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Kitchen).unwrap();
+    let cannons = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Cannons).unwrap();
+    let hallway = 0; // Hub
 
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = 6;
+        p.room_id = kitchen;
         p.ap = 2;
     }
     if let Some(p) = state.players.get_mut("P2") {
-        p.room_id = 7;
+        p.room_id = hallway;
         p.ap = 2;
     }
     if let Some(p) = state.players.get_mut("P3") {
-        p.room_id = 8;
+        p.room_id = cannons;
         p.ap = 2;
     }
 
     // P1
-    state = GameLogic::apply_action(state, "P1", Action::Game(GameAction::Bake), None).unwrap();
+    state = GameLogic::apply_action(state.clone(), "P1", Action::Game(GameAction::Bake), None).unwrap();
     // Pickup baked item
     state = GameLogic::apply_action(
-        state,
+        state.clone(),
         "P1",
         Action::Game(GameAction::PickUp {
             item_type: ItemType::Peppernut,
@@ -113,7 +111,7 @@ fn test_scenario_bucket_brigade() {
     }
 
     state = GameLogic::apply_action(
-        state,
+        state.clone(),
         "P1",
         Action::Game(GameAction::Throw {
             target_player: "P2".to_string(),
@@ -126,7 +124,7 @@ fn test_scenario_bucket_brigade() {
     // P2 has Nut now (in projection).
     // P2 Throws to P3.
     state = GameLogic::apply_action(
-        state,
+        state.clone(),
         "P2",
         Action::Game(GameAction::Throw {
             target_player: "P3".to_string(),
@@ -137,7 +135,7 @@ fn test_scenario_bucket_brigade() {
     .unwrap();
 
     // P3 Shoots.
-    state = GameLogic::apply_action(state, "P3", Action::Game(GameAction::Shoot), None).unwrap();
+    state = GameLogic::apply_action(state.clone(), "P3", Action::Game(GameAction::Shoot), None).unwrap();
 
     // Execute
     state = GameLogic::apply_action(

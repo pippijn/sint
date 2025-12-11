@@ -88,16 +88,15 @@ pub struct Room {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum SystemType {
-    Bridge,    // Room 9
-    Engine,    // Room 5
-    Kitchen,   // Room 6
-    Cannons,   // Room 8
-    Sickbay,   // Room 10
-    Bow,       // Room 2
-    Cargo,     // Room 4
-    Dormitory, // Room 3
-    Storage,   // Room 11
-    Hallway,   // Room 7 (Transit only, usually)
+    Bow,       // 2
+    Dormitory, // 3
+    Cargo,     // 4
+    Engine,    // 5
+    Kitchen,   // 6
+    Cannons,   // 7
+    Bridge,    // 8
+    Sickbay,   // 9
+    Storage,   // 10
 }
 
 impl SystemType {
@@ -108,11 +107,10 @@ impl SystemType {
             SystemType::Cargo => 4,
             SystemType::Engine => 5,
             SystemType::Kitchen => 6,
-            SystemType::Hallway => 7,
-            SystemType::Cannons => 8,
-            SystemType::Bridge => 9,
-            SystemType::Sickbay => 10,
-            SystemType::Storage => 11,
+            SystemType::Cannons => 7,
+            SystemType::Bridge => 8,
+            SystemType::Sickbay => 9,
+            SystemType::Storage => 10,
         }
     }
 
@@ -123,11 +121,10 @@ impl SystemType {
             4 => Some(SystemType::Cargo),
             5 => Some(SystemType::Engine),
             6 => Some(SystemType::Kitchen),
-            7 => Some(SystemType::Hallway),
-            8 => Some(SystemType::Cannons),
-            9 => Some(SystemType::Bridge),
-            10 => Some(SystemType::Sickbay),
-            11 => Some(SystemType::Storage),
+            7 => Some(SystemType::Cannons),
+            8 => Some(SystemType::Bridge),
+            9 => Some(SystemType::Sickbay),
+            10 => Some(SystemType::Storage),
             _ => None,
         }
     }
@@ -183,6 +180,7 @@ pub struct Enemy {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct EnemyAttack {
     pub target_room: RoomId,
+    pub target_system: Option<SystemType>,
     pub effect: AttackEffect,
 }
 
@@ -192,6 +190,7 @@ pub enum AttackEffect {
     Leak,     // Spawns Water
     Boarding, // Spawns Blockade?
     Hidden,   // Masked by Fog or other effects
+    Miss,     // Lucky Miss (Roll 11/12)
     Special(String),
 }
 
@@ -381,7 +380,7 @@ pub enum EffectType {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct CardSolution {
-    pub room_id: Option<RoomId>, // Where to solve it
+    pub target_system: Option<SystemType>, // Where to solve it (None = Any/Special)
     pub ap_cost: u32,
     pub item_cost: Option<ItemType>,
     pub required_players: u32,

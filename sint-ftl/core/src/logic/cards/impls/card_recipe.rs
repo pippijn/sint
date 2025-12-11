@@ -1,6 +1,6 @@
 use crate::{
-    logic::cards::behavior::CardBehavior,
-    types::{Card, CardId, CardSolution, CardType, GameState, ItemType},
+    logic::{cards::behavior::CardBehavior, find_room_with_system},
+    types::{Card, CardId, CardSolution, CardType, GameState, ItemType, SystemType},
 };
 
 pub struct RecipeCard;
@@ -10,15 +10,11 @@ impl CardBehavior for RecipeCard {
         Card {
             id: CardId::Recipe,
             title: "Recipe".to_string(),
-            description: format!(
-                "Mission: Go to The Bow ({}) . Reward: Super Peppernuts.",
-                crate::types::SystemType::Bow.as_u32()
-            )
-            .to_string(),
+            description: "Mission: Go to The Bow. Reward: Super Peppernuts.".to_string(),
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(crate::types::SystemType::Bow.as_u32()),
+                target_system: Some(SystemType::Bow),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 1,
@@ -26,12 +22,26 @@ impl CardBehavior for RecipeCard {
         }
     }
 
+    fn validate_action(
+        &self,
+        state: &GameState,
+        player_id: &str,
+        action: &crate::types::GameAction,
+    ) -> Result<(), crate::GameError> {
+        if let crate::types::GameAction::Interact = action {
+            let p = state.players.get(player_id).unwrap();
+            let bow = find_room_with_system(state, SystemType::Bow);
+            if Some(p.room_id) != bow {
+                return Err(crate::GameError::InvalidAction(
+                    "Recipe is in The Bow.".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
     fn on_solved(&self, state: &mut GameState) {
         for p in state.players.values_mut() {
-            // Give 2 Peppernuts (Super Peppernuts)
-            // Respect inventory limit? Standard limit is loose, usually just UI.
-            // But logic checks for full inventory on Pickup.
-            // Here we force add.
             p.inventory.push(ItemType::Peppernut);
             p.inventory.push(ItemType::Peppernut);
         }
@@ -43,9 +53,6 @@ impl CardBehavior for RecipeCard {
     }
 
     fn on_round_end(&self, state: &mut GameState) {
-        // Timebomb.
-        // If solved (Interact at Bow), reward is given.
-        // If time runs out, nothing happens (Recipe lost).
         for card in state.active_situations.iter_mut() {
             if card.id == CardId::Recipe {
                 if let CardType::Timebomb { rounds_left } = &mut card.card_type {
@@ -55,7 +62,6 @@ impl CardBehavior for RecipeCard {
                 }
             }
         }
-        // Cleanup if empty?
         state.active_situations.retain(|c| {
             if c.id == CardId::Recipe {
                 if let CardType::Timebomb { rounds_left } = c.card_type {

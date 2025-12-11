@@ -1,6 +1,6 @@
 use crate::{
-    logic::cards::behavior::CardBehavior,
-    types::{Card, CardId, CardSolution, CardType, GameAction, GameState},
+    logic::{cards::behavior::CardBehavior, find_room_with_system},
+    types::{Card, CardId, CardSolution, CardType, GameAction, GameState, SystemType},
     GameError,
 };
 
@@ -15,7 +15,7 @@ impl CardBehavior for SugarRushCard {
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(crate::types::SystemType::Kitchen.as_u32()),
+                target_system: Some(SystemType::Kitchen),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 1,
@@ -25,11 +25,20 @@ impl CardBehavior for SugarRushCard {
 
     fn validate_action(
         &self,
-        _state: &GameState,
-        _player_id: &str,
+        state: &GameState,
+        player_id: &str,
         action: &GameAction,
     ) -> Result<(), GameError> {
-        // Negative: Cannons prohibited.
+        if let GameAction::Interact = action {
+            let p = state.players.get(player_id).unwrap();
+            let kitchen = find_room_with_system(state, SystemType::Kitchen);
+            if Some(p.room_id) != kitchen {
+                return Err(crate::GameError::InvalidAction(
+                    "Must be in Kitchen to calm Sugar Rush.".to_string(),
+                ));
+            }
+        }
+
         if let GameAction::Shoot = action {
             return Err(GameError::InvalidAction(
                 "Sugar Rush! Too shaky to shoot.".to_string(),
@@ -45,8 +54,6 @@ impl CardBehavior for SugarRushCard {
         action: &GameAction,
         base_cost: i32,
     ) -> i32 {
-        // Positive: Move 1 room extra free.
-        // Simplified: Move is free.
         if let GameAction::Move { .. } = action {
             0
         } else {

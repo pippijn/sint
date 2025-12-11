@@ -1,6 +1,8 @@
-use crate::logic::cards::behavior::CardBehavior;
-use crate::types::{Card, CardId, CardSolution, CardType, GameAction, GameState};
-use crate::GameError;
+use crate::{
+    logic::cards::behavior::CardBehavior,
+    types::{Card, CardId, CardSolution, CardType, GameAction, GameState},
+    GameError,
+};
 
 pub struct WailingAlarmCard;
 
@@ -9,11 +11,11 @@ impl CardBehavior for WailingAlarmCard {
         Card {
             id: CardId::WailingAlarm,
             title: "Wailing Alarm".to_string(),
-            description: "No Bonuses. Special items and skills don't work.".to_string(),
+            description: "No Bonuses. Solve in any Empty Room.".to_string(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(crate::types::SystemType::Hallway.as_u32()),
+                target_system: None, // Any room (Checked in validate_action to be Empty)
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 1,
@@ -23,11 +25,21 @@ impl CardBehavior for WailingAlarmCard {
 
     fn validate_action(
         &self,
-        _state: &GameState,
-        _player_id: &str,
+        state: &GameState,
+        player_id: &str,
         action: &GameAction,
     ) -> Result<(), GameError> {
         match action {
+            GameAction::Interact => {
+                let p = state.players.get(player_id).unwrap();
+                let room = state.map.rooms.get(&p.room_id).ok_or(GameError::RoomNotFound)?;
+                if room.system.is_some() {
+                     return Err(GameError::InvalidAction(
+                        "Wailing Alarm must be silenced in an Empty Room.".to_string(),
+                    ));
+                }
+                Ok(())
+            }
             GameAction::RaiseShields => Err(GameError::InvalidAction(
                 "Wailing Alarm! Shields are disabled.".to_string(),
             )),

@@ -1,6 +1,6 @@
 use crate::{
-    logic::cards::behavior::CardBehavior,
-    types::{Card, CardId, CardSolution, CardType, GameAction, GameState},
+    logic::{cards::behavior::CardBehavior, find_room_with_system},
+    types::{Card, CardId, CardSolution, CardType, GameAction, GameState, SystemType},
     GameError,
 };
 
@@ -11,20 +11,47 @@ impl CardBehavior for MonsterDoughCard {
         Card {
             id: CardId::MonsterDough,
             title: "Monster Dough".to_string(),
-            description: format!(
-                "Boom: Kitchen ({}) is unusable.",
-                crate::types::SystemType::Kitchen.as_u32()
-            )
-            .to_string(),
+            description: "Boom: Kitchen is unusable.".to_string(),
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(crate::types::SystemType::Kitchen.as_u32()),
+                target_system: Some(SystemType::Kitchen),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 1,
             }),
         }
+    }
+
+    fn validate_action(
+        &self,
+        state: &GameState,
+        player_id: &str,
+        action: &GameAction,
+    ) -> Result<(), GameError> {
+        if let GameAction::Interact = action {
+            let p = state.players.get(player_id).unwrap();
+            let kitchen = find_room_with_system(state, SystemType::Kitchen);
+            if Some(p.room_id) != kitchen {
+                return Err(crate::GameError::InvalidAction(
+                    "Must be in Kitchen to clean Monster Dough.".to_string(),
+                ));
+            }
+        }
+
+        // If triggered (rounds_left == 0)
+        // Block actions in Kitchen.
+        if let GameAction::Bake = action {
+            let triggered = state.active_situations.iter().any(|c| {
+                c.id == CardId::MonsterDough && matches!(c.card_type, CardType::Timebomb { rounds_left: 0 })
+            });
+            if triggered {
+                return Err(GameError::InvalidAction(
+                    "Monster Dough! Kitchen blocked.".to_string(),
+                ));
+            }
+        }
+        Ok(())
     }
 
     fn on_round_end(&self, state: &mut GameState) {
@@ -48,22 +75,5 @@ impl CardBehavior for MonsterDoughCard {
         } else {
             // Remove if solved? Solution logic is in Action::Interact usually.
         }
-    }
-
-    fn validate_action(
-        &self,
-        _state: &GameState,
-        _player_id: &str,
-        action: &GameAction,
-    ) -> Result<(), GameError> {
-        // If triggered (rounds_left == 0)
-        // Block actions in Kitchen.
-        if let GameAction::Bake = action {
-            // Check if triggered
-            return Err(GameError::InvalidAction(
-                "Monster Dough! Kitchen blocked.".to_string(),
-            ));
-        }
-        Ok(())
     }
 }

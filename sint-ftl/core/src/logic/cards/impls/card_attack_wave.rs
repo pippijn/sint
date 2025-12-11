@@ -14,7 +14,7 @@ impl CardBehavior for AttackWaveCard {
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(8),
+                target_system: None, // Any room
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 1,

@@ -1044,9 +1044,12 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                         }
                         for card in &s.active_situations {
                             if let Some(sol) = &card.solution {
-                                let room_match = sol
-                                    .room_id
-                                    .is_none_or(|rid| rid == player.room_id);
+                                let room_match = match sol.target_system {
+                                    Some(sys) => {
+                                        s.map.rooms.get(&player.room_id).is_some_and(|r| r.system == Some(sys))
+                                    }
+                                    None => true,
+                                };
                                 if room_match {
                                     let c_interact = ctx_action.clone();
                                     let title = card.title.clone();

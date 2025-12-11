@@ -1,6 +1,6 @@
 use crate::{
-    logic::cards::behavior::CardBehavior,
-    types::{Card, CardId, CardSolution, CardType, GameState, PlayerStatus},
+    logic::{cards::behavior::CardBehavior, find_room_with_system},
+    types::{Card, CardId, CardSolution, CardType, GameState, PlayerStatus, SystemType},
 };
 
 pub struct TheStaffCard;
@@ -10,23 +10,34 @@ impl CardBehavior for TheStaffCard {
         Card {
             id: CardId::TheStaff,
             title: "The Staff".to_string(),
-            description: format!(
-                "Mission: {} ({}) -> {} ({}) . Reward: Magical Recovery.",
-                "Dormitory",
-                crate::types::SystemType::Dormitory.as_u32(),
-                "Bridge",
-                crate::types::SystemType::Bridge.as_u32()
-            )
-            .to_string(),
+            description: "Mission: Dormitory -> Bridge. Reward: Magical Recovery.".to_string(),
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {
-                room_id: Some(crate::types::SystemType::Bridge.as_u32()),
+                target_system: Some(SystemType::Bridge),
                 ap_cost: 1,
                 item_cost: None,
                 required_players: 1,
             }),
         }
+    }
+
+    fn validate_action(
+        &self,
+        state: &GameState,
+        player_id: &str,
+        action: &crate::types::GameAction,
+    ) -> Result<(), crate::GameError> {
+        if let crate::types::GameAction::Interact = action {
+            let p = state.players.get(player_id).unwrap();
+            let bridge = find_room_with_system(state, SystemType::Bridge);
+            if Some(p.room_id) != bridge {
+                return Err(crate::GameError::InvalidAction(
+                    "Mission complete at Bridge.".to_string(),
+                ));
+            }
+        }
+        Ok(())
     }
 
     fn on_solved(&self, state: &mut GameState) {

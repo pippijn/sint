@@ -8,19 +8,21 @@ fn test_pickup_limit() {
     let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
+    let kitchen = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Kitchen).unwrap();
+
     // Give P1 a Nut
     if let Some(p) = state.players.get_mut("P1") {
         p.inventory.push(ItemType::Peppernut);
-        p.room_id = 6;
+        p.room_id = kitchen;
     }
-    // Room 6 has Nuts (from Bake or setup). Let's add one.
-    if let Some(r) = state.map.rooms.get_mut(&6) {
+    // Room has Nuts (from Bake or setup). Let's add one.
+    if let Some(r) = state.map.rooms.get_mut(&kitchen) {
         r.items.push(ItemType::Peppernut);
     }
 
     // Try to pick up another Nut (Limit 1 without Wheelbarrow)
     let res = GameLogic::apply_action(
-        state,
+        state.clone(),
         "P1",
         Action::Game(GameAction::PickUp {
             item_type: ItemType::Peppernut,
@@ -35,17 +37,19 @@ fn test_pickup_limit_with_wheelbarrow() {
     let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
+    let kitchen = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Kitchen).unwrap();
+
     if let Some(p) = state.players.get_mut("P1") {
         p.inventory.push(ItemType::Wheelbarrow);
         p.inventory.push(ItemType::Peppernut);
-        p.room_id = 6;
+        p.room_id = kitchen;
     }
-    if let Some(r) = state.map.rooms.get_mut(&6) {
+    if let Some(r) = state.map.rooms.get_mut(&kitchen) {
         r.items.push(ItemType::Peppernut);
     }
 
     let res = GameLogic::apply_action(
-        state,
+        state.clone(),
         "P1",
         Action::Game(GameAction::PickUp {
             item_type: ItemType::Peppernut,
@@ -81,12 +85,15 @@ fn test_throw_item() {
     let mut state = GameLogic::new_game(vec!["P1".to_string(), "P2".to_string()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
+    let kitchen = sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Kitchen).unwrap();
+    let hallway = 0;
+
     if let Some(p) = state.players.get_mut("P1") {
         p.inventory.push(ItemType::Peppernut); // Index 0
-        p.room_id = 6;
+        p.room_id = kitchen;
     }
     if let Some(p) = state.players.get_mut("P2") {
-        p.room_id = 7; // Neighbor
+        p.room_id = hallway; // Neighbor of Kitchen in Star Layout
     }
 
     let res = GameLogic::apply_action(

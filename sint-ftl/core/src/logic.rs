@@ -34,20 +34,19 @@ pub enum GameError {
     InvalidAction(String),
 }
 
-pub const MIN_ROOM_ID: u32 = 2;
-pub const MAX_ROOM_ID: u32 = 11;
-
-const ROOM_DEFINITIONS: &[(SystemType, &str)] = &[
-    (SystemType::Bow, "The Bow"),
-    (SystemType::Dormitory, "Dormitory"),
-    (SystemType::Cargo, "Cargo"),
-    (SystemType::Engine, "Engine"),
-    (SystemType::Kitchen, "Kitchen"),
-    (SystemType::Hallway, "Central Hallway"),
-    (SystemType::Cannons, "Cannons"),
-    (SystemType::Bridge, "Bridge"),
-    (SystemType::Sickbay, "Sickbay"),
-    (SystemType::Storage, "Storage"),
+// Room 0 is the Hub (None).
+// Rooms 1-9 are Systems.
+const ROOM_DEFINITIONS: &[(Option<SystemType>, &str)] = &[
+    (None, "Central Hallway"),              // 0
+    (Some(SystemType::Bow), "The Bow"),     // 1
+    (Some(SystemType::Dormitory), "Dormitory"), // 2
+    (Some(SystemType::Cargo), "Cargo"),     // 3
+    (Some(SystemType::Engine), "Engine"),   // 4
+    (Some(SystemType::Kitchen), "Kitchen"), // 5
+    (Some(SystemType::Cannons), "Cannons"), // 6
+    (Some(SystemType::Bridge), "Bridge"),   // 7
+    (Some(SystemType::Sickbay), "Sickbay"), // 8
+    (Some(SystemType::Storage), "Storage"), // 9
 ];
 
 pub struct GameLogic;
@@ -55,27 +54,29 @@ pub struct GameLogic;
 impl GameLogic {
     pub fn new_game(player_ids: Vec<String>, seed: u64) -> GameState {
         let mut rooms = HashMap::new();
+        let hub_id = 0;
 
-        for &(sys, name) in ROOM_DEFINITIONS {
-            let id = sys.as_u32();
+        // Star Layout Construction
+        for (i, (sys, name)) in ROOM_DEFINITIONS.iter().enumerate() {
+            let id = i as u32;
             let mut neighbors = vec![];
-            if sys != SystemType::Hallway {
-                neighbors.push(SystemType::Hallway.as_u32());
+
+            if id == hub_id {
+                // Hub connects to all other rooms (1..N)
+                for j in 1..ROOM_DEFINITIONS.len() {
+                    neighbors.push(j as u32);
+                }
             } else {
-                // Hallway connects to everything else
-                neighbors = ROOM_DEFINITIONS
-                    .iter()
-                    .map(|(s, _)| s.as_u32())
-                    .filter(|&r_id| r_id != SystemType::Hallway.as_u32())
-                    .collect();
+                // Spoke connects only to Hub
+                neighbors.push(hub_id);
             }
 
             // Special items
-            let items = if sys == SystemType::Storage {
+            let items = if *sys == Some(SystemType::Storage) {
                 vec![ItemType::Peppernut; 5]
-            } else if sys == SystemType::Cargo {
+            } else if *sys == Some(SystemType::Cargo) {
                 vec![ItemType::Wheelbarrow]
-            } else if sys == SystemType::Engine {
+            } else if *sys == Some(SystemType::Engine) {
                 vec![ItemType::Extinguisher]
             } else {
                 vec![]
@@ -86,13 +87,18 @@ impl GameLogic {
                 Room {
                     id,
                     name: name.to_string(),
-                    system: Some(sys),
+                    system: *sys,
                     hazards: vec![],
                     items,
                     neighbors,
                 },
             );
         }
+
+        let map = GameMap { rooms };
+        
+        // Determine Start Room (Dormitory)
+        let start_room = find_room_with_system_in_map(&map, SystemType::Dormitory).unwrap_or(0);
 
         let mut players = HashMap::new();
         for (i, pid) in player_ids.into_iter().enumerate() {
@@ -101,7 +107,7 @@ impl GameLogic {
                 Player {
                     id: pid.clone(),
                     name: format!("Player {}", i + 1),
-                    room_id: SystemType::Dormitory.as_u32(),
+                    room_id: start_room,
                     hp: 3,
                     ap: 2,
                     inventory: vec![],
@@ -122,7 +128,7 @@ impl GameLogic {
             turn_count: 1,
             hull_integrity: 20,
             boss_level: 0,
-            map: GameMap { rooms },
+            map,
             players,
             enemy: get_boss(0),
             chat_log: vec![],
@@ -144,6 +150,26 @@ impl GameLogic {
     ) -> Result<GameState, GameError> {
         actions::apply_action(state, player_id, action)
     }
+}
+
+pub fn find_room_with_system(state: &GameState, sys: SystemType) -> Option<RoomId> {
+    find_room_with_system_in_map(&state.map, sys)
+}
+
+pub fn find_room_with_system_in_map(map: &GameMap, sys: SystemType) -> Option<RoomId> {
+    for room in map.rooms.values() {
+        if room.system == Some(sys) {
+            return Some(room.id);
+        }
+    }
+    None
+}
+
+pub fn find_empty_rooms(state: &GameState) -> Vec<RoomId> {
+    state.map.rooms.values()
+        .filter(|r| r.system.is_none())
+        .map(|r| r.id)
+        .collect()
 }
 
 const BOSS_DEFINITIONS: &[(&str, i32)] = &[
