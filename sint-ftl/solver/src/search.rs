@@ -51,6 +51,7 @@ fn get_state_signature(state: &GameState) -> u64 {
     state.turn_count.hash(&mut hasher);
     state.hull_integrity.hash(&mut hasher);
     state.enemy.hp.hash(&mut hasher);
+    state.enemy.next_attack.hash(&mut hasher);
 
     for p in state.players.values() {
         p.room_id.hash(&mut hasher);
@@ -65,9 +66,12 @@ fn get_state_signature(state: &GameState) -> u64 {
         room.items.hash(&mut hasher);
     }
 
-    let mut sit_ids: Vec<_> = state.active_situations.iter().map(|c| c.id).collect();
-    sit_ids.sort();
-    sit_ids.hash(&mut hasher);
+    // Hash active situations fully (sorted by ID for canonicalization)
+    let mut situations: Vec<_> = state.active_situations.iter().collect();
+    situations.sort_by_key(|c| c.id);
+    for card in situations {
+        card.hash(&mut hasher);
+    }
 
     state.deck.len().hash(&mut hasher);
     state.discard.len().hash(&mut hasher);

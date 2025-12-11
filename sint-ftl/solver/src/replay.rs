@@ -55,13 +55,26 @@ pub fn format_trajectory(
                 }
 
                 state = new_state;
-                
+
                 // Detect Boss Defeat/Change
                 if state.enemy.name != last_enemy_name {
-                    writeln!(current_buffer, "\n**************************************************").unwrap();
+                    writeln!(
+                        current_buffer,
+                        "\n**************************************************"
+                    )
+                    .unwrap();
                     writeln!(current_buffer, "⚔️  BOSS DEFEATED: {}  ⚔️", last_enemy_name).unwrap();
-                    writeln!(current_buffer, "💀  NEW CHALLENGER: {}  💀", state.enemy.name).unwrap();
-                    writeln!(current_buffer, "**************************************************\n").unwrap();
+                    writeln!(
+                        current_buffer,
+                        "💀  NEW CHALLENGER: {}  💀",
+                        state.enemy.name
+                    )
+                    .unwrap();
+                    writeln!(
+                        current_buffer,
+                        "**************************************************\n"
+                    )
+                    .unwrap();
                     last_enemy_name = state.enemy.name.clone();
                 }
 

@@ -7,50 +7,63 @@ use std::collections::{HashMap, HashSet, VecDeque};
 #[derive(Debug, Clone)]
 pub struct ScoringWeights {
     // Vital Stats
-    pub hull_integrity: f64, // 1000.0
-    pub enemy_hp: f64,       // 1000.0
-    pub player_hp: f64,      // 200.0
-    pub ap_balance: f64,     // 1.0
+    pub hull_integrity: f64,
+    pub enemy_hp: f64,
+    pub player_hp: f64,
+    pub ap_balance: f64,
 
     // Hazards
-    pub fire_penalty_base: f64, // 80.0
-    pub water_penalty: f64,     // 50.0
+    pub fire_penalty_base: f64,
+    pub water_penalty: f64,
 
     // Game State
-    pub active_situation_penalty: f64, // 200.0
-    pub threat_player_penalty: f64,    // 300.0
-    pub threat_system_penalty: f64,    // 100.0
-    pub death_penalty: f64,            // 1000.0
+    pub active_situation_penalty: f64,
+    pub threat_player_penalty: f64,
+    pub threat_system_penalty: f64,
+    pub death_penalty: f64,
 
     // Roles & Positioning
-    pub gunner_base_reward: f64,     // 50.0
-    pub gunner_per_ammo: f64,        // 100.0
-    pub gunner_working_bonus: f64,   // 20.0
-    pub gunner_distance_factor: f64, // 10.0
+    pub gunner_base_reward: f64,
+    pub gunner_per_ammo: f64,
+    pub gunner_working_bonus: f64,
+    pub gunner_distance_factor: f64,
 
-    pub firefighter_base_reward: f64,     // 80.0
-    pub firefighter_distance_factor: f64, // 10.0
+    pub firefighter_base_reward: f64,
+    pub firefighter_distance_factor: f64,
 
-    pub baker_base_reward: f64,     // 20.0
-    pub baker_distance_factor: f64, // 5.0
+    pub baker_base_reward: f64,
+    pub baker_distance_factor: f64,
+
+    pub healing_reward: f64,
+    pub sickbay_distance_factor: f64,
 
     // Anti-Oscillation
-    pub backtracking_penalty: f64, // 50.0
+    pub backtracking_penalty: f64,
+
+    // Situation Solving
+    pub solution_solver_reward: f64,
+    pub solution_distance_factor: f64,
+
+    // Logistics
+    pub ammo_stockpile_reward: f64,
+
+    // Progression
+    pub boss_level_reward: f64,
 }
 
 impl Default for ScoringWeights {
     fn default() -> Self {
         Self {
-            hull_integrity: 1000.0,
+            hull_integrity: 3078.56,
             enemy_hp: 2000.0,
             player_hp: 100.0,
             ap_balance: 0.1,
-            fire_penalty_base: 80.0,
+            fire_penalty_base: 100.0,
             water_penalty: 50.0,
-            active_situation_penalty: 200.0,
+            active_situation_penalty: 176.01,
             threat_player_penalty: 300.0,
             threat_system_penalty: 300.0,
-            death_penalty: 1003.6,
+            death_penalty: 50000.0,
             gunner_base_reward: 50.0,
             gunner_per_ammo: 300.0,
             gunner_working_bonus: 20.0,
@@ -59,7 +72,13 @@ impl Default for ScoringWeights {
             firefighter_distance_factor: 10.0,
             baker_base_reward: 20.0,
             baker_distance_factor: 5.0,
+            healing_reward: 81.23,
+            sickbay_distance_factor: 10.0,
             backtracking_penalty: 49.7,
+            solution_solver_reward: 100.0,
+            solution_distance_factor: 10.0,
+            ammo_stockpile_reward: 50.0,
+            boss_level_reward: 10000.0,
         }
     }
 }
@@ -110,9 +129,12 @@ pub fn score_state(
 
     let mut score = 0.0;
 
-    // --- 1. Vital Stats ---
+    // --- 1. Vital Stats & Progression ---
     // Hull: Base survival. Weight high.
     score += state.hull_integrity as f64 * weights.hull_integrity;
+
+    // Boss Level: Major milestone.
+    score += state.boss_level as f64 * weights.boss_level_reward;
 
     // Enemy HP: The Goal. Weight high.
     // We use (Max - Current) so we maximize damage dealt.
@@ -183,7 +205,9 @@ pub fn score_state(
     // --- 5. Player Heuristics ---
     let mut cannon_rooms = HashSet::new();
     let mut kitchen_rooms = HashSet::new();
+    let mut sickbay_rooms = HashSet::new();
     let mut fire_rooms = HashSet::new();
+    let mut nut_locations = HashSet::new();
 
     // Scan rooms for systems and hazards
     for room in state.map.rooms.values() {
@@ -195,11 +219,17 @@ pub fn score_state(
                 SystemType::Kitchen => {
                     kitchen_rooms.insert(room.id);
                 }
+                SystemType::Sickbay => {
+                    sickbay_rooms.insert(room.id);
+                }
                 _ => {}
             }
         }
         if room.hazards.contains(&HazardType::Fire) {
             fire_rooms.insert(room.id);
+        }
+        if room.items.contains(&ItemType::Peppernut) {
+            nut_locations.insert(room.id);
         }
     }
 
@@ -212,58 +242,152 @@ pub fn score_state(
         // Reward for Player HP (Survival)
         score += p.hp as f64 * weights.player_hp;
 
-        // Action Points: Slight bonus for having AP (optional, but finding efficient paths usually maximizes AP naturally)
+        // Action Points: Slight bonus for having AP
         score += p.ap as f64 * weights.ap_balance;
 
-        // -- Role: Gunner (Has Peppernut) --
+        // Inventory Analysis
         let peppernuts = p
             .inventory
             .iter()
             .filter(|i| **i == ItemType::Peppernut)
             .count();
+        let has_wheelbarrow = p.inventory.contains(&ItemType::Wheelbarrow);
+        let has_extinguisher = p.inventory.contains(&ItemType::Extinguisher);
+        let nut_cap = if has_wheelbarrow { 5 } else { 1 };
+
+        // -- Role: Healer (Needs Health) --
+        if p.hp < 3 {
+            let urgency = (3 - p.hp).pow(2) as f64; // 1->4, 2->1
+            let dist = min_distance(state, p.room_id, &sickbay_rooms);
+            if dist == 0 {
+                score += weights.healing_reward * urgency;
+            } else {
+                score += (20.0 - dist as f64).max(0.0) * weights.sickbay_distance_factor * urgency;
+            }
+        }
+
+        // -- Role: Gunner (Has Peppernut) --
         if peppernuts > 0 {
+            let mut gunner_score = 0.0;
             let dist = min_distance(state, p.room_id, &cannon_rooms);
             if dist == 0 {
                 // In Cannons with Ammo! Very Good.
-                score += weights.gunner_per_ammo * peppernuts as f64 + weights.gunner_base_reward;
+                gunner_score +=
+                    weights.gunner_per_ammo * peppernuts as f64 + weights.gunner_base_reward;
                 // Bonus if Cannons system is working
                 for &rid in &cannon_rooms {
                     if let Some(r) = state.map.rooms.get(&rid) {
                         if !r.hazards.contains(&HazardType::Fire) {
-                            score += weights.gunner_working_bonus;
+                            gunner_score += weights.gunner_working_bonus;
                         }
                     }
                 }
             } else {
                 // Move closer
-                score += (20.0 - dist as f64).max(0.0)
+                gunner_score += (20.0 - dist as f64).max(0.0)
                     * weights.gunner_distance_factor
                     * peppernuts as f64;
             }
+
+            // Penalty for partial loads with Wheelbarrow (Efficiency)
+            if has_wheelbarrow && peppernuts < 5 {
+                gunner_score *= 0.1;
+            }
+
+            score += gunner_score;
         }
 
         // -- Role: Firefighter (Has Extinguisher) --
-        let has_extinguisher = p.inventory.iter().any(|i| *i == ItemType::Extinguisher);
-        if has_extinguisher && !fire_rooms.is_empty() {
-            let dist = min_distance(state, p.room_id, &fire_rooms);
-            if dist == 0 {
-                // In a room with fire! Good (can extinguish).
-                score += weights.firefighter_base_reward;
-            } else {
-                // Move to fire
-                score += (20.0 - dist as f64).max(0.0) * weights.firefighter_distance_factor;
+        if has_extinguisher {
+            if !fire_rooms.is_empty() {
+                let dist = min_distance(state, p.room_id, &fire_rooms);
+                if dist == 0 {
+                    // In a room with fire! Good (can extinguish).
+                    score += weights.firefighter_base_reward;
+                } else {
+                    // Move to fire
+                    score += (20.0 - dist as f64).max(0.0) * weights.firefighter_distance_factor;
+                }
             }
+            // No penalty for holding it when no fire exists. Safety first!
         }
 
-        // -- Role: Baker (Empty Hands) --
-        // If we need ammo (boss HP > 0) and have space, go to Kitchen.
-        if state.enemy.hp > 0 && p.inventory.len() < 2 && peppernuts == 0 && !has_extinguisher {
-            let dist = min_distance(state, p.room_id, &kitchen_rooms);
-            if dist == 0 {
-                score += weights.baker_base_reward;
+        // -- Role: Baker (Gather Ammo) --
+        // If we have space for ammo
+        if peppernuts < nut_cap && state.enemy.hp > 0 {
+            let mut baker_score = 0.0;
+
+            // Prefer existing nuts on floor (faster)
+            let dist_floor = if !nut_locations.is_empty() {
+                min_distance(state, p.room_id, &nut_locations)
             } else {
-                score += (10.0 - dist as f64).max(0.0) * weights.baker_distance_factor;
+                999
+            };
+
+            let dist_kitchen = min_distance(state, p.room_id, &kitchen_rooms);
+
+            let target_dist = dist_floor.min(dist_kitchen);
+
+            if target_dist == 0 {
+                baker_score += weights.baker_base_reward;
+            } else {
+                baker_score += (20.0 - target_dist as f64).max(0.0) * weights.baker_distance_factor;
             }
+
+            // Bonus for Wheelbarrow gathering (Efficiency)
+            if has_wheelbarrow {
+                baker_score *= 2.0;
+            }
+
+            score += baker_score;
+        }
+    }
+
+    // --- 7. Situation Solving ---
+    for card in &state.active_situations {
+        if let Some(sol) = &card.solution {
+            if let Some(sys) = sol.target_system {
+                let mut target_room = None;
+                for r in state.map.rooms.values() {
+                    if r.system == Some(sys) {
+                        target_room = Some(r.id);
+                        break;
+                    }
+                }
+
+                if let Some(tid) = target_room {
+                    // Find closest player (exclude fainted)
+                    let mut min_d = 999;
+                    for p in state.players.values() {
+                        if p.hp > 0 {
+                            let mut t_set = HashSet::new();
+                            t_set.insert(tid);
+                            let d = min_distance(state, p.room_id, &t_set);
+                            if d < min_d {
+                                min_d = d;
+                            }
+                        }
+                    }
+
+                    if min_d == 0 {
+                        score += weights.solution_solver_reward;
+                    } else {
+                        score += (20.0 - min_d as f64).max(0.0) * weights.solution_distance_factor;
+                    }
+                }
+            }
+        }
+    }
+
+    // --- 8. Logistics (Ammo Stockpile) ---
+    for room in state.map.rooms.values() {
+        if room.system == Some(SystemType::Cannons) {
+            let nuts = room
+                .items
+                .iter()
+                .filter(|i| **i == ItemType::Peppernut)
+                .count();
+            score += nuts as f64 * weights.ammo_stockpile_reward;
         }
     }
 
