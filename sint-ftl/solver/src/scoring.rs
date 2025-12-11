@@ -10,7 +10,8 @@ pub fn score_state(state: &GameState) -> f64 {
     score += state.hull_integrity as f64 * 100.0;
 
     // 2. Boss Progress (Lower HP is better)
-    score -= state.enemy.hp as f64 * 10.0;
+    // Weight increased to incentivize aggression.
+    score -= state.enemy.hp as f64 * 50.0;
 
     // 3. Hazard Penalty
     // Fewer hazards is better.
@@ -18,8 +19,8 @@ pub fn score_state(state: &GameState) -> f64 {
     score -= hazard_count as f64 * 20.0;
 
     // 4. Survival (Round Count)
-    // Later rounds = good (if surviving).
-    score += state.turn_count as f64 * 50.0;
+    // Later rounds = good (if surviving), but we don't want to over-reward turtling.
+    score += state.turn_count as f64 * 5.0;
 
     if state.phase == GamePhase::Victory {
         score += 100_000.0;
@@ -34,6 +35,7 @@ pub fn score_state(state: &GameState) -> f64 {
 pub struct ScoreAccumulator {
     pub total_hull_integral: f64,
     pub total_hazard_integral: f64,
+    pub total_enemy_hp_integral: f64,
     pub rounds_survived: u32,
     pub victory: bool,
 }
@@ -47,6 +49,7 @@ impl ScoreAccumulator {
     pub fn on_round_end(&mut self, state: &GameState) {
         self.rounds_survived = state.turn_count;
         self.total_hull_integral += state.hull_integrity as f64;
+        self.total_enemy_hp_integral += state.enemy.hp as f64;
 
         let hazard_count: usize = state.map.rooms.values().map(|r| r.hazards.len()).sum();
         self.total_hazard_integral += hazard_count as f64;
@@ -74,7 +77,12 @@ impl ScoreAccumulator {
         // Weight: -5.
         score -= self.total_hazard_integral * 5.0;
 
-        // 4. Round Bonus (If not victory, strictly better to live longer)
+        // 4. Enemy HP Integral (The "Dominance" metric)
+        // Rewards dealing damage EARLY.
+        // Weight: -20 (Must be > SurvivalBonus / MinBossHP to discourage farming).
+        score -= self.total_enemy_hp_integral * 20.0;
+
+        // 5. Round Bonus (If not victory, strictly better to live longer)
         // If victory, faster is better?
         if self.victory {
             // Faster victory bonus: Penalty for rounds taken
