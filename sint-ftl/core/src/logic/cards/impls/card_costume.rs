@@ -20,16 +20,15 @@ impl CardBehavior for CostumePartyCard {
 
     fn on_activate(&self, state: &mut GameState) {
         // Effect: Players swap positions (Cyclic shift: P1->P2, P2->P3...).
-        // Sort IDs to ensure deterministic cycle
-        let mut sorted_ids: Vec<String> = state.players.keys().cloned().collect();
-        sorted_ids.sort();
+        // Use sorted IDs to ensure deterministic cycle
+        let player_ids: Vec<String> = state.players.keys().cloned().collect();
 
-        if sorted_ids.is_empty() {
+        if player_ids.is_empty() {
             return;
         }
 
         // Capture current rooms
-        let current_rooms: Vec<u32> = sorted_ids
+        let current_rooms: Vec<u32> = player_ids
             .iter()
             .map(|id| state.players.get(id).unwrap().room_id)
             .collect();
@@ -40,8 +39,8 @@ impl CardBehavior for CostumePartyCard {
         // P2 -> P3's room.
         // P_last -> P1's room.
 
-        let len = sorted_ids.len();
-        for (i, pid) in sorted_ids.iter().enumerate() {
+        let len = player_ids.len();
+        for (i, pid) in player_ids.iter().enumerate() {
             // Target is (i + 1) % len
             let target_room_idx = (i + 1) % len;
             let new_room = current_rooms[target_room_idx];

@@ -125,14 +125,27 @@ impl VerificationResult {
     }
 }
 
-pub fn parse_solution_text(text: &str) -> (Vec<(String, GameAction)>, Option<u64>, Option<usize>) {
-    let mut actions = Vec::new();
+pub fn parse_solution_text(
+    text: &str,
+) -> (Vec<Vec<(String, GameAction)>>, Option<u64>, Option<usize>) {
+    let mut rounds = Vec::new();
+    let mut current_round = Vec::new();
     let mut seed = None;
     let mut players = None;
 
     for line in text.lines() {
         let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
+        if line.is_empty() {
+            continue;
+        }
+
+        if line.starts_with('#') {
+            if line.to_lowercase().contains("round") {
+                if !current_round.is_empty() {
+                    rounds.push(current_round);
+                    current_round = Vec::new();
+                }
+            }
             continue;
         }
 
@@ -213,77 +226,122 @@ pub fn parse_solution_text(text: &str) -> (Vec<(String, GameAction)>, Option<u64
             panic!("Unknown command: {}", cmd);
         };
 
-        actions.push((pid, action));
+        current_round.push((pid, action));
     }
-    (actions, seed, players)
+
+    if !current_round.is_empty() {
+        rounds.push(current_round);
+    }
+    // If no explicit rounds found but actions exist, treat as one round (legacy/fallback)
+    // Or if valid use case requires implicit single round.
+
+    (rounds, seed, players)
 }
 
 pub fn run_verification(
     initial_state: GameState,
-    user_actions: Vec<(String, GameAction)>,
+    user_rounds: Vec<Vec<(String, GameAction)>>,
 ) -> VerificationResult {
     let mut state = initial_state;
     let mut full_history = Vec::new();
-    let mut action_iter = user_actions.into_iter();
-
     let mut scorer = ScoreAccumulator::new();
     let mut last_round = state.turn_count;
 
-    // Loop until Game Over or Actions exhausted
-    loop {
-        // Scoring: Check round transition
-        if state.turn_count > last_round {
-            // A round has passed. Capture state for scoring.
-            scorer.on_round_end(&state);
-            last_round = state.turn_count;
+    for (_round_idx, round_actions) in user_rounds.into_iter().enumerate() {
+        if state.phase == GamePhase::GameOver || state.phase == GamePhase::Victory {
+            break;
+        }
+
+        // 1. Advance through Non-Interactive Phases (MorningReport, etc.)
+        // We expect the state to eventually reach TacticalPlanning or GameOver
+        let mut loop_safety = 0;
+        while state.phase != GamePhase::TacticalPlanning
+            && state.phase != GamePhase::GameOver
+            && state.phase != GamePhase::Victory
+        {
+            loop_safety += 1;
+            if loop_safety > 100 {
+                return VerificationResult {
+                    success: false,
+                    history: full_history,
+                    final_state: state.clone(),
+                    error: Some(GameError::InvalidAction("Stuck in phase transition".into())),
+                    failed_action: None,
+                    score: scorer.finalize(&state),
+                };
+            }
+
+            // Auto-Vote Ready for everyone in non-planning phases
+            loop {
+                if state.phase == GamePhase::TacticalPlanning
+                    || state.phase == GamePhase::GameOver
+                    || state.phase == GamePhase::Victory
+                {
+                    break;
+                }
+
+                // Find deterministic next player
+                let next_unready = state
+                    .players
+                    .values()
+                    .filter(|p| !p.is_ready)
+                    .map(|p| p.id.clone())
+                    .min();
+
+                if let Some(pid) = next_unready {
+                    let act = GameAction::VoteReady { ready: true };
+                    let core_act = Action::Game(act.clone());
+                    if let Ok(s) = GameLogic::apply_action(state.clone(), &pid, core_act, None) {
+                        state = s;
+                        full_history.push((pid, act));
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+
+            // Check for round transition
+            if state.turn_count > last_round {
+                scorer.on_round_end(&state);
+                last_round = state.turn_count;
+            }
         }
 
         if state.phase == GamePhase::GameOver || state.phase == GamePhase::Victory {
             break;
         }
 
-        // Auto-Advance Phases
-        if state.phase != GamePhase::TacticalPlanning {
-            // Just Vote Ready for everyone
-            let pids: Vec<String> = state.players.keys().cloned().collect();
-            for pid in pids {
-                let act = GameAction::VoteReady { ready: true };
-                // Wrap in Action::Game for core logic
-                let core_act = Action::Game(act.clone());
-                match GameLogic::apply_action(state.clone(), &pid, core_act, None) {
-                    Ok(s) => {
-                        state = s;
-                        full_history.push((pid, act));
-                    }
-                    Err(_) => break, // Should not happen
-                }
-            }
-            continue;
-        }
+        // 2. We are now in TacticalPlanning (presumably). Apply actions for this block.
+        // Record the round number at start of block
+        let round_start_turn = state.turn_count;
 
-        if let Some((pid, action)) = action_iter.next() {
-            // Wrap in Action::Game for core logic
+        for (pid, action) in round_actions {
+            // Check if we accidentally drifted to next round prematurely?
+            // If state.turn_count > round_start_turn, that means the previous action triggered a round end.
+            // But we still have actions in the block! This violates "Block = One Round".
+            // However, maybe the user wants to supply actions for Morning phase?
+            // But we auto-skipped Morning.
+            // So strictly speaking, all actions in this block should belong to round_start_turn.
+            if state.turn_count > round_start_turn {
+                return VerificationResult {
+                    success: false,
+                    history: full_history,
+                    final_state: state.clone(),
+                    error: Some(GameError::InvalidAction(format!(
+                        "Round advanced to {} while still executing actions for block representing Round {}. Block has extra actions.",
+                        state.turn_count, round_start_turn
+                    ))),
+                    failed_action: Some((pid, action)),
+                    score: scorer.finalize(&state),
+                };
+            }
+
             let core_act = Action::Game(action.clone());
             match GameLogic::apply_action(state.clone(), &pid, core_act, None) {
-                Ok(mut s) => {
+                Ok(s) => {
                     full_history.push((pid.clone(), action.clone()));
-
-                    // Auto-Ready Logic
-                    if s.phase == GamePhase::TacticalPlanning {
-                        if let Some(p) = s.players.get(&pid) {
-                            if p.ap == 0 && !p.is_ready {
-                                let ready_act = GameAction::VoteReady { ready: true };
-                                let core_ready = Action::Game(ready_act.clone());
-                                match GameLogic::apply_action(s.clone(), &pid, core_ready, None) {
-                                    Ok(next_s) => {
-                                        s = next_s;
-                                        full_history.push((pid.clone(), ready_act));
-                                    }
-                                    Err(_) => {} // Auto-ready failed
-                                }
-                            }
-                        }
-                    }
                     state = s;
                 }
                 Err(e) => {
@@ -297,17 +355,71 @@ pub fn run_verification(
                     };
                 }
             }
-        } else {
-            // No more user actions
-            break;
+        }
+
+        // 3. Block finished. Ensure round completion.
+        if state.turn_count == round_start_turn && state.phase == GamePhase::TacticalPlanning {
+            // Ensure all AP consumed by active players
+            let players_with_ap: Vec<String> = state
+                .players
+                .values()
+                .filter(|p| p.ap > 0 && !p.is_ready)
+                .map(|p| p.id.clone())
+                .collect();
+
+            if !players_with_ap.is_empty() {
+                return VerificationResult {
+                    success: false,
+                    history: full_history,
+                    final_state: state.clone(),
+                    error: Some(GameError::InvalidAction(format!(
+                        "Round {} block finished, but players still have AP: {:?}",
+                        round_start_turn, players_with_ap
+                    ))),
+                    failed_action: None,
+                    score: scorer.finalize(&state),
+                };
+            }
+
+            // Auto-ready remaining players (who must have 0 AP) to trigger phase transition
+            loop {
+                if state.phase != GamePhase::TacticalPlanning {
+                    break;
+                }
+
+                let next_unready = state
+                    .players
+                    .values()
+                    .filter(|p| !p.is_ready)
+                    .map(|p| p.id.clone())
+                    .min();
+
+                if let Some(pid) = next_unready {
+                    let act = GameAction::VoteReady { ready: true };
+                    let core_act = Action::Game(act.clone());
+                    if let Ok(s) = GameLogic::apply_action(state.clone(), &pid, core_act, None) {
+                        state = s;
+                        full_history.push((pid, act));
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+        }
+
+        // Verify phase transition
+        if state.turn_count != round_start_turn || state.phase != GamePhase::TacticalPlanning {
+            // Round or Phase advanced successfully
+            if state.turn_count > last_round {
+                scorer.on_round_end(&state);
+                last_round = state.turn_count;
+            }
         }
     }
 
-    // Capture final round if not captured (e.g. game ended mid-round or at end of round)
-    if state.turn_count >= last_round {
-        scorer.on_round_end(&state);
-    }
-
+    // Check outcome
     let is_victory = state.phase == GamePhase::Victory;
     VerificationResult {
         success: is_victory,

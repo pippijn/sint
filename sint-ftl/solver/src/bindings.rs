@@ -14,17 +14,17 @@ use sint_core::types::{GameAction, GameState};
 fn verify_solution(
     py: Python,
     initial_state_dict: Bound<'_, PyAny>,
-    actions_list: Bound<'_, PyAny>,
+    rounds_list: Bound<'_, PyAny>,
 ) -> PyResult<Py<PyAny>> {
     let initial_state: GameState = depythonize(&initial_state_dict).map_err(|e| {
         PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid initial state: {}", e))
     })?;
 
-    let actions: Vec<(String, GameAction)> = depythonize(&actions_list).map_err(|e| {
-        PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid actions list: {}", e))
+    let rounds: Vec<Vec<(String, GameAction)>> = depythonize(&rounds_list).map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid rounds list: {}", e))
     })?;
 
-    let result = run_verification(initial_state, actions);
+    let result = run_verification(initial_state, rounds);
 
     let py_result = pythonize(py, &result)
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;

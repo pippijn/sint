@@ -30,11 +30,8 @@ impl CardBehavior for FalseNoteCard {
             let mut best_target = None;
             let mut min_dist = usize::MAX;
 
-            // Sort empty rooms by ID for tie-breaking (lowest ID wins)
-            let mut targets = empty_rooms.clone();
-            targets.sort();
-
-            for target in targets {
+            // Empty rooms are sorted by ID for tie-breaking (lowest ID wins)
+            for target in empty_rooms {
                 if let Some(path) = find_path(&state.map, start, target) {
                     // path includes end but excludes start? find_path returns steps.
                     // Len is distance.

@@ -71,9 +71,8 @@ pub fn resolve_hazards(state: &mut GameState) {
     let mut fire_spreads = vec![];
     let mut rng = StdRng::seed_from_u64(state.rng_seed);
 
-    // Deterministic Iteration: Sort Room IDs
-    let mut room_ids: Vec<u32> = state.map.rooms.keys().cloned().collect();
-    room_ids.sort();
+    // Deterministic Iteration: BTreeMap gives sorted keys
+    let room_ids: Vec<u32> = state.map.rooms.keys().cloned().collect();
 
     // 1. Damage Players & Hull
     for room_id in &room_ids {
@@ -107,9 +106,8 @@ pub fn resolve_hazards(state: &mut GameState) {
     }
 
     // Apply Player Damage separately
-    // Deterministic Iteration: Sort Player IDs
-    let mut player_ids: Vec<String> = state.players.keys().cloned().collect();
-    player_ids.sort();
+    // Deterministic Iteration: BTreeMap gives sorted keys
+    let player_ids: Vec<String> = state.players.keys().cloned().collect();
 
     for pid in &player_ids {
         if let Some(p) = state.players.get_mut(pid) {

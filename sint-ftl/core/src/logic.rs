@@ -10,7 +10,7 @@ pub use actions::apply_action;
 use crate::types::*;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use thiserror::Error;
 
 #[derive(Error, Debug, Serialize, Deserialize, Clone)]
@@ -52,7 +52,7 @@ impl GameLogic {
         // Determine Start Room (Dormitory)
         let start_room = find_room_with_system_in_map(&map, SystemType::Dormitory).unwrap_or(0);
 
-        let mut players = HashMap::new();
+        let mut players = BTreeMap::new();
         for (i, pid) in player_ids.into_iter().enumerate() {
             players.insert(
                 pid.clone(),

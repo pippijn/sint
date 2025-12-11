@@ -20,11 +20,9 @@ impl CardBehavior for LuckyDipCard {
 
     fn on_activate(&self, state: &mut GameState) {
         // Swap Special Items to LEFT.
-        // Sorted IDs
-        let mut sorted_ids: Vec<String> = state.players.keys().cloned().collect();
-        sorted_ids.sort();
+        let player_ids: Vec<String> = state.players.keys().cloned().collect();
 
-        let len = sorted_ids.len();
+        let len = player_ids.len();
         if len < 2 {
             return;
         }
@@ -39,7 +37,7 @@ impl CardBehavior for LuckyDipCard {
 
         let mut extracted_items = vec![None; len];
 
-        for (i, pid) in sorted_ids.iter().enumerate() {
+        for (i, pid) in player_ids.iter().enumerate() {
             if let Some(p) = state.players.get_mut(pid) {
                 // Find first special item
                 if let Some(pos) = p.inventory.iter().position(|it| special_types.contains(it)) {
@@ -50,7 +48,7 @@ impl CardBehavior for LuckyDipCard {
 
         // Swap Special Items to the left (i receives from i-1 in sorted list).
 
-        for (i, pid) in sorted_ids.iter().enumerate() {
+        for (i, pid) in player_ids.iter().enumerate() {
             let source_idx = if i == 0 { len - 1 } else { i - 1 };
             if let Some(item) = &extracted_items[source_idx] {
                 if let Some(p) = state.players.get_mut(pid) {

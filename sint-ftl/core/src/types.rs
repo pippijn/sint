@@ -1,6 +1,6 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 // --- ID Aliases ---
 pub type PlayerId = String;
@@ -40,7 +40,7 @@ pub struct GameState {
     pub map: GameMap,
 
     /// The Players
-    pub players: HashMap<PlayerId, Player>,
+    pub players: BTreeMap<PlayerId, Player>,
 
     /// The Enemy (Boss)
     pub enemy: Enemy,
@@ -84,7 +84,7 @@ pub enum GamePhase {
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct GameMap {
-    pub rooms: HashMap<RoomId, Room>,
+    pub rooms: BTreeMap<RoomId, Room>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]

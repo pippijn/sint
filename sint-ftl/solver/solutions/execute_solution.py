@@ -82,19 +82,21 @@ p5 = Player("P5", "P5")
 p6 = Player("P6", "P6")
 players = [p1, p2, p3, p4, p5, p6]
 
-# Global log to capture actions in call order
-actions_log = []
+# Global log to capture actions in round blocks
+rounds_log = []
 
 class LoggingPlayer(Player):
     def action(self, cmd, cost=1):
         super().action(cmd, cost)
-        # The last action added to self.actions is the one we just did
-        actions_log.append(self.actions[-1])
+        # Append to the current round's log
+        if rounds_log:
+            rounds_log[-1].append(self.actions[-1])
 
     def pass_turn(self):
         super().pass_turn()
         if self.actions and self.actions[-1][1]["type"] == "Pass":
-             actions_log.append(self.actions[-1])
+             if rounds_log:
+                 rounds_log[-1].append(self.actions[-1])
 
 # Re-init with logging
 p1 = LoggingPlayer("P1", "P1")
@@ -106,496 +108,471 @@ p6 = LoggingPlayer("P6", "P6")
 players = [p1, p2, p3, p4, p5, p6]
 
 
-def start_round(ap_override=None):
-    for p in players:
-        p.reset_ap(2 if ap_override is None else ap_override)
+class RoundScope:
+    def __init__(self, ap_override=None):
+        self.ap = 2 if ap_override is None else ap_override
+
+    def __enter__(self):
+        rounds_log.append([])
+        for p in players:
+            p.reset_ap(self.ap)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is not None:
+             return False # Propagate exceptions
+        for p in players:
+            p.pass_turn()
+
 
 # --- Original Logic copied from generate_solution.py ---
 
 def r1():
     # print("# Round 1: TurboMode, Enemy->5")
-    start_round(3)
-    p1.action("Move 0"); p1.action("Move 5") # P1 to Kitchen (5)
-    p5.action("Move 0"); p5.action("Move 6") # P5 to Cannons (6)
-    p6.action("Move 0"); p6.action("Move 6") # P6 to Cannons (6)
-    p2.action("Move 0"); p2.action("Move 3") # P2 to Cargo (3)
-    p3.action("Move 0"); p3.action("Move 7") # P3 to Bridge (7)
-    p4.action("Move 0") # P4 to Hallway (0)
-    for p in players: p.pass_turn()
+    with RoundScope(3):
+        p1.action("Move 0"); p1.action("Move 5") # P1 to Kitchen (5)
+        p5.action("Move 0"); p5.action("Move 6") # P5 to Cannons (6)
+        p6.action("Move 0"); p6.action("Move 6") # P6 to Cannons (6)
+        p2.action("Move 0"); p2.action("Move 3") # P2 to Cargo (3)
+        p3.action("Move 0"); p3.action("Move 7") # P3 to Bridge (7)
+        p4.action("Move 0") # P4 to Hallway (0)
 
 def r2():
     # print("# Round 2: SugarRush. Enemy->7. Fire in 5.")
-    start_round(3)
-    p4.action("Move 4", 0) # Engine (4)
-    p4.action("Extinguish", 1)
-    p4.action("Interact", 1)
-    p4.action("Move 0", 0)
-    p3.action("EvasiveManeuvers", 2)
-    p1.action("Bake", 1)
-    p1.action("PickUp", 1)
-    p2.action("Move 0", 0)
-    p2.action("Move 6", 0) # Cannons (6)
-    for p in players: p.pass_turn()
+    with RoundScope(3):
+        p4.action("Move 4", 0) # Engine (4)
+        p4.action("Extinguish", 1)
+        p4.action("Interact", 1)
+        p4.action("Move 0", 0)
+        p3.action("EvasiveManeuvers", 2)
+        p1.action("Bake", 1)
+        p1.action("PickUp", 1)
+        p2.action("Move 0", 0)
+        p2.action("Move 6", 0) # Cannons (6)
 
 def r3():
     # print("# Round 3: Overheating. Enemy->5.")
-    start_round()
-    p4.ap -= 1
-    p4.action("Move 0", 0)
-    p3.action("Move 4", 0) # Engine (4)
-    p3.action("Move 7", 0) # Bridge (7)
-    p2.action("Move 0", 0)
-    p1.action("Interact", 1)
-    p1.action("Throw P2 0", 1)
-    p2.action("Throw P5 0", 1)
-    p5.action("Shoot", 1)
-    p3.action("EvasiveManeuvers", 2)
-    for p in players: p.pass_turn()
+    with RoundScope():
+        p4.ap -= 1
+        p4.action("Move 0", 0)
+        p3.action("Move 4", 0) # Engine (4)
+        p3.action("Move 7", 0) # Bridge (7)
+        p2.action("Move 0", 0)
+        p1.action("Interact", 1)
+        p1.action("Throw P2 0", 1)
+        p2.action("Throw P5 0", 1)
+        p5.action("Shoot", 1)
+        p3.action("EvasiveManeuvers", 2)
 
 def r4():
     # print("# Round 4: Rudderless. Enemy->7.")
-    start_round()
-    p4.action("Move 7", 1) # Bridge (7)
-    p4.action("Interact", 1)
-    p3.action("EvasiveManeuvers", 2)
-    p2.action("Move 3", 1) # Cargo (3)
-    p1.action("Bake", 1)
-    for p in players: p.pass_turn()
+    with RoundScope():
+        p4.action("Move 7", 1) # Bridge (7)
+        p4.action("Interact", 1)
+        p3.action("EvasiveManeuvers", 2)
+        p2.action("Move 3", 1) # Cargo (3)
+        p1.action("Bake", 1)
 
 def r5():
     # print("# Round 5: NoLight. Enemy->6.")
-    start_round()
-    p2.action("Interact", 1)
-    p3.action("EvasiveManeuvers", 2)
-    p1.action("PickUp", 1)
-    p1.action("Move 0", 1)
-    p1.action("Drop 0", 0)
-    for p in players: p.pass_turn()
+    with RoundScope():
+        p2.action("Interact", 1)
+        p3.action("EvasiveManeuvers", 2)
+        p1.action("PickUp", 1)
+        p1.action("Move 0", 1)
+        p1.action("Drop 0", 0)
 
 def r6():
     # print("# Round 6: FogBank. Enemy->9.")
-    start_round()
-    p3.action("EvasiveManeuvers", 2)
-    p1.action("PickUp", 1)
-    p1.action("Throw P5 0", 1)
-    p5.action("Shoot", 1)
-    p2.action("Move 6", 2) # Cannons (6)
-    for p in players: p.pass_turn()
+    with RoundScope():
+        p3.action("EvasiveManeuvers", 2)
+        p1.action("PickUp", 1)
+        p1.action("Throw P5 0", 1)
+        p5.action("Shoot", 1)
+        p2.action("Move 6", 2) # Cannons (6)
 
 def r7():
     # print("# Round 7: Panic! Enemy->8.")
-    start_round()
-    p1.action("Move 0", 1); p1.action("Move 5", 1) # Kitchen (5)
-    p5.action("Move 0", 1); p5.action("Move 6", 1) # Cannons (6)
-    p6.action("Move 0", 1); p6.action("Move 6", 1) # Cannons (6)
-    p3.action("Move 0", 1); p3.action("Move 7", 1) # Bridge (7)
-    p2.action("Move 0", 1)
-    p4.action("Move 0", 1); p4.action("Move 4", 1) # Engine (4)
-    for p in players: p.pass_turn()
+    with RoundScope():
+        p1.action("Move 0", 1); p1.action("Move 5", 1) # Kitchen (5)
+        p5.action("Move 0", 1); p5.action("Move 6", 1) # Cannons (6)
+        p6.action("Move 0", 1); p6.action("Move 6", 1) # Cannons (6)
+        p3.action("Move 0", 1); p3.action("Move 7", 1) # Bridge (7)
+        p2.action("Move 0", 1)
+        p4.action("Move 0", 1); p4.action("Move 4", 1) # Engine (4)
 
 def r8():
     # print("# Round 8: ListingShip. Enemy->8. Fire in 9.")
-    start_round()
-    p4.action("Interact", 2) 
-    p2.action("Move 4", 1) # Engine (4)
-    # p2.action("Extinguish", 1) # No fire to extinguish
-    p3.action("EvasiveManeuvers", 2)
-    p5.action("PickUp", 1)
-    p6.action("PickUp", 1)
-    p5.action("Shoot", 1)
-    p6.action("Shoot", 1)
-    # p1.action("Move 5", 0) # Kitchen (5) - Already there
-    p1.action("PickUp", 1)
-    for p in players: p.pass_turn()
+    with RoundScope():
+        p4.action("Interact", 2) 
+        p2.action("Move 4", 1) # Engine (4)
+        # p2.action("Extinguish", 1) # No fire to extinguish
+        p3.action("EvasiveManeuvers", 2)
+        p5.action("PickUp", 1)
+        p6.action("PickUp", 1)
+        p5.action("Shoot", 1)
+        p6.action("Shoot", 1)
+        # p1.action("Move 5", 0) # Kitchen (5) - Already there
+        p1.action("PickUp", 1)
 
 def r9():
     # print("# Round 9: WeirdGifts. Enemy->6.")
-    start_round()
-    # p5.action("Shoot", 1) # No ammo
-    p1.action("Move 0", 1)
-    p1.action("Throw P6 0", 1)
-    p6.action("Shoot", 1)
-    p3.action("EvasiveManeuvers", 2)
-    p2.action("Move 0", 1)
-    p2.action("Move 3", 1) # Cargo (3)
-    for p in players: p.pass_turn()
+    with RoundScope():
+        # p5.action("Shoot", 1) # No ammo
+        p1.action("Move 0", 1)
+        p1.action("Throw P6 0", 1)
+        p6.action("Shoot", 1)
+        p3.action("EvasiveManeuvers", 2)
+        p2.action("Move 0", 1)
+        p2.action("Move 3", 1) # Cargo (3)
 
 def r10():
     # print("# Round 10: Kill Boss / Defense.")
-    start_round()
-    p3.action("EvasiveManeuvers", 2)
-    p4.action("Extinguish", 1)
-    p4.action("Move 0", 1)
-    p2.action("Interact", 1)
-    p1.action("Move 5", 1) # Kitchen (5)
-    p1.action("Bake", 1)
-    for p in players: p.pass_turn()
+    with RoundScope():
+        p3.action("EvasiveManeuvers", 2)
+        p4.action("Extinguish", 1)
+        p4.action("Move 0", 1)
+        p2.action("Interact", 1)
+        p1.action("Move 5", 1) # Kitchen (5)
+        p1.action("Bake", 1)
 
 def r11():
     # print("# Round 11: Overheating. Enemy->9.")
-    start_round()
-    p4.action("Move 4", 1) # Engine (4)
-    p4.action("Interact", 1)
-    p3.action("EvasiveManeuvers", 2)
-    p1.action("Bake", 1)
-    p1.action("PickUp", 1)
-    p2.action("Move 0", 1)
-    p2.action("Move 5", 1) # Kitchen (5)
-    for p in players: p.pass_turn()
+    with RoundScope():
+        p4.action("Move 4", 1) # Engine (4)
+        p4.action("Interact", 1)
+        p3.action("EvasiveManeuvers", 2)
+        p1.action("Bake", 1)
+        p1.action("PickUp", 1)
+        p2.action("Move 0", 1)
+        p2.action("Move 5", 1) # Kitchen (5)
 
 def r12():
     # print("# Round 12: Monster Dough. Enemy->2.")
-    start_round()
-    p1.action("Interact", 1)
-    p1.action("Move 0", 1)
-    p2.action("PickUp", 1)
-    p2.action("Move 0", 1)
-    p3.action("EvasiveManeuvers", 2)
-    p4.action("Move 0", 1)
-    p4.action("Move 1", 1) # Bow (1)
-    for p in players: p.pass_turn()
+    with RoundScope():
+        p1.action("Interact", 1)
+        p1.action("Move 0", 1)
+        p2.action("PickUp", 1)
+        p2.action("Move 0", 1)
+        p3.action("EvasiveManeuvers", 2)
+        p4.action("Move 0", 1)
+        p4.action("Move 1", 1) # Bow (1)
 
 def r13():
     # print("# Round 13: The Staff. Enemy->2.")
-    start_round()
-    p4.action("Interact", 1)
-    p1.action("Move 6", 1) # Cannons (6)
-    p1.action("Throw P5 0", 1)
-    p2.action("Move 6", 1) # Cannons (6)
-    p2.action("Throw P6 0", 1)
-    p5.action("Shoot", 1)
-    p6.action("Shoot", 1)
-    p3.action("EvasiveManeuvers", 2)
-    for p in players: p.pass_turn()
+    with RoundScope():
+        p4.action("Interact", 1)
+        p1.action("Move 6", 1) # Cannons (6)
+        p1.action("Throw P5 0", 1)
+        p2.action("Move 6", 1) # Cannons (6)
+        p2.action("Throw P6 0", 1)
+        p5.action("Shoot", 1)
+        p6.action("Shoot", 1)
+        p3.action("EvasiveManeuvers", 2)
 
 def r14():
     # print("# Round 14: Blockade. Enemy->8.")
-    start_round()
-    p4.action("Move 0", 1)
-    p3.action("EvasiveManeuvers", 2)
-    p4.action("Interact", 1)
-    p1.action("Move 0", 1)
-    p1.action("Move 5", 1) # Kitchen (5)
-    p2.action("Move 0", 1)
-    p2.action("Move 5", 1) # Kitchen (5)
-    for p in players: p.pass_turn()
+    with RoundScope():
+        p4.action("Move 0", 1)
+        p3.action("EvasiveManeuvers", 2)
+        p4.action("Interact", 1)
+        p1.action("Move 0", 1)
+        p1.action("Move 5", 1) # Kitchen (5)
+        p2.action("Move 0", 1)
+        p2.action("Move 5", 1) # Kitchen (5)
 
 def r15():
     # print("# Round 15: Refill Bake.")
-    start_round()
-    p1.action("Bake", 1)
-    p1.action("PickUp", 1)
-    p2.action("EvasiveManeuvers", 2)
-    p3.action("Move 5", 1)
-    p3.action("PickUp", 1)
-    p4.action("Move 0", 1)
-    p4.action("Move 5", 1) # Kitchen (5)
-    for p in players: p.pass_turn()
+    with RoundScope():
+        p1.action("Bake", 1)
+        p1.action("PickUp", 1)
+        p2.action("EvasiveManeuvers", 2)
+        p3.action("Move 5", 1)
+        p3.action("PickUp", 1)
+        p4.action("Move 0", 1)
+        p4.action("Move 5", 1) # Kitchen (5)
 
 def r16():
     # print("# Round 16: Return to Stations.")
-    start_round()
-    p2.action("EvasiveManeuvers", 2)
-    p1.action("Move 0", 1)
-    p1.action("Throw P5 0", 1)
-    p3.action("Move 0", 1)
-    p3.action("Throw P6 0", 1)
-    p4.action("PickUp", 1)
-    p4.action("Move 0", 1)
-    
-    # Correction from previous debug: P6 IS in 5, needs to move to 6
-    p6.action("Move 0", 1)
-    p6.action("Move 6", 1) # Cannons (6)
-    
-    p5.action("Shoot", 1)
-    for p in players: p.pass_turn()
+    with RoundScope():
+        p2.action("EvasiveManeuvers", 2)
+        p1.action("Move 0", 1)
+        p1.action("Throw P5 0", 1)
+        p3.action("Move 0", 1)
+        p3.action("Throw P6 0", 1)
+        p4.action("PickUp", 1)
+        p4.action("Move 0", 1)
+        
+        # Correction from previous debug: P6 IS in 5, needs to move to 6
+        p6.action("Move 0", 1)
+        p6.action("Move 6", 1) # Cannons (6)
+        
+        p5.action("Shoot", 1)
 
 def r17():
     # print("# Round 17: Finish Monster.")
-    start_round()
-    p2.action("EvasiveManeuvers", 2)
-    p4.action("Move 6", 1) # Cannons (6)
-    p4.action("Throw P5 0", 1)
-    p5.action("Shoot", 1)
-    p6.action("Shoot", 1)
-    p1.action("Move 6", 1) # Cannons (6)
-    # p1.action("Extinguish", 1)
-    p3.action("Move 5", 1) # Kitchen (5)
-    p3.action("Bake", 1) 
-    for p in players: p.pass_turn()
+    with RoundScope():
+        p2.action("EvasiveManeuvers", 2)
+        p4.action("Move 6", 1) # Cannons (6)
+        p4.action("Throw P5 0", 1)
+        p5.action("Shoot", 1)
+        p6.action("Shoot", 1)
+        p1.action("Move 6", 1) # Cannons (6)
+        # p1.action("Extinguish", 1)
+        p3.action("Move 5", 1) # Kitchen (5)
+        p3.action("Bake", 1) 
 
 def r18():
     # print("# Round 18: Pickup & Reload.")
-    start_round() 
-    p1.action("Move 0", 1)
-    p1.action("Move 5", 1)
-    
-    p3.action("PickUp", 1)
-    p3.action("Move 0", 1)
-    
-    p4.action("Move 0", 1)
-    p4.action("Move 5", 1) # Kitchen (5)
-    p6.action("Move 0", 1)
-    p6.action("Move 5", 1) # Kitchen (5)
-    p2.action("EvasiveManeuvers", 2)
-    for p in players: p.pass_turn()
+    with RoundScope():
+        p1.action("Move 0", 1)
+        p1.action("Move 5", 1)
+        
+        p3.action("PickUp", 1)
+        p3.action("Move 0", 1)
+        
+        p4.action("Move 0", 1)
+        p4.action("Move 5", 1) # Kitchen (5)
+        p6.action("Move 0", 1)
+        p6.action("Move 5", 1) # Kitchen (5)
+        p2.action("EvasiveManeuvers", 2)
 
 def r19():
     # print("# Round 19: Finish Monster (Again).")
-    start_round()
-    p2.action("EvasiveManeuvers", 2)
-    
-    # P3 supplies P5
-    p3.action("Throw P5 0", 1)
-    p5.action("Shoot", 1)
-    
-    # Others reload and move to Hub
-    p1.action("PickUp", 1)
-    p1.action("Move 0", 1)
-    
-    p4.action("PickUp", 1)
-    p4.action("Move 0", 1)
-    
-    p6.action("PickUp", 1)
-    p6.action("Move 0", 1)
-    
-    p3.action("Move 5", 1) # P3 goes back to kitchen
-    for p in players: p.pass_turn()
+    with RoundScope():
+        p2.action("EvasiveManeuvers", 2)
+        
+        # P3 supplies P5
+        p3.action("Throw P5 0", 1)
+        p5.action("Shoot", 1)
+        
+        # Others reload and move to Hub
+        p1.action("PickUp", 1)
+        p1.action("Move 0", 1)
+        
+        p4.action("PickUp", 1)
+        p4.action("Move 0", 1)
+        
+        p6.action("PickUp", 1)
+        p6.action("Move 0", 1)
+        
+        p3.action("Move 5", 1) # P3 goes back to kitchen
 
 def r20():
     # print("# Round 20: Lucky Dip. Monster Low.")
-    start_round()
-    p2.action("EvasiveManeuvers", 2)
-    
-    # P1 supplies P5
-    p1.action("Throw P5 0", 1)
-    p5.action("Shoot", 1)
-    
-    # P6 moves in and shoots
-    p6.action("Move 6", 1)
-    p6.action("Shoot", 1)
-    
-    # Reinforcements
-    p4.action("Move 6", 1) # P4 moves to Cannons
-    
-    p3.action("PickUp", 1) # P3 grabs form Kitchen
-    p3.action("Move 0", 1) # Moves to Hub
-    for p in players: p.pass_turn()
+    with RoundScope():
+        p2.action("EvasiveManeuvers", 2)
+        
+        # P1 supplies P5
+        p1.action("Throw P5 0", 1)
+        p5.action("Shoot", 1)
+        
+        # P6 moves in and shoots
+        p6.action("Move 6", 1)
+        p6.action("Shoot", 1)
+        
+        # Reinforcements
+        p4.action("Move 6", 1) # P4 moves to Cannons
+        
+        p3.action("PickUp", 1) # P3 grabs form Kitchen
+        p3.action("Move 0", 1) # Moves to Hub
 
 def r21():
     # print("# Round 21: Reload. P3 Asleep (Solved by P1).")
-    start_round()
-    
-    # P1 Solves Nap (Reader Rotation means P3 was asleep)
-    p1.action("Interact", 1)
+    with RoundScope():
+        
+        # P1 Solves Nap (Reader Rotation means P3 was asleep)
+        p1.action("Interact", 1)
 
-    p3.action("Move 5", 1)
-    p3.action("Bake", 1)
-    
-    p4.action("Move 0", 1)
-    p4.action("Move 5", 1)
-    
-    p2.action("EvasiveManeuvers", 2)
-    for p in players: p.pass_turn()
+        p3.action("Move 5", 1)
+        p3.action("Bake", 1)
+        
+        p4.action("Move 0", 1)
+        p4.action("Move 5", 1)
+        
+        p2.action("EvasiveManeuvers", 2)
 
 def r22():
     # print("# Round 22: Deliver Ammo.")
-    start_round()
-    p2.action("EvasiveManeuvers", 2)
-    p3.action("Move 0", 1)
-    p3.action("Throw P5 0", 1)
-    
-    p4.action("Move 0", 1)
-    p4.action("Throw P6 0", 1)
-    
-    p5.action("Shoot", 1)
-    p6.action("Shoot", 1)
-    for p in players: p.pass_turn()
+    with RoundScope():
+        p2.action("EvasiveManeuvers", 2)
+        p3.action("Move 0", 1)
+        p3.action("Throw P5 0", 1)
+        
+        p4.action("Move 0", 1)
+        p4.action("Throw P6 0", 1)
+        
+        p5.action("Shoot", 1)
+        p6.action("Shoot", 1)
 
 def r23():
     # print("# Round 23: Solve Headwind/Clamp/Seasick.")
-    start_round()
-    
-    # P4: Nap solved in R21. No action needed.
-    # p4.action("Interact", 1) 
-    
-    # Bridge Team (P5, P6) solve local issues (Headwind, Clamp, Static)
-    p6.action("Interact", 1)
-    p6.action("Interact", 1)
-    p5.action("Interact", 1)
-    
-    # P2 moves towards Kitchen (Stops at 0 due to Sticky Floor cost in next step)
-    p2.action("Move 0", 1)
-    # p2.action("Move 5", 1) # Cannot do this turn (Cost 2)
-    
-    # P3 is already in 0.
-    
-    for p in players: p.pass_turn()
+    with RoundScope():
+        
+        # P4: Nap solved in R21. No action needed.
+        # p4.action("Interact", 1) 
+        
+        # Bridge Team (P5, P6) solve local issues (Headwind, Clamp, Static)
+        p6.action("Interact", 1)
+        p6.action("Interact", 1)
+        p5.action("Interact", 1)
+        
+        # P2 moves towards Kitchen (Stops at 0 due to Sticky Floor cost in next step)
+        p2.action("Move 0", 1)
+        # p2.action("Move 5", 1) # Cannot do this turn (Cost 2)
+        
+        # P3 is already in 0.
 
 def r24():
     # print("# Round 24: Heal. Solve Sticky. Move.")
-    start_round()
-    
-    # P3 moves to Engine (Skip Heal - P5 is full HP)
-    p3.action("Move 0", 1)
-    p3.action("Move 4", 1)
-    
-    # P5 Regroups
-    p5.action("Move 0", 1)
-    
-    # P6 solves The Book (in Bridge)
-    p6.action("Interact", 1)
-    p6.action("Move 0", 1) # Regroup
-    
-    # P2 enters Kitchen (Cost 2 due to Sticky)
-    p2.action("Move 5", 2)
-    
-    # Others regroup
-    p1.action("Move 0", 1)
-    p4.action("Move 0", 1)
-    
-    for p in players: p.pass_turn()
+    with RoundScope():
+        
+        # P3 moves to Engine (Skip Heal - P5 is full HP)
+        p3.action("Move 0", 1)
+        p3.action("Move 4", 1)
+        
+        # P5 Regroups
+        p5.action("Move 0", 1)
+        
+        # P6 solves The Book (in Bridge)
+        p6.action("Interact", 1)
+        p6.action("Move 0", 1) # Regroup
+        
+        # P2 enters Kitchen (Cost 2 due to Sticky)
+        p2.action("Move 5", 2)
+        
+        # Others regroup
+        p1.action("Move 0", 1)
+        p4.action("Move 0", 1)
 
 def r25():
     # print("# Round 25: Recovery/Solve.")
-    start_round()
-    
-    # P2 (in R0 - pushed by Waves) moves to Kitchen
-    p2.action("Move 5", 2) # Cost 2 (Sticky)
-    
-    # P3 (in Engine) Extinguishes + Moves to Hub
-    p3.action("Extinguish", 1)
-    p3.action("Move 0", 1)
-    
-    # P4 moves to Cargo to Repair (Unchanged)
-    p4.action("Move 0", 1)
-    p4.action("Move 3", 1)
-    
-    # Others (P1, P5, P6) in Engine (pushed by Waves). Move to Hub.
-    p1.action("Move 0", 1)
-    p5.action("Move 0", 1)
-    p6.action("Move 0", 1)
-    
-    for p in players: p.pass_turn()
+    with RoundScope():
+        
+        # P2 (in R0 - pushed by Waves) moves to Kitchen
+        p2.action("Move 5", 2) # Cost 2 (Sticky)
+        
+        # P3 (in Engine) Extinguishes + Moves to Hub
+        p3.action("Extinguish", 1)
+        p3.action("Move 0", 1)
+        
+        # P4 moves to Cargo to Repair (Unchanged)
+        p4.action("Move 0", 1)
+        p4.action("Move 3", 1)
+        
+        # Others (P1, P5, P6) in Engine (pushed by Waves). Move to Hub.
+        p1.action("Move 0", 1)
+        p5.action("Move 0", 1)
+        p6.action("Move 0", 1)
 
 def r26():
     # print("# Round 26: Recovery & Reload.")
-    start_round()
-    
-    # P2 (in Kitchen) Solves Sticky + Seasick
-    p2.action("Interact", 1)
-    p2.action("Interact", 1)
-    
-    # P3 (in R0) moves to Cannons (Prepare to Shoot)
-    p3.action("Move 6", 1)
-    
-    # P4 moves to Bow
-    p4.action("Move 0", 1)
-    p4.action("Move 1", 1)
-    
-    # P1 (in R0) enters Kitchen and Bakes
-    p1.action("Move 5", 1)
-    p1.action("Bake", 1)
-    
-    # P5, P6 (in R0) enter Kitchen and PickUp
-    p5.action("Move 5", 1)
-    p5.action("PickUp", 1)
-    
-    p6.action("Move 5", 1)
-    p6.action("PickUp", 1)
-    
-    for p in players: p.pass_turn()
+    with RoundScope():
+        
+        # P2 (in Kitchen) Solves Sticky + Seasick
+        p2.action("Interact", 1)
+        p2.action("Interact", 1)
+        
+        # P3 (in R0) moves to Cannons (Prepare to Shoot)
+        p3.action("Move 6", 1)
+        
+        # P4 moves to Bow
+        p4.action("Move 0", 1)
+        p4.action("Move 1", 1)
+        
+        # P1 (in R0) enters Kitchen and Bakes
+        p1.action("Move 5", 1)
+        p1.action("Bake", 1)
+        
+        # P5, P6 (in R0) enter Kitchen and PickUp
+        p5.action("Move 5", 1)
+        p5.action("PickUp", 1)
+        
+        p6.action("Move 5", 1)
+        p6.action("PickUp", 1)
 
 def r27():
     # print("# Round 27: Big Leak. Victory.")
-    start_round()
-    
-    # P4 Solves Seagull (Bow)
-    p4.action("Interact", 1)
-    p4.action("Move 0", 1)
-    
-    # P1 to Engine (Prepare Shield/Extinguish)
-    p1.action("Move 0", 1)
-    p1.action("Move 4", 1)
-    
-    # P2 (in Kitchen) Picks Up for P3, Moves to Hub
-    p2.action("PickUp", 1)
-    p2.action("Move 0", 1)
-    
-    # Gunners to Cannons
-    # P3 already in 6
-    p5.action("Move 0", 1); p5.action("Move 6", 1)
-    p6.action("Move 0", 1); p6.action("Move 6", 1)
-    
-    for p in players: p.pass_turn()
+    with RoundScope():
+        
+        # P4 Solves Seagull (Bow)
+        p4.action("Interact", 1)
+        p4.action("Move 0", 1)
+        
+        # P1 to Engine (Prepare Shield/Extinguish)
+        p1.action("Move 0", 1)
+        p1.action("Move 4", 1)
+        
+        # P2 (in Kitchen) Picks Up for P3, Moves to Hub
+        p2.action("PickUp", 1)
+        p2.action("Move 0", 1)
+        
+        # Gunners to Cannons
+        # P3 already in 6
+        p5.action("Move 0", 1); p5.action("Move 6", 1)
+        p6.action("Move 0", 1); p6.action("Move 6", 1)
 
 def r28():
     # print("# Round 28: Recipe Reload & Volley.")
-    start_round()
-    
-    # P4 Solves Recipe (Bow) -> Ammo for everyone
-    p4.action("Move 1", 1)
-    p4.action("Interact", 1)
-    
-    # P1 Extinguish Engine
-    p1.action("Extinguish", 1)
-    
-    # P2 (in 0) Throws to P3 (in 6)
-    p2.action("Throw P3 0", 1)
-    p2.action("Move 6", 1) # Join them
-    
-    # Gunners Unleash Hell
-    p5.action("Shoot", 1); p5.action("Shoot", 1)
-    p6.action("Shoot", 1); p6.action("Shoot", 1)
-    p3.action("Shoot", 1); p3.action("Shoot", 1)
-    
-    # P2 has no AP to shoot
-    
-    for p in players: p.pass_turn()
+    with RoundScope():
+        
+        # P4 Solves Recipe (Bow) -> Ammo for everyone
+        p4.action("Move 1", 1)
+        p4.action("Interact", 1)
+        
+        # P1 Extinguish Engine
+        p1.action("Extinguish", 1)
+        
+        # P2 (in 0) Throws to P3 (in 6)
+        p2.action("Throw P3 0", 1)
+        p2.action("Move 6", 1) # Join them
+        
+        # Gunners Unleash Hell
+        p5.action("Shoot", 1); p5.action("Shoot", 1)
+        p6.action("Shoot", 1); p6.action("Shoot", 1)
+        p3.action("Shoot", 1); p3.action("Shoot", 1)
+        
+        # P2 has no AP to shoot
 
 def r29():
     # print("# Round 29: Kill Monster. Cancel Attack Wave.")
-    start_round()
-    
-    # Fire Everything (4 Shots)
-    p5.action("Shoot", 1)
-    p6.action("Shoot", 1)
-    p3.action("Shoot", 1)
-    p2.action("Shoot", 1)
-    
-    # P1 Extinguish Engine (Save Hull, System blocked so cannot shield)
-    p1.action("Extinguish", 1)
-    
-    # P4 Regroup
-    p4.action("Move 0", 1)
-    p4.action("Move 6", 1)
-    
-    for p in players: p.pass_turn()
+    with RoundScope():
+        
+        # Fire Everything (4 Shots)
+        p5.action("Shoot", 1)
+        p6.action("Shoot", 1)
+        p3.action("Shoot", 1)
+        p2.action("Shoot", 1)
+        
+        # P1 Extinguish Engine (Save Hull, System blocked so cannot shield)
+        p1.action("Extinguish", 1)
+        
+        # P4 Regroup
+        p4.action("Move 0", 1)
+        p4.action("Move 6", 1)
 
 def r30():
     # print("# Round 30: High Pressure. Solve Attack Wave. Reload.")
-    start_round()
-    p5.action("Move 5", 1) # Kitchen (5)
-    p5.action("Bake", 1)
-    p6.action("Move 6", 1) # Cannons (6)
-    p6.action("Interact", 1)
-    p1.action("Move 5", 1) # Kitchen (5)
-    p1.action("PickUp", 1)
-    p2.action("Move 5", 1) # Kitchen (5)
-    p2.action("PickUp", 1)
-    p3.action("Move 5", 1) # Kitchen (5)
-    p3.action("PickUp", 1)
-    p4.action("Move 0", 1)
-    for p in players: p.pass_turn()
+    with RoundScope():
+        p5.action("Move 5", 1) # Kitchen (5)
+        p5.action("Bake", 1)
+        p6.action("Move 6", 1) # Cannons (6)
+        p6.action("Interact", 1)
+        p1.action("Move 5", 1) # Kitchen (5)
+        p1.action("PickUp", 1)
+        p2.action("Move 5", 1) # Kitchen (5)
+        p2.action("PickUp", 1)
+        p3.action("Move 5", 1) # Kitchen (5)
+        p3.action("PickUp", 1)
+        p4.action("Move 0", 1)
 
 def r31():
     # print("# Round 31: Victory.")
-    start_round()
-    p5.action("Move 0", 1)
-    p1.action("Throw P5 0", 1)
-    p5.action("Throw P6 0", 1)
-    p6.action("Shoot", 1)
-    for p in players: p.pass_turn()
+    with RoundScope():
+        p5.action("Move 0", 1)
+        p1.action("Throw P5 0", 1)
+        p5.action("Throw P6 0", 1)
+        p6.action("Shoot", 1)
 
 def main():
     seed = 12345
@@ -607,12 +584,12 @@ def main():
     r31()
     
     # Execute
-    print(f"Executing {len(actions_log)} actions...")
+    print(f"Executing {len(rounds_log)} rounds...")
     
     player_ids = ["P1", "P2", "P3", "P4", "P5", "P6"]
     initial_state = sint_core.new_game(player_ids, seed)
     
-    result = sint_solver.verify_solution(initial_state, actions_log)
+    result = sint_solver.verify_solution(initial_state, rounds_log)
 
     is_success = result["success"]
     is_error = result.get("error") is not None

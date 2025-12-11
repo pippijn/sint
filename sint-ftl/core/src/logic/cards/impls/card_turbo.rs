@@ -52,10 +52,10 @@ impl CardBehavior for TurboModeCard {
                 // 1. Identify Target Neighbor
                 let mut target_neighbor = None;
                 if let Some(engine_room) = state.map.rooms.get(&engine_id) {
-                    let neighbors = engine_room.neighbors.clone();
+                    let neighbors = &engine_room.neighbors;
                     let mut best_non_empty_id = u32::MAX;
 
-                    for nid in neighbors {
+                    for &nid in neighbors {
                         if let Some(n_room) = state.map.rooms.get(&nid) {
                             if n_room.system.is_none() {
                                 target_neighbor = Some(nid);

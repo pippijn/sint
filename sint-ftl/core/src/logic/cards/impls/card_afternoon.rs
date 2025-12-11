@@ -25,16 +25,15 @@ impl CardBehavior for AfternoonNapCard {
     }
 
     fn on_activate(&self, state: &mut GameState) {
-        let mut sorted_ids: Vec<String> = state.players.keys().cloned().collect();
-        sorted_ids.sort();
+        let player_ids: Vec<String> = state.players.keys().cloned().collect();
 
-        if sorted_ids.is_empty() {
+        if player_ids.is_empty() {
             return;
         }
 
         // Logic: Turn count determines rotation.
-        let index = (state.turn_count.saturating_sub(1) as usize) % sorted_ids.len();
-        let reader_id = sorted_ids[index].clone();
+        let index = (state.turn_count.saturating_sub(1) as usize) % player_ids.len();
+        let reader_id = player_ids[index].clone();
 
         // Update the card state. We assume the newly drawn card is at the end.
         // We verify ID just in case.

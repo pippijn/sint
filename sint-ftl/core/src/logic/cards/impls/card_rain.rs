@@ -24,7 +24,7 @@ impl CardBehavior for PeppernutRainCard {
             .players
             .values()
             .map(|p| p.room_id)
-            .collect::<std::collections::HashSet<_>>() // Dedup
+            .collect::<std::collections::BTreeSet<_>>() // Dedup
             .into_iter()
             .collect();
 

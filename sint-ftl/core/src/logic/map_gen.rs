@@ -1,5 +1,5 @@
 use crate::types::{GameMap, HazardType, ItemType, MapLayout, Room, SystemType};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 pub struct RoomDef {
     pub name: &'static str,
@@ -51,7 +51,7 @@ fn generate_star() -> GameMap {
         (9, RoomDef::new("Storage", Some(SystemType::Storage))),
     ];
 
-    let mut rooms = HashMap::new();
+    let mut rooms = BTreeMap::new();
     let hub_id = 0;
 
     for (id, def) in definitions {
@@ -101,7 +101,7 @@ fn generate_torus() -> GameMap {
         (11, RoomDef::new("Corridor C", None)),
     ];
 
-    let mut rooms = HashMap::new();
+    let mut rooms = BTreeMap::new();
     let count = definitions.len() as u32;
 
     for (id, def) in definitions {
