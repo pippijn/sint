@@ -524,89 +524,66 @@ def r27():
 def r28():
     # print("# Round 28: Recipe Reload & Volley.")
     with RoundScope():
-        
-        # P4 Solves Recipe (Bow) -> Ammo for everyone
-        p4.action("Move 1", 1)
-        p4.action("Interact", 1)
-        
-        # P2 Extinguishes Bridge (P4 busy)
-        p2.action("Move 7", 1)
-        p2.action("Extinguish", 1)
-        
-        # P1 Delivers Ammo
-        p1.action("Move 0", 1)
-        p1.action("Throw P3 0", 1)
-        
-        # Gunners Unleash Hell
-        # P5 moves from 5 to 6 first (Cost 2 AP). Cannot Shoot.
-        p5.action("Move 0", 1) # Intermediate step
-        p5.action("Move 6", 1)
-        # p5.action("Shoot", 1) # No AP
-        
-        p6.action("Shoot", 1) 
-        p3.action("Shoot", 1); p3.action("Shoot", 1)
-
-def r29():
-    # print("# Round 29: Kill Monster. Cancel Attack Wave.")
-    with RoundScope():
-        
-        # P1 Extinguishes Dormitory (2)
-        p1.action("Move 2", 1)
-        p1.action("Extinguish", 1)
-        
-        # P2 Extinguishes Bridge (7)
-        p2.action("Extinguish", 1)
-        p2.action("Move 0", 1)
-        
-        # P4 Feeds P3
-        p4.action("Move 0", 1)
-        p4.action("Throw P3 0", 1)
-        
-        # P5 Shoots (Cannons clear)
-        # p5.action("Extinguish", 1) # Not needed
-        p5.action("Shoot", 1)
-        
-        # P6 Shoots
+        p4.action("Move 1", 1); p4.action("Interact", 1)
+        p2.action("Move 7", 1); p2.action("Extinguish", 1)
+        p5.action("Move 0", 1); p5.action("Move 6", 1)
         p6.action("Shoot", 1)
         
-        # P3 Shoots (1 own + 1 from P4)
+        # P3 Shoots ONCE. Saves 1 for R29.
         p3.action("Shoot", 1)
-        p3.action("Shoot", 1)
+        
+        p1.action("Move 0", 1)
+
+def r29():
+    # print("# Round 29: Kill Monster.")
+    with RoundScope():
+        # P3 starts with 1 nut.
+        p3.action("Shoot", 1) # 1->0
+        
+        p1.action("Move 2", 1); p1.action("Extinguish", 1)
+        p2.action("Extinguish", 1); p2.action("Move 0", 1)
+        
+        # P4 Refills P3
+        p4.action("Move 0", 1); p4.action("Throw P3 0", 1)
+        
+        # P3 Shoots Again
+        p3.action("Shoot", 1) # 1->0
+        
+        p5.action("Shoot", 1)
+        p6.action("Shoot", 1)
 
 def r30():
     # print("# Round 30: High Pressure. Solve Attack Wave. Reload.")
     with RoundScope():
         
-        # P5 Clears Cannons (Fire from R29 Attack)
+        # P5 (in 0) Moves to 6. Shoots (Has ammo).
         p5.action("Move 6", 1)
-        p5.action("Extinguish", 1)
+        p5.action("Shoot", 1)
         
-        # P1 Feeds P6
-        # p1.action("Move 0", 1) # Already in 0
+        # P1 (in 0) Feeds Everyone!
+        # P1 has plenty of ammo (Recipe gave 2, +1 from R27).
         p1.action("Throw P6 0", 1)
+        p1.action("Throw P3 0", 1)
         
-        # P4 Feeds P3
-        p4.action("Move 0", 1)
-        p4.action("Throw P3 0", 1)
-        
-        # P2 Shoots (Already in 6)
-        p2.action("Shoot", 1)
-        p2.action("Shoot", 1)
-        
-        # P6 Moves and Shoots
+        # P6 (in 0) Moves to 6, Shoots (Refilled by P1).
         p6.action("Move 6", 1)
         p6.action("Shoot", 1)
         
-        # P3 Moves and Shoots
+        # P3 (in 0) Moves to 6, Shoots (Refilled by P1).
         p3.action("Move 6", 1)
         p3.action("Shoot", 1)
+        
+        # P2 scattered. Skip.
+        pass
 
 def r31():
     # print("# Round 31: Victory.")
     with RoundScope():
-        p5.action("Move 0", 1)
-        p1.action("Throw P5 0", 1)
-        p5.action("Throw P6 0", 1)
+        # P4 helps feed P6 (proven to work)
+        p4.action("Move 0", 1)
+        p4.action("Throw P6 0", 1)
+        
+        # P6 Shoots.
         p6.action("Shoot", 1)
 
 def main():

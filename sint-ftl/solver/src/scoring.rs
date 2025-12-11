@@ -1,29 +1,160 @@
-use sint_core::types::{GamePhase, GameState};
+use sint_core::types::{GamePhase, GameState, HazardType, ItemType, RoomId, SystemType};
+use std::collections::{HashSet, VecDeque};
+
+/// Calculates the minimum distance from start_room to any room in `targets`.
+/// Returns 999 if unreachable.
+fn min_distance(state: &GameState, start: RoomId, targets: &HashSet<RoomId>) -> u32 {
+    if targets.contains(&start) {
+        return 0;
+    }
+    
+    let mut queue = VecDeque::new();
+    queue.push_back((start, 0));
+    let mut visited = HashSet::new();
+    visited.insert(start);
+
+    while let Some((current, dist)) = queue.pop_front() {
+        if targets.contains(&current) {
+            return dist;
+        }
+
+        if let Some(room) = state.map.rooms.get(&current) {
+            for &neighbor in &room.neighbors {
+                if !visited.contains(&neighbor) {
+                    visited.insert(neighbor);
+                    queue.push_back((neighbor, dist + 1));
+                }
+            }
+        }
+    }
+    999
+}
 
 /// Calculates a score for a single state snapshot.
-/// This is useful for "Greedy" evaluation or final state assessment.
+/// Higher is better.
 pub fn score_state(state: &GameState) -> f64 {
+    // Terminal States
+    if state.phase == GamePhase::Victory {
+        return 1_000_000.0 + (state.hull_integrity as f64 * 1000.0);
+    }
+    if state.phase == GamePhase::GameOver || state.hull_integrity <= 0 {
+        return -1_000_000.0;
+    }
+
     let mut score = 0.0;
 
-    // 1. Hull Integrity (Base Health)
-    // Range: 0-20. Weight: High.
-    score += state.hull_integrity as f64 * 100.0;
+    // --- 1. Vital Stats ---
+    // Hull: Base survival. Weight high.
+    score += state.hull_integrity as f64 * 500.0;
+    
+    // Enemy HP: The Goal. Weight high.
+    // We use (Max - Current) so we maximize damage dealt.
+    score += (state.enemy.max_hp - state.enemy.hp) as f64 * 1000.0;
 
-    // 2. Boss Progress (Lower HP is better)
-    // Weight increased to incentivize aggression.
-    score -= state.enemy.hp as f64 * 50.0;
+    // --- 2. Hazards ---
+    let mut fire_rooms = HashSet::new();
+    let mut water_count = 0;
+    let mut fire_count = 0;
 
-    // 3. Hazard Penalty
-    // Fewer hazards is better.
-    let hazard_count: usize = state.map.rooms.values().map(|r| r.hazards.len()).sum();
-    score -= hazard_count as f64 * 20.0;
+    for room in state.map.rooms.values() {
+        let has_fire = room.hazards.contains(&HazardType::Fire);
+        if has_fire {
+            fire_rooms.insert(room.id);
+            fire_count += room.hazards.iter().filter(|h| **h == HazardType::Fire).count();
+        }
+        water_count += room.hazards.iter().filter(|h| **h == HazardType::Water).count();
+    }
 
-    // 4. Survival (Round Count)
-    // Later rounds = good (if surviving), but we don't want to over-reward turtling.
-    score += state.turn_count as f64 * 5.0;
+    // Fire grows and damages systems/players. Exponential penalty.
+    // 1 Fire = -50, 2 Fire = -141, 3 Fire = -260...
+    score -= (fire_count as f64).powf(1.5) * 50.0;
+    
+    // Water restricts movement/systems. Linear penalty.
+    score -= water_count as f64 * 20.0;
 
-    if state.phase == GamePhase::Victory {
-        score += 100_000.0;
+    // --- 3. Active Situations ---
+    // Each active situation is a problem.
+    score -= state.active_situations.len() as f64 * 100.0;
+
+    // --- 4. Pending Threats (Telegraphs) ---
+    // If the enemy is about to attack, and we are not protected, that's bad.
+    let protected = state.shields_active || state.evasion_active;
+    
+    if let Some(attack) = &state.enemy.next_attack {
+        if !protected {
+            // Targeting a room with players?
+            let players_in_target = state.players.values().filter(|p| p.room_id == attack.target_room).count();
+            if players_in_target > 0 {
+                // Danger!
+                score -= players_in_target as f64 * 300.0;
+            }
+
+            // Targeting a critical system?
+            if let Some(sys) = attack.target_system {
+                // Losing Engines/Cannons is bad
+                if matches!(sys, SystemType::Engine | SystemType::Cannons | SystemType::Bridge) {
+                    score -= 100.0;
+                }
+            }
+        }
+    }
+
+    // --- 5. Player Heuristics ---
+    let cannon_room_set: HashSet<u32> = HashSet::from([7]); // Cannons
+    let kitchen_room_set: HashSet<u32> = HashSet::from([6]); // Kitchen
+    
+    for p in state.players.values() {
+        if p.hp <= 0 {
+             score -= 1000.0; // Avoid death
+             continue;
+        }
+
+        // Action Points: Slight bonus for having AP (optional, but finding efficient paths usually maximizes AP naturally)
+        // Actually, we want to SPEND AP to do good things. But remaining AP implies flexibility.
+        score += p.ap as f64 * 1.0;
+
+        // -- Role: Gunner (Has Peppernut) --
+        let peppernuts = p.inventory.iter().filter(|i| **i == ItemType::Peppernut).count();
+        if peppernuts > 0 {
+            let dist = min_distance(state, p.room_id, &cannon_room_set);
+            if dist == 0 {
+                // In Cannons with Ammo! Very Good.
+                score += 50.0 * peppernuts as f64;
+                // Bonus if Cannons system is working
+                if let Some(r) = state.map.rooms.get(&7) {
+                    if !r.hazards.contains(&HazardType::Fire) {
+                         score += 20.0;
+                    }
+                }
+            } else {
+                // Move closer
+                score += (20.0 - dist as f64).max(0.0) * 2.0 * peppernuts as f64;
+            }
+        }
+
+        // -- Role: Firefighter (Has Extinguisher) --
+        let has_extinguisher = p.inventory.iter().any(|i| *i == ItemType::Extinguisher);
+        if has_extinguisher && !fire_rooms.is_empty() {
+            let dist = min_distance(state, p.room_id, &fire_rooms);
+            if dist == 0 {
+                // In a room with fire! Good (can extinguish).
+                score += 40.0;
+            } else {
+                // Move to fire
+                score += (20.0 - dist as f64).max(0.0) * 5.0;
+            }
+        }
+
+        // -- Role: Baker (Empty Hands) --
+        // If we need ammo (boss HP > 0) and have space, go to Kitchen.
+        if state.enemy.hp > 0 && p.inventory.len() < 2 && peppernuts == 0 && !has_extinguisher {
+             let dist = min_distance(state, p.room_id, &kitchen_room_set);
+             if dist == 0 {
+                 score += 10.0;
+             } else {
+                 score += (10.0 - dist as f64).max(0.0) * 1.0;
+             }
+        }
     }
 
     score

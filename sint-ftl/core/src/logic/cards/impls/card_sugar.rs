@@ -11,7 +11,7 @@ impl CardBehavior for SugarRushCard {
         Card {
             id: CardId::SugarRush,
             title: "Sugar Rush".to_owned(),
-            description: "Move 1 room extra for free. Cannons prohibited.".to_owned(),
+            description: "Move 5 rooms extra for free. Cannons prohibited.".to_owned(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
@@ -40,13 +40,27 @@ impl CardBehavior for SugarRushCard {
 
     fn modify_action_cost(
         &self,
-        _state: &GameState,
-        _player_id: &str,
+        state: &GameState,
+        player_id: &str,
         action: &GameAction,
         base_cost: i32,
     ) -> i32 {
         if let GameAction::Move { .. } = action {
-            0
+            // Count how many moves are already in the queue for this player
+            let moves_queued = state
+                .proposal_queue
+                .iter()
+                .filter(|p| {
+                    p.player_id == player_id
+                        && matches!(p.action, GameAction::Move { .. })
+                })
+                .count();
+
+            if moves_queued < 5 {
+                0
+            } else {
+                base_cost
+            }
         } else {
             base_cost
         }

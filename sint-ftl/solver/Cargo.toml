@@ -18,6 +18,7 @@ chrono = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 pyo3 = { version = "0.27", features = ["extension-module"], optional = true }
 pythonize = { version = "0.27", optional = true }
+rayon = "1.11.0"
 
 [features]
 python = ["dep:pyo3", "dep:pythonize"]

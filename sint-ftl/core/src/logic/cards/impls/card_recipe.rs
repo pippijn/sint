@@ -10,7 +10,7 @@ impl CardBehavior for RecipeCard {
         Card {
             id: CardId::Recipe,
             title: "Recipe".to_owned(),
-            description: "Mission: Go to The Bow. Reward: Super Peppernuts.".to_owned(),
+            description: "Mission: Go to The Bow. Reward: Super Peppernuts (Ignores Inv Limit).".to_owned(),
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {

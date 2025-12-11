@@ -55,8 +55,10 @@ The Enemy targets specific **Systems** determined by a **2d6 Dice Roll**. The Ro
     *   **0 HP = Fainted.** The pawn is removed from the board. Respawns in Dormitory (System 3) at the start of the next round with full HP.
 *   **AP:** Each player has **2 Action Points** per round.
 *   **Carry Capacity:**
-    *   **Hand:** Max **1 Peppernut**.
-    *   **Wheelbarrow (Item):** Max **5 Peppernuts**.
+    *   **Special Items:** Max **1 Special Item** (Extinguisher, Wheelbarrow, etc).
+    *   **Ammo (Hand):** Max **1 Peppernut**.
+    *   **Ammo (Wheelbarrow):** Max **5 Peppernuts** (Requires holding Wheelbarrow).
+    *   *Note: Special Items do not count towards the Peppernut limit.*
 
 ### **Player Actions (Cost: 1 AP unless specified)**
 1.  **Move:** Move to an adjacent room.
