@@ -10,6 +10,7 @@ pub fn format_trajectory(
     let mut current_round = state.turn_count;
     let mut round_start_hull = state.hull_integrity;
     let mut round_start_hazards = count_hazards(&state);
+    let mut last_enemy_name = state.enemy.name.clone();
 
     let mut rounds_output = Vec::new();
     let mut current_buffer = String::new();
@@ -19,7 +20,7 @@ pub fn format_trajectory(
         current_buffer,
         "Start: Hull {}, Boss {}, Players {}",
         state.hull_integrity,
-        state.enemy.name,
+        last_enemy_name,
         state.players.len()
     )
     .unwrap();
@@ -54,6 +55,15 @@ pub fn format_trajectory(
                 }
 
                 state = new_state;
+                
+                // Detect Boss Defeat/Change
+                if state.enemy.name != last_enemy_name {
+                    writeln!(current_buffer, "\n**************************************************").unwrap();
+                    writeln!(current_buffer, "⚔️  BOSS DEFEATED: {}  ⚔️", last_enemy_name).unwrap();
+                    writeln!(current_buffer, "💀  NEW CHALLENGER: {}  💀", state.enemy.name).unwrap();
+                    writeln!(current_buffer, "**************************************************\n").unwrap();
+                    last_enemy_name = state.enemy.name.clone();
+                }
 
                 if state.phase != prev_phase {
                     if state.turn_count > current_round {

@@ -50,10 +50,7 @@ impl CardBehavior for SugarRushCard {
             let moves_queued = state
                 .proposal_queue
                 .iter()
-                .filter(|p| {
-                    p.player_id == player_id
-                        && matches!(p.action, GameAction::Move { .. })
-                })
+                .filter(|p| p.player_id == player_id && matches!(p.action, GameAction::Move { .. }))
                 .count();
 
             if moves_queued < 5 {

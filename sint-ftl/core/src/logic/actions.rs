@@ -160,8 +160,8 @@ fn apply_game_action(
     // For validation, we project the state forward by executing the current queue.
     let mut projected_state = state.clone();
     super::resolution::resolve_proposal_queue(&mut projected_state, true);
-    
-    // CRITICAL FIX: Restore proposal_queue to projected_state so cost calculations 
+
+    // CRITICAL FIX: Restore proposal_queue to projected_state so cost calculations
     // (like Sugar Rush counting moves) can see what has already been proposed.
     projected_state.proposal_queue = state.proposal_queue.clone();
 
