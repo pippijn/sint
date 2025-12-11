@@ -45,7 +45,8 @@ class Player:
         elif c == "Repair":
             return {"type": "Repair"}
         elif c == "PickUp":
-            return {"type": "PickUp", "payload": {"item_type": "Peppernut"}}
+            item = parts[1] if len(parts) > 1 else "Peppernut"
+            return {"type": "PickUp", "payload": {"item_type": item}}
         elif c == "Drop":
             return {"type": "Drop", "payload": {"item_index": int(parts[1])}}
         elif c == "Pass":
@@ -135,12 +136,12 @@ def r1():
         p6.action("Move 0"); p6.action("Move 6") # P6 to Cannons (6)
         p2.action("Move 0"); p2.action("Move 3") # P2 to Cargo (3)
         p3.action("Move 0"); p3.action("Move 7") # P3 to Bridge (7)
-        p4.action("Move 0") # P4 to Hallway (0)
+        p4.action("Move 0"); p4.action("Move 4"); p4.action("PickUp Extinguisher") # P4 to Engine (4) + Extinguisher
 
 def r2():
     # print("# Round 2: SugarRush. Enemy->7. Fire in 5.")
     with RoundScope(3):
-        p4.action("Move 4", 0) # Engine (4)
+        # p4 already in 4 with Extinguisher
         p4.action("Extinguish", 1)
         p4.action("Interact", 1)
         p4.action("Move 0", 0)
@@ -314,7 +315,7 @@ def r17():
     with RoundScope():
         p2.action("EvasiveManeuvers", 2)
         p4.action("Move 6", 1) # Cannons (6)
-        p4.action("Throw P5 0", 1)
+        p4.action("Throw P5 1", 1) # Throw Peppernut (Index 1, as 0 is Extinguisher)
         p5.action("Shoot", 1)
         p6.action("Shoot", 1)
         p1.action("Move 6", 1) # Cannons (6)
@@ -452,8 +453,8 @@ def r25():
         # P2 (in R0 - pushed by Waves) moves to Kitchen
         p2.action("Move 5", 2) # Cost 2 (Sticky)
         
-        # P3 (in Engine) Extinguishes + Moves to Hub
-        p3.action("Extinguish", 1)
+        # P3 (in Engine) Moves to Hub (No fire in 4 to extinguish)
+        # p3.action("Extinguish", 1) # REMOVED: No fire here
         p3.action("Move 0", 1)
         
         # P4 moves to Cargo to Repair (Unchanged)
@@ -473,23 +474,26 @@ def r26():
         p2.action("Interact", 1)
         p2.action("Interact", 1)
         
-        # P3 (in R0) moves to Cannons (Prepare to Shoot)
+        # P3 (in R4 now?) moves to Cannons?
+        # Previous: P3 (in R0) moves to 6.
+        # New: P3 starts in R4. Move 0 -> Move 6. (2 AP).
         p3.action("Move 6", 1)
+        p3.action("Move 0", 1) # Burn AP to satisfy Seasick (Cannot Pass)
         
         # P4 moves to Bow
         p4.action("Move 0", 1)
         p4.action("Move 1", 1)
         
-        # P1 (in R0) enters Kitchen and Bakes
-        p1.action("Move 5", 1)
-        p1.action("Bake", 1)
+        # P1, P5, P6 ABORT Kitchen (Fire + Sticky Floor = Impossible)
+        # Redirect to Engine (4) to help P3 or just wait safely
+        p1.action("Move 0", 1)
+        # p1.action("Move 4", 1) # Optional positioning
         
-        # P5, P6 (in R0) enter Kitchen and PickUp
-        p5.action("Move 5", 1)
-        p5.action("PickUp", 1)
+        p5.action("Move 0", 1)
+        # p5.action("Move 6", 1) # Go to Cannons
         
-        p6.action("Move 5", 1)
-        p6.action("PickUp", 1)
+        p6.action("Move 0", 1)
+        # p6.action("Move 6", 1) # Go to Cannons
 
 def r27():
     # print("# Round 27: Big Leak. Victory.")
@@ -499,18 +503,17 @@ def r27():
         p4.action("Interact", 1)
         p4.action("Move 0", 1)
         
-        # P1 to Engine (Prepare Shield/Extinguish)
-        p1.action("Move 0", 1)
-        p1.action("Move 4", 1)
+        # P1 fetches ammo (P2 fainted)
+        p1.action("Move 5", 1)
+        p1.action("PickUp", 1)
         
-        # P2 (in Kitchen) Picks Up for P3, Moves to Hub
-        p2.action("PickUp", 1)
+        # P2 Recovers
         p2.action("Move 0", 1)
         
         # Gunners to Cannons
-        # P3 already in 6
-        p5.action("Move 0", 1); p5.action("Move 6", 1)
-        p6.action("Move 0", 1); p6.action("Move 6", 1)
+        p3.action("Move 6", 1)
+        p5.action("Move 6", 1)
+        p6.action("Move 6", 1)
 
 def r28():
     # print("# Round 28: Recipe Reload & Volley.")
@@ -520,36 +523,45 @@ def r28():
         p4.action("Move 1", 1)
         p4.action("Interact", 1)
         
-        # P1 Extinguish Engine
-        p1.action("Extinguish", 1)
+        # P2 Extinguishes Bridge (P4 busy)
+        p2.action("Move 7", 1)
+        p2.action("Extinguish", 1)
         
-        # P2 (in 0) Throws to P3 (in 6)
-        p2.action("Throw P3 0", 1)
-        p2.action("Move 6", 1) # Join them
+        # P1 Delivers Ammo
+        p1.action("Move 0", 1)
+        p1.action("Throw P3 0", 1)
         
         # Gunners Unleash Hell
-        p5.action("Shoot", 1); p5.action("Shoot", 1)
-        p6.action("Shoot", 1); p6.action("Shoot", 1)
-        p3.action("Shoot", 1); p3.action("Shoot", 1)
-        
-        # P2 has no AP to shoot
+        # Recipe gives 1 nut. P3 gets +1 from P1.
+        p5.action("Shoot", 1) # Only 1 nut
+        p6.action("Shoot", 1) # Only 1 nut
+        p3.action("Shoot", 1); p3.action("Shoot", 1) # 2 nuts
 
 def r29():
     # print("# Round 29: Kill Monster. Cancel Attack Wave.")
     with RoundScope():
         
-        # Fire Everything (4 Shots)
-        p5.action("Shoot", 1)
-        p6.action("Shoot", 1)
-        p3.action("Shoot", 1)
-        p2.action("Shoot", 1)
+        # P5 Extinguishes Cannons (Fire blocked shots)
+        p5.action("Extinguish", 1)
         
-        # P1 Extinguish Engine (Save Hull, System blocked so cannot shield)
-        p1.action("Extinguish", 1)
+        # P1 Feeds P5 and P3
+        p1.action("Throw P5 0", 1)
+        p1.action("Throw P3 0", 1)
         
-        # P4 Regroup
+        # P2 Feeds P6
+        p2.action("Move 0", 1)
+        p2.action("Throw P6 0", 1)
+        
+        # P4 Feeds P3 (Second shot)
         p4.action("Move 0", 1)
-        p4.action("Move 6", 1)
+        p4.action("Throw P3 0", 1)
+        
+        # FIRE!
+        p5.action("Shoot", 1) # 1 Shot
+        p6.action("Shoot", 1) # 1 Shot
+        p3.action("Shoot", 1); p3.action("Shoot", 1) # 2 Shots
+        
+        # Ignore Hull. Kill or Die.
 
 def r30():
     # print("# Round 30: High Pressure. Solve Attack Wave. Reload.")
