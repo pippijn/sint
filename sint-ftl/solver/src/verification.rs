@@ -36,30 +36,42 @@ impl VerificationResult {
         if self.success {
             return None;
         }
-        let (pid, action) = self.failed_action.as_ref()?;
-        let error = self.error.as_ref()?;
-        let state = &self.final_state;
 
         let mut out = String::new();
         out.push_str("\n=== FAILURE SUMMARY ===\n");
+        let state = &self.final_state;
         out.push_str(&format!("Round: {}\n", state.turn_count));
         out.push_str(&format!("Phase: {:?}\n", state.phase));
-        // Action is now GameAction, so formatting {:?} gives the clean output directly
-        out.push_str(&format!("Failed Action: {} performs {:?}\n", pid, action));
-        out.push_str(&format!("Error: {}\n", error));
 
-        if let GameError::NotEnoughAP = error {
-            let other_players_with_ap: Vec<_> = state
-                .players
-                .values()
-                .filter(|p| p.id != *pid && p.ap > 0)
-                .collect();
-            if other_players_with_ap.len() == 1 {
-                let p = other_players_with_ap[0];
-                out.push_str(&format!(
-                    "Hint: Round not over. {} still has {} AP.\n",
-                    p.id, p.ap
-                ));
+        if let Some((pid, action)) = &self.failed_action {
+            out.push_str(&format!("Failed Action: {} performs {:?}\n", pid, action));
+            if let Some(error) = &self.error {
+                out.push_str(&format!("Error: {}\n", error));
+
+                if let GameError::NotEnoughAP = error {
+                    let other_players_with_ap: Vec<_> = state
+                        .players
+                        .values()
+                        .filter(|p| p.id != *pid && p.ap > 0)
+                        .collect();
+                    if other_players_with_ap.len() == 1 {
+                        let p = other_players_with_ap[0];
+                        out.push_str(&format!(
+                            "Hint: Round not over. {} still has {} AP.\n",
+                            p.id, p.ap
+                        ));
+                    }
+                }
+            }
+        } else {
+            // No specific action failed, but the overall result is not Success
+            if state.phase == GamePhase::GameOver {
+                out.push_str("Result: DEFEAT (Ship Destroyed)\n");
+            } else {
+                out.push_str("Result: INCOMPLETE (Simulation ended without Victory)\n");
+            }
+            if let Some(error) = &self.error {
+                out.push_str(&format!("Error: {}\n", error));
             }
         }
 
@@ -296,8 +308,9 @@ pub fn run_verification(
         scorer.on_round_end(&state);
     }
 
+    let is_victory = state.phase == GamePhase::Victory;
     VerificationResult {
-        success: true,
+        success: is_victory,
         history: full_history,
         final_state: state.clone(),
         error: None,
