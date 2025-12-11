@@ -25,24 +25,6 @@ impl CardBehavior for FogBankCard {
         }
     }
 
-    fn validate_action(
-        &self,
-        state: &GameState,
-        player_id: &str,
-        action: &crate::types::GameAction,
-    ) -> Result<(), crate::GameError> {
-        if let crate::types::GameAction::Interact = action {
-            let p = state.players.get(player_id).unwrap();
-            let bow = find_room_with_system(state, SystemType::Bow);
-            if Some(p.room_id) != bow {
-                return Err(crate::GameError::InvalidAction(
-                    "Must be in The Bow to clear Fog.".to_string(),
-                ));
-            }
-        }
-        Ok(())
-    }
-
     fn modify_telegraph(&self, attack: &mut EnemyAttack) {
         // Mask the attack
         attack.target_room = 0; // Unknown

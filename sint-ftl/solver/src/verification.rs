@@ -56,23 +56,19 @@ impl VerificationResult {
             out.push_str(&format!("  - {} ({:?})\n", card.title, card.id));
         }
 
-        out.push_str("Room Items:\n");
+        out.push_str("Map State:\n");
         let mut room_ids: Vec<u32> = state.map.rooms.keys().cloned().collect();
         room_ids.sort();
         for rid in &room_ids {
             if let Some(room) = state.map.rooms.get(rid) {
-                if !room.items.is_empty() {
-                    out.push_str(&format!("  Room {}: {:?}\n", rid, room.items));
-                }
-            }
-        }
-
-        out.push_str("Hazards:\n");
-        for rid in &room_ids {
-            if let Some(room) = state.map.rooms.get(rid) {
-                if !room.hazards.is_empty() {
-                    out.push_str(&format!("  Room {}: {:?}\n", rid, room.hazards));
-                }
+                let sys = room
+                    .system
+                    .map(|s| format!("{:?}", s))
+                    .unwrap_or("Empty".to_string());
+                out.push_str(&format!(
+                    "  Room {} ({}): System={} | Neighbors={:?} | Items={:?} | Hazards={:?}\n",
+                    rid, room.name, sys, room.neighbors, room.items, room.hazards
+                ));
             }
         }
 

@@ -1,5 +1,5 @@
 use crate::{
-    logic::{cards::behavior::CardBehavior, find_room_with_system},
+    logic::cards::behavior::CardBehavior,
     types::{Card, CardId, CardSolution, CardType, GameAction, GameState, SystemType},
     GameError,
 };
@@ -26,19 +26,9 @@ impl CardBehavior for MonsterDoughCard {
     fn validate_action(
         &self,
         state: &GameState,
-        player_id: &str,
+        _player_id: &str,
         action: &GameAction,
     ) -> Result<(), GameError> {
-        if let GameAction::Interact = action {
-            let p = state.players.get(player_id).unwrap();
-            let kitchen = find_room_with_system(state, SystemType::Kitchen);
-            if Some(p.room_id) != kitchen {
-                return Err(crate::GameError::InvalidAction(
-                    "Must be in Kitchen to clean Monster Dough.".to_string(),
-                ));
-            }
-        }
-
         // If triggered (rounds_left == 0)
         // Block actions in Kitchen.
         if let GameAction::Bake = action {

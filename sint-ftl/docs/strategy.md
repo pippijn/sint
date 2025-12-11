@@ -12,11 +12,11 @@ This document outlines a verified strategy to defeat the first boss ("The Petty 
 
 ## Squad Roles
 
-*   **P1 (The Baker):** Operates the Kitchen (6). Bakes peppernuts and stockpiles them in the Hallway (7) for others to grab.
-*   **P2 (The Troubleshooter):** The most mobile unit. Hangs out in Hallway (7). Relays ammo from P1 to Gunners. Runs to Cargo (4) or Bridge (9) to solve events or extinguish fires that P3/P4 can't reach.
-*   **P3 (The Pilot):** Camps in the Bridge (9). Spams `Evasive Maneuvers` (2 AP) to block attacks. Only moves to extinguish local fires or if `Panic!` forces relocation.
-*   **P4 (The Engineer):** Camps near the Engine (5). Primary responsibility is solving Engine-based events (`Turbo Mode`, `Overheating`, `Listing Ship`) and extinguishing Engine fires.
-*   **P5 & P6 (The Gunners):** Camp in the Cannons (8). Their job is to convert AP into damage. They should rarely move; ammo should be thrown to them.
+*   **P1 (The Baker):** Operates the Kitchen (5). Bakes peppernuts and stockpiles them in the Hallway (0) for others to grab.
+*   **P2 (The Troubleshooter):** The most mobile unit. Hangs out in Hallway (0). Relays ammo from P1 to Gunners. Runs to Cargo (3) or Bridge (7) to solve events or extinguish fires that P3/P4 can't reach.
+*   **P3 (The Pilot):** Camps in the Bridge (7). Spams `Evasive Maneuvers` (2 AP) to block attacks. Only moves to extinguish local fires or if `Panic!` forces relocation.
+*   **P4 (The Engineer):** Camps near the Engine (4). Primary responsibility is solving Engine-based events (`Turbo Mode`, `Overheating`, `Listing Ship`) and extinguishing Engine fires.
+*   **P5 & P6 (The Gunners):** Camp in the Cannons (6). Their job is to convert AP into damage. They should rarely move; ammo should be thrown to them.
 
 ## Phase 1 Walkthrough (Rounds 1-10)
 

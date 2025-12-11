@@ -22,24 +22,6 @@ impl CardBehavior for OverheatingCard {
         }
     }
 
-    fn validate_action(
-        &self,
-        state: &GameState,
-        player_id: &str,
-        action: &crate::types::GameAction,
-    ) -> Result<(), crate::GameError> {
-        if let crate::types::GameAction::Interact = action {
-            let p = state.players.get(player_id).unwrap();
-            let engine = find_room_with_system(state, SystemType::Engine);
-            if Some(p.room_id) != engine {
-                return Err(crate::GameError::InvalidAction(
-                    "Must be in Engine to fix Overheating.".to_string(),
-                ));
-            }
-        }
-        Ok(())
-    }
-
     fn on_round_start(&self, state: &mut GameState) {
         if let Some(engine_id) = find_room_with_system(state, SystemType::Engine) {
             for p in state.players.values_mut() {

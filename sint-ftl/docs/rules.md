@@ -25,18 +25,22 @@ The ship is divided into numbered rooms. Each room houses a specific system.
 *   **Disabled:** If a room has **1 or more** Fire/Water tokens, its Action is unusable.
 *   **Repair:** Players must `Extinguish` (Fire) or `Repair` (Water) to restore function.
 
-| Room | Name | Function / Action |
+### **Systems (Dice Rolls)**
+The Enemy targets specific **Systems** determined by a **2d6 Dice Roll**. The Room ID containing each system depends on the Map Layout.
+
+| Roll | System | Function / Action |
 | :--- | :--- | :--- |
 | **2** | **The Bow** | *Lookout.* Reveals the top card of the Enemy Deck (Forecasting). |
 | **3** | **Dormitory** | *Respawn Point.* Fainted players revive here at the start of the next round. |
 | **4** | **Cargo** | *Fuel.* Contains flammable gifts. Fire spreads 2x faster here (Spread Threshold 1). |
 | **5** | **Engine** | *Power.* Action: **"Raise Shields"** (2 AP). Blocks **all** incoming **Damage** events this round. |
 | **6** | **Kitchen** | *Ammo.* Action: **"Bake"** (1 AP). Create 3 Peppernuts (placed in room). |
-| **7** | **Hallway** | *Transit.* Connects all rooms. Central hub. |
-| **8** | **Cannons** | *Attack.* Action: **"Load & Fire"** (1 AP + 1 Nut). Deals 1 Dmg to Enemy (Chance to Hit). |
-| **9** | **Bridge** | *Steering.* Action: **"Evasive Maneuvers"** (2 AP). Forces **all** enemy attacks to **MISS** this round. |
-| **10** | **Sickbay** | *Heal.* Action: **"First Aid"** (1 AP). Restore 1 HP to self or adjacent player. |
-| **11** | **Storage** | *Vault.* Secure storage. Items here are safe from Water damage. |
+| **7** | **Cannons** | *Attack.* Action: **"Load & Fire"** (1 AP + 1 Nut). Deals 1 Dmg to Enemy (Chance to Hit). |
+| **8** | **Bridge** | *Steering.* Action: **"Evasive Maneuvers"** (2 AP). Forces **all** enemy attacks to **MISS** this round. |
+| **9** | **Sickbay** | *Heal.* Action: **"First Aid"** (1 AP). Restore 1 HP to self or adjacent player. |
+| **10** | **Storage** | *Vault.* Secure storage. Items here are safe from Water damage. |
+
+*   **Hallway / Empty Rooms:** Transit areas. Cannot be directly targeted by the enemy (no system ID), but hazards can spread to them.
 
 ---
 
@@ -44,7 +48,7 @@ The ship is divided into numbered rooms. Each room houses a specific system.
 
 ### **Stats**
 *   **HP:** Each player has **3 HP**.
-    *   **0 HP = Fainted.** The pawn is removed from the board. Respawns in Dormitory (Room 3) at the start of the next round with full HP.
+    *   **0 HP = Fainted.** The pawn is removed from the board. Respawns in Dormitory (System 3) at the start of the next round with full HP.
 *   **AP:** Each player has **2 Action Points** per round.
 *   **Carry Capacity:**
     *   **Hand:** Max **1 Peppernut**.
@@ -73,7 +77,7 @@ The game does not have fixed turns. It plays in a series of **Rounds**, each con
 
 ### **PHASE 2: ENEMY TELEGRAPH**
 *   The Enemy AI declares its intent.
-*   **Example:** "The Pirate aims a Cannonball at the **Kitchen (6)**!"
+*   **Example:** "The Pirate aims a Cannonball at the **Kitchen (System 6)**!"
 *   Players now know exactly what threat to counter.
 
 ### **PHASE 3: TACTICAL PLANNING (The Core Loop)**

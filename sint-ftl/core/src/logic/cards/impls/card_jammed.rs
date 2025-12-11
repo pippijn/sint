@@ -1,5 +1,5 @@
 use crate::{
-    logic::{cards::behavior::CardBehavior, find_room_with_system},
+    logic::cards::behavior::CardBehavior,
     types::{Card, CardId, CardSolution, CardType, GameAction, GameState, ItemType, SystemType},
     GameError,
 };
@@ -25,20 +25,10 @@ impl CardBehavior for JammedCannonCard {
 
     fn validate_action(
         &self,
-        state: &GameState,
-        player_id: &str,
+        _state: &GameState,
+        _player_id: &str,
         action: &GameAction,
     ) -> Result<(), GameError> {
-        if let GameAction::Interact = action {
-            let p = state.players.get(player_id).unwrap();
-            let cannons = find_room_with_system(state, SystemType::Cannons);
-            if Some(p.room_id) != cannons {
-                return Err(crate::GameError::InvalidAction(
-                    "Must be in Cannons to unjam.".to_string(),
-                ));
-            }
-        }
-
         if let GameAction::Shoot = action {
             return Err(GameError::InvalidAction(
                 "Cannon Jammed! Cannot Shoot.".to_string(),

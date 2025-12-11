@@ -1,5 +1,5 @@
 use crate::{
-    logic::{cards::behavior::CardBehavior, find_room_with_system},
+    logic::cards::behavior::CardBehavior,
     types::{Card, CardId, CardSolution, CardType, GameAction, GameState, SystemType},
 };
 
@@ -20,24 +20,6 @@ impl CardBehavior for SlipperyDeckCard {
                 required_players: 1,
             }),
         }
-    }
-
-    fn validate_action(
-        &self,
-        state: &GameState,
-        player_id: &str,
-        action: &GameAction,
-    ) -> Result<(), crate::GameError> {
-        if let GameAction::Interact = action {
-            let p = state.players.get(player_id).unwrap();
-            let engine = find_room_with_system(state, SystemType::Engine);
-            if Some(p.room_id) != engine {
-                return Err(crate::GameError::InvalidAction(
-                    "Must be in Engine to clean Slippery Deck.".to_string(),
-                ));
-            }
-        }
-        Ok(())
     }
 
     fn modify_action_cost(

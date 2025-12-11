@@ -78,6 +78,30 @@ pub trait CardBehavior: Send + Sync {
 
     /// Hook called when the card is successfully solved/removed via Interaction.
     fn on_solved(&self, _state: &mut GameState) {}
+
+    /// Check if the card can be solved by the player in their current state.
+    fn can_solve(&self, state: &GameState, player_id: &str) -> bool {
+        if let Some(sol) = self.get_struct().solution {
+            let p = if let Some(player) = state.players.get(player_id) {
+                player
+            } else {
+                return false;
+            };
+
+            let room_match = if let Some(sys) = sol.target_system {
+                crate::logic::find_room_with_system(state, sys) == Some(p.room_id)
+            } else {
+                true
+            };
+
+            let item_match =
+                sol.item_cost.is_none() || p.inventory.contains(sol.item_cost.as_ref().unwrap());
+
+            room_match && item_match
+        } else {
+            false
+        }
+    }
 }
 
 // A default behavior that does nothing

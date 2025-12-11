@@ -1,5 +1,5 @@
 use crate::{
-    logic::{cards::behavior::CardBehavior, find_room_with_system},
+    logic::cards::behavior::CardBehavior,
     types::{Card, CardId, CardSolution, CardType, GameState, SystemType},
 };
 use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
@@ -21,24 +21,6 @@ impl CardBehavior for ManOverboardCard {
                 required_players: 1,
             }),
         }
-    }
-
-    fn validate_action(
-        &self,
-        state: &GameState,
-        player_id: &str,
-        action: &crate::types::GameAction,
-    ) -> Result<(), crate::GameError> {
-        if let crate::types::GameAction::Interact = action {
-            let p = state.players.get(player_id).unwrap();
-            let bow = find_room_with_system(state, SystemType::Bow);
-            if Some(p.room_id) != bow {
-                return Err(crate::GameError::InvalidAction(
-                    "Must be in Bow to save the crewmate.".to_string(),
-                ));
-            }
-        }
-        Ok(())
     }
 
     fn on_activate(&self, _state: &mut GameState) {

@@ -24,19 +24,10 @@ impl CardBehavior for TurboModeCard {
 
     fn validate_action(
         &self,
-        state: &GameState,
-        player_id: &str,
-        action: &crate::types::GameAction,
+        _state: &GameState,
+        _player_id: &str,
+        _action: &crate::types::GameAction,
     ) -> Result<(), crate::GameError> {
-        if let crate::types::GameAction::Interact = action {
-            let p = state.players.get(player_id).unwrap();
-            let engine = find_room_with_system(state, SystemType::Engine);
-            if Some(p.room_id) != engine {
-                return Err(crate::GameError::InvalidAction(
-                    "Must be in Engine to disable Turbo Mode.".to_string(),
-                ));
-            }
-        }
         Ok(())
     }
 

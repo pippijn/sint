@@ -22,24 +22,6 @@ impl CardBehavior for MicePlagueCard {
         }
     }
 
-    fn validate_action(
-        &self,
-        state: &GameState,
-        player_id: &str,
-        action: &crate::types::GameAction,
-    ) -> Result<(), crate::GameError> {
-        if let crate::types::GameAction::Interact = action {
-            let p = state.players.get(player_id).unwrap();
-            let storage = find_room_with_system(state, SystemType::Storage);
-            if Some(p.room_id) != storage {
-                return Err(crate::GameError::InvalidAction(
-                    "Must be in Storage to clear Mice.".to_string(),
-                ));
-            }
-        }
-        Ok(())
-    }
-
     fn on_round_end(&self, state: &mut GameState) {
         if let Some(storage_id) = find_room_with_system(state, SystemType::Storage) {
             if let Some(room) = state.map.rooms.get_mut(&storage_id) {

@@ -1,5 +1,5 @@
 use crate::{
-    logic::{cards::behavior::CardBehavior, find_room_with_system},
+    logic::cards::behavior::CardBehavior,
     types::{Card, CardId, CardSolution, CardType, GameState, PlayerStatus, SystemType},
 };
 
@@ -20,24 +20,6 @@ impl CardBehavior for TheStaffCard {
                 required_players: 1,
             }),
         }
-    }
-
-    fn validate_action(
-        &self,
-        state: &GameState,
-        player_id: &str,
-        action: &crate::types::GameAction,
-    ) -> Result<(), crate::GameError> {
-        if let crate::types::GameAction::Interact = action {
-            let p = state.players.get(player_id).unwrap();
-            let bridge = find_room_with_system(state, SystemType::Bridge);
-            if Some(p.room_id) != bridge {
-                return Err(crate::GameError::InvalidAction(
-                    "Mission complete at Bridge.".to_string(),
-                ));
-            }
-        }
-        Ok(())
     }
 
     fn on_solved(&self, state: &mut GameState) {

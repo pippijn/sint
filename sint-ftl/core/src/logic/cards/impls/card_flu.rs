@@ -1,5 +1,5 @@
 use crate::{
-    logic::{cards::behavior::CardBehavior, find_room_with_system},
+    logic::cards::behavior::CardBehavior,
     types::{Card, CardId, CardSolution, CardType, GameState, ItemType, SystemType},
 };
 
@@ -20,24 +20,6 @@ impl CardBehavior for FluWaveCard {
                 required_players: 1,
             }),
         }
-    }
-
-    fn validate_action(
-        &self,
-        state: &GameState,
-        player_id: &str,
-        action: &crate::types::GameAction,
-    ) -> Result<(), crate::GameError> {
-        if let crate::types::GameAction::Interact = action {
-            let p = state.players.get(player_id).unwrap();
-            let sickbay = find_room_with_system(state, SystemType::Sickbay);
-            if Some(p.room_id) != sickbay {
-                return Err(crate::GameError::InvalidAction(
-                    "Must be in Sickbay to cure Flu.".to_string(),
-                ));
-            }
-        }
-        Ok(())
     }
 
     fn on_round_end(&self, state: &mut GameState) {

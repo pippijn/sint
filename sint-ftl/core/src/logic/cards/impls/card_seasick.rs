@@ -1,7 +1,6 @@
 use crate::{
-    logic::{cards::behavior::CardBehavior, find_room_with_system},
-    types::{Card, CardId, CardSolution, CardType, GameAction, GameState, SystemType},
-    GameError,
+    logic::cards::behavior::CardBehavior,
+    types::{Card, CardId, CardSolution, CardType, SystemType},
 };
 
 pub struct SeasickCard;
@@ -21,23 +20,5 @@ impl CardBehavior for SeasickCard {
                 required_players: 1,
             }),
         }
-    }
-
-    fn validate_action(
-        &self,
-        state: &GameState,
-        player_id: &str,
-        action: &GameAction,
-    ) -> Result<(), GameError> {
-        if let GameAction::Interact = action {
-            let p = state.players.get(player_id).unwrap();
-            let kitchen = find_room_with_system(state, SystemType::Kitchen);
-            if Some(p.room_id) != kitchen {
-                return Err(crate::GameError::InvalidAction(
-                    "Must be in Kitchen to cure Seasick.".to_string(),
-                ));
-            }
-        }
-        Ok(())
     }
 }

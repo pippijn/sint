@@ -22,27 +22,6 @@ impl CardBehavior for StickyFloorCard {
         }
     }
 
-    fn validate_action(
-        &self,
-        state: &GameState,
-        player_id: &str,
-        action: &GameAction,
-    ) -> Result<(), crate::GameError> {
-        if let GameAction::Interact = action {
-            // Check if player is in Kitchen (Solution location)
-            // Handlers usually check if solution.room_id (now target_system) matches.
-            // But we can double check here to be safe or rely on updated InteractHandler.
-            let p = state.players.get(player_id).unwrap();
-            let kitchen = find_room_with_system(state, SystemType::Kitchen);
-            if Some(p.room_id) != kitchen {
-                return Err(crate::GameError::InvalidAction(
-                    "Must be in Kitchen to clean Sticky Floor.".to_string(),
-                ));
-            }
-        }
-        Ok(())
-    }
-
     fn modify_action_cost(
         &self,
         state: &GameState,

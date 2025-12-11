@@ -145,7 +145,7 @@ impl ActionHandler for ReviveHandler {
 pub struct InteractHandler;
 impl ActionHandler for InteractHandler {
     fn validate(&self, state: &GameState, player_id: &str) -> Result<(), GameError> {
-        let p = state
+        let _p = state
             .players
             .get(player_id)
             .ok_or(GameError::PlayerNotFound)?;
@@ -153,19 +153,9 @@ impl ActionHandler for InteractHandler {
         // Check if ANY active situation allows interaction here
         let mut valid = false;
         for card in &state.active_situations {
-            if let Some(sol) = &card.solution {
-                let room_match = if let Some(sys) = sol.target_system {
-                    crate::logic::find_room_with_system(state, sys) == Some(p.room_id)
-                } else {
-                    true // If None, it means "Any Room"
-                };
-                let item_match = sol.item_cost.is_none()
-                    || p.inventory.contains(sol.item_cost.as_ref().unwrap());
-
-                if room_match && item_match {
-                    valid = true;
-                    break;
-                }
+            if get_behavior(card.id).can_solve(state, player_id) {
+                valid = true;
+                break;
             }
         }
 
@@ -184,27 +174,13 @@ impl ActionHandler for InteractHandler {
         _simulation: bool,
     ) -> Result<(), GameError> {
         self.validate(state, player_id)?;
-        let p_copy = state
-            .players
-            .get(player_id)
-            .cloned()
-            .ok_or(GameError::PlayerNotFound)?;
+
         let mut solved_idx = None;
 
         for (i, card) in state.active_situations.iter().enumerate() {
-            if let Some(sol) = &card.solution {
-                let room_match = if let Some(sys) = sol.target_system {
-                    crate::logic::find_room_with_system(state, sys) == Some(p_copy.room_id)
-                } else {
-                    true // If None, it means "Any Room"
-                };
-                let item_match = sol.item_cost.is_none()
-                    || p_copy.inventory.contains(sol.item_cost.as_ref().unwrap());
-
-                if room_match && item_match {
-                    solved_idx = Some(i);
-                    break;
-                }
+            if get_behavior(card.id).can_solve(state, player_id) {
+                solved_idx = Some(i);
+                break;
             }
         }
 

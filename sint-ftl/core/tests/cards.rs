@@ -1,6 +1,6 @@
 use sint_core::{
-    types::{Action, CardId, GameAction, GamePhase, ItemType},
-    GameLogic,
+    types::{Action, Card, CardId, CardSolution, CardType, GameAction, GamePhase, ItemType},
+    GameError, GameLogic,
 };
 
 fn new_test_game(players: Vec<String>) -> sint_core::types::GameState {
@@ -635,4 +635,153 @@ fn test_sugar_rush() {
     }
     let res = GameLogic::apply_action(state, "P1", Action::Game(GameAction::Shoot), None);
     assert!(res.is_err());
+}
+
+#[test]
+fn test_can_solve_wailing_alarm_logic() {
+    let mut state = new_test_game(vec!["P1".to_string()]);
+    state.phase = GamePhase::TacticalPlanning;
+
+    // Add Wailing Alarm
+    let card = Card {
+        id: CardId::WailingAlarm,
+        title: "Alarm".to_string(),
+        description: "Test".to_string(),
+        card_type: CardType::Situation,
+        options: vec![],
+        solution: Some(CardSolution {
+            target_system: None, // Any room
+            ap_cost: 1,
+            item_cost: None,
+            required_players: 1,
+        }),
+    };
+    state.active_situations.push(card);
+
+    // 1. P1 in Kitchen (System 6) -> Should Fail
+    let kitchen = sint_core::logic::find_room_with_system_in_map(
+        &state.map,
+        sint_core::types::SystemType::Kitchen,
+    )
+    .unwrap();
+    if let Some(p) = state.players.get_mut("P1") {
+        p.room_id = kitchen;
+        p.ap = 2;
+    }
+
+    let res = GameLogic::apply_action(
+        state.clone(),
+        "P1",
+        Action::Game(GameAction::Interact),
+        None,
+    );
+    // InteractHandler uses can_solve. WailingAlarm's can_solve checks for Empty Room.
+    assert!(res.is_err(), "Wailing Alarm should fail in Kitchen");
+
+    // 2. P1 in Hallway (System None) -> Should Succeed
+    let hallway = 0;
+    if let Some(p) = state.players.get_mut("P1") {
+        p.room_id = hallway;
+    }
+
+    let res_ok = GameLogic::apply_action(
+        state.clone(),
+        "P1",
+        Action::Game(GameAction::Interact),
+        None,
+    );
+    assert!(res_ok.is_ok(), "Wailing Alarm should succeed in Hallway");
+}
+
+#[test]
+fn test_default_can_solve_logic_amerigo() {
+    let mut state = new_test_game(vec!["P1".to_string()]);
+    state.phase = GamePhase::TacticalPlanning;
+
+    // Add Amerigo (Requires Storage)
+    let card = sint_core::logic::cards::get_behavior(CardId::Amerigo).get_struct();
+    state.active_situations.push(card);
+
+    // 1. P1 in Hallway -> Fail
+    if let Some(p) = state.players.get_mut("P1") {
+        p.room_id = 0;
+        p.ap = 2;
+    }
+    let res = GameLogic::apply_action(
+        state.clone(),
+        "P1",
+        Action::Game(GameAction::Interact),
+        None,
+    );
+    assert!(res.is_err(), "Amerigo should fail in Hallway");
+
+    // 2. P1 in Storage -> Succeed
+    let storage = sint_core::logic::find_room_with_system_in_map(
+        &state.map,
+        sint_core::types::SystemType::Storage,
+    )
+    .unwrap();
+    if let Some(p) = state.players.get_mut("P1") {
+        p.room_id = storage;
+    }
+    let res_ok = GameLogic::apply_action(
+        state.clone(),
+        "P1",
+        Action::Game(GameAction::Interact),
+        None,
+    );
+    assert!(res_ok.is_ok(), "Amerigo should succeed in Storage");
+}
+
+#[test]
+fn test_sugar_rush_blocks_shoot_but_allows_solve() {
+    let mut state = new_test_game(vec!["P1".to_string()]);
+    state.phase = GamePhase::TacticalPlanning;
+
+    // Add Sugar Rush (Requires Kitchen, Blocks Shoot)
+    let card = sint_core::logic::cards::get_behavior(CardId::SugarRush).get_struct();
+    state.active_situations.push(card);
+
+    let kitchen = sint_core::logic::find_room_with_system_in_map(
+        &state.map,
+        sint_core::types::SystemType::Kitchen,
+    )
+    .unwrap();
+    let cannons = sint_core::logic::find_room_with_system_in_map(
+        &state.map,
+        sint_core::types::SystemType::Cannons,
+    )
+    .unwrap();
+
+    // 1. P1 in Kitchen -> Can Interact (Solve)
+    if let Some(p) = state.players.get_mut("P1") {
+        p.room_id = kitchen;
+        p.ap = 2;
+    }
+    let res_solve = GameLogic::apply_action(
+        state.clone(),
+        "P1",
+        Action::Game(GameAction::Interact),
+        None,
+    );
+    assert!(res_solve.is_ok(), "Sugar Rush should be solvable in Kitchen");
+
+    // 2. P1 in Cannons -> Cannot Shoot (Blocked by validation)
+    if let Some(p) = state.players.get_mut("P1") {
+        p.room_id = cannons;
+        p.inventory.push(sint_core::types::ItemType::Peppernut);
+    }
+    let res_shoot = GameLogic::apply_action(
+        state.clone(),
+        "P1",
+        Action::Game(GameAction::Shoot),
+        None,
+    );
+    
+    assert!(res_shoot.is_err(), "Sugar Rush should block Shoot");
+    if let Err(GameError::InvalidAction(msg)) = res_shoot {
+        assert!(msg.contains("Too shaky"), "Error should be specific to Sugar Rush");
+    } else {
+        panic!("Wrong error type");
+    }
 }

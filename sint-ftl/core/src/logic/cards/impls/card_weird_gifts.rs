@@ -22,24 +22,6 @@ impl CardBehavior for WeirdGiftsCard {
         }
     }
 
-    fn validate_action(
-        &self,
-        state: &GameState,
-        player_id: &str,
-        action: &crate::types::GameAction,
-    ) -> Result<(), crate::GameError> {
-        if let crate::types::GameAction::Interact = action {
-            let p = state.players.get(player_id).unwrap();
-            let cargo = find_room_with_system(state, SystemType::Cargo);
-            if Some(p.room_id) != cargo {
-                return Err(crate::GameError::InvalidAction(
-                    "Must be in Cargo to remove Weird Gifts.".to_string(),
-                ));
-            }
-        }
-        Ok(())
-    }
-
     fn on_round_end(&self, state: &mut GameState) {
         let mut triggered = false;
         for card in state.active_situations.iter_mut() {

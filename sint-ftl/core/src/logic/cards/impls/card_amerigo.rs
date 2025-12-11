@@ -22,26 +22,6 @@ impl CardBehavior for AmerigoCard {
         }
     }
 
-    fn validate_action(
-        &self,
-        state: &GameState,
-        player_id: &str,
-        action: &crate::types::GameAction,
-    ) -> Result<(), crate::GameError> {
-        if let crate::types::GameAction::Interact = action {
-            // Check if player is in Storage
-            let p = state.players.get(player_id).unwrap();
-            let storage_room = find_room_with_system(state, SystemType::Storage);
-
-            if Some(p.room_id) != storage_room {
-                return Err(crate::GameError::InvalidAction(
-                    "Amerigo is in Storage. Go there to shoo him.".to_string(),
-                ));
-            }
-        }
-        Ok(())
-    }
-
     fn on_round_end(&self, state: &mut GameState) {
         // Eats 1 peppernut from Storage room items
         if let Some(room_id) = find_room_with_system(state, SystemType::Storage) {

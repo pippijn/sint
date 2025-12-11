@@ -25,25 +25,11 @@ impl CardBehavior for WailingAlarmCard {
 
     fn validate_action(
         &self,
-        state: &GameState,
-        player_id: &str,
+        _state: &GameState,
+        _player_id: &str,
         action: &GameAction,
     ) -> Result<(), GameError> {
         match action {
-            GameAction::Interact => {
-                let p = state.players.get(player_id).unwrap();
-                let room = state
-                    .map
-                    .rooms
-                    .get(&p.room_id)
-                    .ok_or(GameError::RoomNotFound)?;
-                if room.system.is_some() {
-                    return Err(GameError::InvalidAction(
-                        "Wailing Alarm must be silenced in an Empty Room.".to_string(),
-                    ));
-                }
-                Ok(())
-            }
             GameAction::RaiseShields => Err(GameError::InvalidAction(
                 "Wailing Alarm! Shields are disabled.".to_string(),
             )),
@@ -52,5 +38,14 @@ impl CardBehavior for WailingAlarmCard {
             )),
             _ => Ok(()),
         }
+    }
+
+    fn can_solve(&self, state: &GameState, player_id: &str) -> bool {
+        if let Some(player) = state.players.get(player_id) {
+            if let Some(room) = state.map.rooms.get(&player.room_id) {
+                return room.system.is_none();
+            }
+        }
+        false
     }
 }
