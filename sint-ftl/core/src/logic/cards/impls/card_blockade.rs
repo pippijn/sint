@@ -20,6 +20,7 @@ impl CardBehavior for BlockadeCard {
                 item_cost: None,
                 required_players: 2,
             }),
+            affected_player: None,
         }
     }
 

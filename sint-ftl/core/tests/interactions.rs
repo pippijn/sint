@@ -21,6 +21,7 @@ fn test_multiple_situation_cards_stack_effects() {
         card_type: CardType::Timebomb { rounds_left: 0 }, // Make it trigger
         options: vec![],
         solution: None,
+        affected_player: None,
     };
     let overheating_card = Card {
         id: CardId::Overheating,
@@ -29,6 +30,7 @@ fn test_multiple_situation_cards_stack_effects() {
         card_type: CardType::Situation,
         options: vec![],
         solution: None,
+        affected_player: None,
     };
     state.active_situations.push(flu_card.clone());
     state.active_situations.push(overheating_card.clone());
@@ -91,6 +93,7 @@ fn test_hazard_blocks_card_effect() {
         card_type: CardType::Situation,
         options: vec![],
         solution: None,
+        affected_player: None,
     });
 
     // Give the player a Peppernut, which is the condition for the blockade.

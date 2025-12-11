@@ -19,9 +19,13 @@ impl ActionHandler for BakeHandler {
             .ok_or(GameError::RoomNotFound)?;
 
         if room.system != Some(SystemType::Kitchen) {
+            let correct_id =
+                crate::logic::find_room_with_system_in_map(&state.map, SystemType::Kitchen)
+                    .map(|id| id.to_string())
+                    .unwrap_or("?".to_string());
             return Err(GameError::InvalidAction(format!(
-                "Bake requires Kitchen (6), but you are in {} ({})",
-                room.name, room.id
+                "Bake requires Kitchen (Room {}), but you are in {} ({})",
+                correct_id, room.name, room.id
             )));
         }
         if !room.hazards.is_empty() {
@@ -67,9 +71,13 @@ impl ActionHandler for ShootHandler {
             .ok_or(GameError::RoomNotFound)?;
 
         if room.system != Some(SystemType::Cannons) {
+            let correct_id =
+                crate::logic::find_room_with_system_in_map(&state.map, SystemType::Cannons)
+                    .map(|id| id.to_string())
+                    .unwrap_or("?".to_string());
             return Err(GameError::InvalidAction(format!(
-                "Shoot requires Cannons (8), but you are in {} ({})",
-                room.name, room.id
+                "Shoot requires Cannons (Room {}), but you are in {} ({})",
+                correct_id, room.name, room.id
             )));
         }
         if !room.hazards.is_empty() {
@@ -166,9 +174,13 @@ impl ActionHandler for RaiseShieldsHandler {
             .ok_or(GameError::RoomNotFound)?;
 
         if room.system != Some(SystemType::Engine) {
+            let correct_id =
+                crate::logic::find_room_with_system_in_map(&state.map, SystemType::Engine)
+                    .map(|id| id.to_string())
+                    .unwrap_or("?".to_string());
             return Err(GameError::InvalidAction(format!(
-                "Raise Shields requires Engine (5), but you are in {} ({})",
-                room.name, room.id
+                "Raise Shields requires Engine (Room {}), but you are in {} ({})",
+                correct_id, room.name, room.id
             )));
         }
         if !room.hazards.is_empty() {
@@ -209,9 +221,13 @@ impl ActionHandler for EvasiveManeuversHandler {
             .ok_or(GameError::RoomNotFound)?;
 
         if room.system != Some(SystemType::Bridge) {
+            let correct_id =
+                crate::logic::find_room_with_system_in_map(&state.map, SystemType::Bridge)
+                    .map(|id| id.to_string())
+                    .unwrap_or("?".to_string());
             return Err(GameError::InvalidAction(format!(
-                "Evasive Maneuvers requires Bridge (9), but you are in {} ({})",
-                room.name, room.id
+                "Evasive Maneuvers requires Bridge (Room {}), but you are in {} ({})",
+                correct_id, room.name, room.id
             )));
         }
         if !room.hazards.is_empty() {
@@ -252,9 +268,13 @@ impl ActionHandler for LookoutHandler {
             .ok_or(GameError::RoomNotFound)?;
 
         if room.system != Some(SystemType::Bow) {
+            let correct_id =
+                crate::logic::find_room_with_system_in_map(&state.map, SystemType::Bow)
+                    .map(|id| id.to_string())
+                    .unwrap_or("?".to_string());
             return Err(GameError::InvalidAction(format!(
-                "Lookout requires The Bow (2), but you are in {} ({})",
-                room.name, room.id
+                "Lookout requires The Bow (Room {}), but you are in {} ({})",
+                correct_id, room.name, room.id
             )));
         }
         if !room.hazards.is_empty() {
@@ -307,9 +327,13 @@ impl ActionHandler for FirstAidHandler {
             .ok_or(GameError::RoomNotFound)?;
 
         if room.system != Some(SystemType::Sickbay) {
+            let correct_id =
+                crate::logic::find_room_with_system_in_map(&state.map, SystemType::Sickbay)
+                    .map(|id| id.to_string())
+                    .unwrap_or("?".to_string());
             return Err(GameError::InvalidAction(format!(
-                "First Aid requires Sickbay (10), but you are in {} ({})",
-                room.name, room.id
+                "First Aid requires Sickbay (Room {}), but you are in {} ({})",
+                correct_id, room.name, room.id
             )));
         }
         if !room.hazards.is_empty() {

@@ -384,9 +384,12 @@ def r20():
     for p in players: p.pass_turn()
 
 def r21():
-    # print("# Round 21: Reload. P1 Asleep.")
+    # print("# Round 21: Reload. P3 Asleep (Solved by P1).")
     start_round()
     
+    # P1 Solves Nap (Reader Rotation means P3 was asleep)
+    p1.action("Interact", 1)
+
     p2.action("Move 5", 1)
     p2.action("Bake", 1)
     
@@ -411,11 +414,11 @@ def r22():
     for p in players: p.pass_turn()
 
 def r23():
-    # print("# Round 23: Solve Nap/Headwind/Clamp/Seasick.")
+    # print("# Round 23: Solve Headwind/Clamp/Seasick.")
     start_round()
     
-    # P4 (in Bow) solves Nap FIRST (Anyone can solve it, must grab it before Bridge team)
-    p4.action("Interact", 1) 
+    # P4: Nap solved in R21. No action needed.
+    # p4.action("Interact", 1) 
     
     # Bridge Team (P5, P6) solve local issues (Headwind, Clamp, Static)
     p6.action("Interact", 1)

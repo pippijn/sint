@@ -116,6 +116,7 @@ impl CardBehavior for NoOpBehavior {
             card_type: CardType::Situation,
             options: vec![],
             solution: None,
+            affected_player: None,
         }
     }
 }

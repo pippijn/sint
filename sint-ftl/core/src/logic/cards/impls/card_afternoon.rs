@@ -20,7 +20,35 @@ impl CardBehavior for AfternoonNapCard {
                 item_cost: None,
                 required_players: 1,
             }),
+            affected_player: None,
         }
+    }
+
+    fn on_activate(&self, state: &mut GameState) {
+        let mut sorted_ids: Vec<String> = state.players.keys().cloned().collect();
+        sorted_ids.sort();
+
+        if sorted_ids.is_empty() {
+            return;
+        }
+
+        // Logic: Turn count determines rotation.
+        let index = (state.turn_count.saturating_sub(1) as usize) % sorted_ids.len();
+        let reader_id = sorted_ids[index].clone();
+
+        // Update the card state. We assume the newly drawn card is at the end.
+        // We verify ID just in case.
+        if let Some(card) = state.active_situations.last_mut() {
+            if card.id == CardId::AfternoonNap {
+                card.affected_player = Some(reader_id.clone());
+            }
+        }
+
+        state.chat_log.push(crate::types::ChatMessage {
+            sender: "SYSTEM".to_owned(),
+            text: format!("{} is the Reader and falls asleep!", reader_id),
+            timestamp: 0,
+        });
     }
 
     fn validate_action(
@@ -29,29 +57,37 @@ impl CardBehavior for AfternoonNapCard {
         player_id: &str,
         action: &GameAction,
     ) -> Result<(), GameError> {
-        // Logic: "The Reader" cannot spend AP.
-        // Definition of "Reader": The player whose ID is lexicographically first.
-        let mut sorted_ids: Vec<&String> = state.players.keys().collect();
-        sorted_ids.sort();
+        // Find the card to see who is affected
+        // Note: If multiple Nap cards existed, this would enforce it for all of them.
+        let card = state
+            .active_situations
+            .iter()
+            .find(|c| c.id == CardId::AfternoonNap);
 
-        let reader_id = sorted_ids.first();
+        if let Some(c) = card {
+            // If the card has a stored target, use it.
+            // If not (legacy/bug), we might fall back or do nothing.
+            if let Some(target) = &c.affected_player {
+                if target == player_id {
+                    let is_free = matches!(
+                        action,
+                        GameAction::Chat { .. }
+                            | GameAction::VoteReady { .. }
+                            | GameAction::Pass
+                            | GameAction::Undo { .. }
+                    );
 
-        if let Some(&rid) = reader_id {
-            if rid == player_id {
-                // Block all actions that typically cost AP.
-                // Note: Cost calculation is not available during validation, so we check action types directly.
-                let is_free = matches!(
-                    action,
-                    GameAction::Chat { .. }
-                        | GameAction::VoteReady { .. }
-                        | GameAction::Pass
-                        | GameAction::Undo { .. }
-                );
-
-                if !is_free {
-                    return Err(GameError::InvalidAction(
-                        "The Reader (You) is asleep and cannot spend AP!".to_owned(),
-                    ));
+                    if !is_free {
+                        let name = state
+                            .players
+                            .get(player_id)
+                            .map(|p| p.name.as_str())
+                            .unwrap_or(player_id);
+                        return Err(GameError::InvalidAction(format!(
+                            "The Reader ({}) is asleep and cannot spend AP!",
+                            name
+                        )));
+                    }
                 }
             }
         }

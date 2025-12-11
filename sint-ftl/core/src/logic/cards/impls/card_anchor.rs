@@ -20,6 +20,7 @@ impl CardBehavior for AnchorStuckCard {
                 item_cost: None,
                 required_players: 3,
             }),
+            affected_player: None,
         }
     }
 

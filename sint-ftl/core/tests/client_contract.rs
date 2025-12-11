@@ -179,6 +179,7 @@ fn test_interact_situation_context() {
             item_cost: None,
             required_players: 1,
         }),
+        affected_player: None,
     };
     state.active_situations.push(card);
 

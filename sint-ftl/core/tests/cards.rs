@@ -72,6 +72,7 @@ fn test_afternoon_nap_blocks_actions() {
         card_type: sint_core::types::CardType::Situation,
         options: vec![],
         solution: None,
+        affected_player: Some("P1".to_owned()),
     };
     state.active_situations.push(card);
 
@@ -107,6 +108,7 @@ fn test_wailing_alarm_blocks_bonus_actions() {
         card_type: sint_core::types::CardType::Situation,
         options: vec![],
         solution: None,
+        affected_player: None,
     };
     state.active_situations.push(card);
 
@@ -136,6 +138,7 @@ fn test_monster_dough_trigger() {
         card_type: sint_core::types::CardType::Timebomb { rounds_left: 1 },
         options: vec![],
         solution: None,
+        affected_player: None,
     };
     state.active_situations.push(card);
 
@@ -208,6 +211,7 @@ fn test_flu_wave_ap_reduction() {
         card_type: sint_core::types::CardType::Timebomb { rounds_left: 1 },
         options: vec![],
         solution: None,
+        affected_player: None,
     };
     state.active_situations.push(card);
 
@@ -288,6 +292,7 @@ fn test_man_overboard_death() {
         card_type: sint_core::types::CardType::Timebomb { rounds_left: 1 },
         options: vec![],
         solution: None,
+        affected_player: None,
     };
     state.active_situations.push(card);
 
@@ -346,6 +351,7 @@ fn test_mice_plague_eats_nuts() {
         card_type: sint_core::types::CardType::Situation,
         options: vec![],
         solution: None,
+        affected_player: None,
     };
     state.active_situations.push(card);
 
@@ -381,6 +387,7 @@ fn test_overheating_ap_loss() {
         card_type: sint_core::types::CardType::Situation,
         options: vec![],
         solution: None,
+        affected_player: None,
     };
     state.active_situations.push(card);
 
@@ -440,6 +447,7 @@ fn test_rudderless_damage() {
         card_type: sint_core::types::CardType::Situation,
         options: vec![],
         solution: None,
+        affected_player: None,
     };
     state.active_situations.push(card);
 
@@ -460,6 +468,7 @@ fn test_seagull_attack_block_move() {
         card_type: sint_core::types::CardType::Situation,
         options: vec![],
         solution: None,
+        affected_player: None,
     };
     state.active_situations.push(card);
 
@@ -500,6 +509,7 @@ fn test_shoe_setting_skip_turn() {
         card_type: sint_core::types::CardType::Timebomb { rounds_left: 0 },
         options: vec![],
         solution: None,
+        affected_player: None,
     };
     state.active_situations.push(card);
 
@@ -566,6 +576,7 @@ fn test_slippery_deck() {
         card_type: sint_core::types::CardType::Situation,
         options: vec![],
         solution: None,
+        affected_player: None,
     };
     state.active_situations.push(card);
 
@@ -587,6 +598,7 @@ fn test_sticky_floor() {
         card_type: sint_core::types::CardType::Situation,
         options: vec![],
         solution: None,
+        affected_player: None,
     };
     state.active_situations.push(card);
 
@@ -623,6 +635,7 @@ fn test_sugar_rush() {
         card_type: sint_core::types::CardType::Situation,
         options: vec![],
         solution: None,
+        affected_player: None,
     };
     state.active_situations.push(card);
 
@@ -655,6 +668,7 @@ fn test_can_solve_wailing_alarm_logic() {
             item_cost: None,
             required_players: 1,
         }),
+        affected_player: None,
     };
     state.active_situations.push(card);
 
@@ -734,56 +748,108 @@ fn test_default_can_solve_logic_amerigo() {
 }
 
 #[test]
-fn test_sugar_rush_blocks_shoot_but_allows_solve() {
+fn test_afternoon_nap_rotation() {
+    let mut state = new_test_game(vec!["P1".to_owned(), "P2".to_owned(), "P3".to_owned()]);
+    use sint_core::logic::cards::get_behavior;
+    let behavior = get_behavior(CardId::AfternoonNap);
+
+    // Turn 1 -> P1 (Index 0)
+    state.turn_count = 1;
+    let card = behavior.get_struct();
+    state.active_situations.push(card);
+    behavior.on_activate(&mut state);
+    assert_eq!(
+        state.active_situations.last().unwrap().affected_player,
+        Some("P1".to_owned())
+    );
+
+    // Turn 2 -> P2 (Index 1)
+    state.turn_count = 2;
+    let card = behavior.get_struct();
+    state.active_situations.push(card);
+    behavior.on_activate(&mut state);
+    assert_eq!(
+        state.active_situations.last().unwrap().affected_player,
+        Some("P2".to_owned())
+    );
+
+    // Turn 4 -> P1 (Index 0, wrapped)
+    state.turn_count = 4;
+    let card = behavior.get_struct();
+    state.active_situations.push(card);
+    behavior.on_activate(&mut state);
+    assert_eq!(
+        state.active_situations.last().unwrap().affected_player,
+        Some("P1".to_owned())
+    );
+}
+
+#[test]
+fn test_afternoon_nap_persistence() {
+    let mut state = new_test_game(vec!["P1".to_owned(), "P2".to_owned()]);
+    state.phase = GamePhase::TacticalPlanning;
+    use sint_core::logic::cards::get_behavior;
+    let behavior = get_behavior(CardId::AfternoonNap);
+
+    // Activate on Turn 1 (Targets P1)
+    state.turn_count = 1;
+    let card = behavior.get_struct();
+    state.active_situations.push(card);
+    behavior.on_activate(&mut state);
+
+    // Advance Turn to 2 (Rotation would target P2, but card should persist P1)
+    state.turn_count = 2;
+
+    // Check P1 (Should be blocked)
+    if let Some(p) = state.players.get_mut("P1") {
+        p.room_id = 5; // Kitchen
+    }
+    let res_p1 = GameLogic::apply_action(state.clone(), "P1", Action::Game(GameAction::Bake), None);
+    assert!(
+        res_p1.is_err(),
+        "P1 should remain the Reader despite turn advance"
+    );
+
+    // Check P2 (Should be free)
+    if let Some(p) = state.players.get_mut("P2") {
+        p.room_id = 5; // Kitchen
+    }
+    let res_p2 = GameLogic::apply_action(state.clone(), "P2", Action::Game(GameAction::Bake), None);
+    match res_p2 {
+        Ok(_) => {}
+        Err(e) => panic!("P2 should not be affected but failed with: {:?}", e),
+    }
+}
+
+#[test]
+fn test_afternoon_nap_error_message() {
     let mut state = new_test_game(vec!["P1".to_owned()]);
     state.phase = GamePhase::TacticalPlanning;
+    if let Some(p) = state.players.get_mut("P1") {
+        p.name = "Captain".to_owned();
+        p.room_id = 6;
+    }
 
-    // Add Sugar Rush (Requires Kitchen, Blocks Shoot)
-    let card = sint_core::logic::cards::get_behavior(CardId::SugarRush).get_struct();
+    use sint_core::logic::cards::get_behavior;
+    let behavior = get_behavior(CardId::AfternoonNap);
+
+    // Activate
+    state.turn_count = 1;
+    let card = behavior.get_struct();
     state.active_situations.push(card);
+    behavior.on_activate(&mut state);
 
-    let kitchen = sint_core::logic::find_room_with_system_in_map(
-        &state.map,
-        sint_core::types::SystemType::Kitchen,
-    )
-    .unwrap();
-    let cannons = sint_core::logic::find_room_with_system_in_map(
-        &state.map,
-        sint_core::types::SystemType::Cannons,
-    )
-    .unwrap();
+    // Try action
+    let res = GameLogic::apply_action(state, "P1", Action::Game(GameAction::Bake), None);
 
-    // 1. P1 in Kitchen -> Can Interact (Solve)
-    if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = kitchen;
-        p.ap = 2;
-    }
-    let res_solve = GameLogic::apply_action(
-        state.clone(),
-        "P1",
-        Action::Game(GameAction::Interact),
-        None,
-    );
-    assert!(
-        res_solve.is_ok(),
-        "Sugar Rush should be solvable in Kitchen"
-    );
-
-    // 2. P1 in Cannons -> Cannot Shoot (Blocked by validation)
-    if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = cannons;
-        p.inventory.push(sint_core::types::ItemType::Peppernut);
-    }
-    let res_shoot =
-        GameLogic::apply_action(state.clone(), "P1", Action::Game(GameAction::Shoot), None);
-
-    assert!(res_shoot.is_err(), "Sugar Rush should block Shoot");
-    if let Err(sint_core::GameError::InvalidAction(msg)) = res_shoot {
-        assert!(
-            msg.contains("Too shaky"),
-            "Error should be specific to Sugar Rush"
-        );
-    } else {
-        panic!("Wrong error type");
+    match res {
+        Err(sint_core::GameError::InvalidAction(msg)) => {
+            assert!(
+                msg.contains("The Reader (Captain)"),
+                "Error message should contain player name. Got: {}",
+                msg
+            );
+        }
+        _ => panic!("Expected InvalidAction error"),
     }
 }

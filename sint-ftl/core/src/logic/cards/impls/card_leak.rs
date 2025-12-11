@@ -14,6 +14,7 @@ impl CardBehavior for LeakCard {
             card_type: CardType::Flash,
             options: vec![],
             solution: None,
+            affected_player: None,
         }
     }
 

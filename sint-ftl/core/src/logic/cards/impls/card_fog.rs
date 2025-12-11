@@ -22,6 +22,7 @@ impl CardBehavior for FogBankCard {
                 item_cost: None,
                 required_players: 1,
             }),
+            affected_player: None,
         }
     }
 

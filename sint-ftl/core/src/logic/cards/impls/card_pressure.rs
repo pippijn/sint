@@ -15,6 +15,7 @@ impl CardBehavior for HighPressureCard {
             card_type: CardType::Flash,
             options: vec![],
             solution: None,
+            affected_player: None,
         }
     }
 

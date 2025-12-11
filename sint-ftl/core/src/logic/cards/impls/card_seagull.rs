@@ -20,6 +20,7 @@ impl CardBehavior for SeagullAttackCard {
                 item_cost: None,
                 required_players: 1,
             }),
+            affected_player: None,
         }
     }
 

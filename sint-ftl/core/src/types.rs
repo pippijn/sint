@@ -367,6 +367,8 @@ pub struct Card {
     pub options: Vec<CardOption>,
     /// Solution for Situations/Timebombs
     pub solution: Option<CardSolution>,
+    /// The player targeted or affected by this card (e.g. The Reader)
+    pub affected_player: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

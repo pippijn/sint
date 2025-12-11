@@ -19,6 +19,7 @@ impl CardBehavior for ShoeSettingCard {
                 item_cost: Some(ItemType::Peppernut),
                 required_players: 1,
             }),
+            affected_player: None,
         }
     }
 

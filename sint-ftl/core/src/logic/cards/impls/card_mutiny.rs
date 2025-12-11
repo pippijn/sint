@@ -19,6 +19,7 @@ impl CardBehavior for MutinyCard {
                 item_cost: None,
                 required_players: 2,
             }),
+            affected_player: None,
         }
     }
 

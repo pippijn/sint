@@ -22,6 +22,7 @@ fn test_interact_validation_wrong_room() {
             item_cost: None,
             required_players: 1,
         }),
+        affected_player: None,
     };
     state.active_situations.push(card);
 

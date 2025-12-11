@@ -20,6 +20,7 @@ impl CardBehavior for JammedCannonCard {
                 item_cost: Some(ItemType::Peppernut),
                 required_players: 1,
             }),
+            affected_player: None,
         }
     }
 
