@@ -80,8 +80,8 @@ def build_bindings(force=False):
 
     print('🔨 Building Python Bindings...')
     # Skip generic cargo build --all, let maturin handle it
-    run_cmd('maturin develop --release', cwd=os.path.join(ROOT_DIR, 'core'))
-    run_cmd('maturin develop --release', cwd=os.path.join(ROOT_DIR, 'solver'))
+    run_cmd('maturin develop', cwd=os.path.join(ROOT_DIR, 'core'))
+    run_cmd('maturin develop', cwd=os.path.join(ROOT_DIR, 'solver'))
     
     # Touch marker
     with open(BUILD_MARKER, 'w') as f:

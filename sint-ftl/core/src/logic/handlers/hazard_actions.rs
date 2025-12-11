@@ -18,9 +18,10 @@ impl ActionHandler for ExtinguishHandler {
             .ok_or(GameError::RoomNotFound)?;
 
         if !room.hazards.contains(&HazardType::Fire) {
-            return Err(GameError::InvalidAction(
-                "No fire to extinguish".to_string(),
-            ));
+            return Err(GameError::InvalidAction(format!(
+                "No fire to extinguish in {} ({})",
+                room.name, room.id
+            )));
         }
         Ok(())
     }
@@ -71,7 +72,10 @@ impl ActionHandler for RepairHandler {
             .ok_or(GameError::RoomNotFound)?;
 
         if !room.hazards.contains(&HazardType::Water) {
-            return Err(GameError::InvalidAction("No water to repair".to_string()));
+            return Err(GameError::InvalidAction(format!(
+                "No water to repair in {} ({})",
+                room.name, room.id
+            )));
         }
         Ok(())
     }

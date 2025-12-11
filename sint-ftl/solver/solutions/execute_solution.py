@@ -198,7 +198,7 @@ def r8():
     start_round()
     p4.action("Interact", 2) 
     p2.action("Move 4", 1) # Engine (4)
-    p2.action("Extinguish", 1)
+    # p2.action("Extinguish", 1) # No fire to extinguish
     p3.action("EvasiveManeuvers", 2)
     p5.action("PickUp", 1)
     p6.action("PickUp", 1)
@@ -211,7 +211,7 @@ def r8():
 def r9():
     # print("# Round 9: WeirdGifts. Enemy->6.")
     start_round()
-    p5.action("Shoot", 1)
+    # p5.action("Shoot", 1) # No ammo
     p1.action("Move 0", 1)
     p1.action("Throw P6 0", 1)
     p6.action("Shoot", 1)

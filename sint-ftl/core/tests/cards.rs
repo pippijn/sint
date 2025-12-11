@@ -1,6 +1,5 @@
 use sint_core::{
-    types::{Action, Card, CardId, CardSolution, CardType, GameAction, GamePhase, ItemType},
-    GameError, GameLogic,
+    types::{Action, CardId, CardSolution, CardType, GameAction, GamePhase, ItemType}, GameLogic,
 };
 
 fn new_test_game(players: Vec<String>) -> sint_core::types::GameState {
@@ -643,7 +642,7 @@ fn test_can_solve_wailing_alarm_logic() {
     state.phase = GamePhase::TacticalPlanning;
 
     // Add Wailing Alarm
-    let card = Card {
+    let card = sint_core::types::Card {
         id: CardId::WailingAlarm,
         title: "Alarm".to_string(),
         description: "Test".to_string(),
@@ -779,7 +778,7 @@ fn test_sugar_rush_blocks_shoot_but_allows_solve() {
     );
     
     assert!(res_shoot.is_err(), "Sugar Rush should block Shoot");
-    if let Err(GameError::InvalidAction(msg)) = res_shoot {
+    if let Err(sint_core::GameError::InvalidAction(msg)) = res_shoot {
         assert!(msg.contains("Too shaky"), "Error should be specific to Sugar Rush");
     } else {
         panic!("Wrong error type");
