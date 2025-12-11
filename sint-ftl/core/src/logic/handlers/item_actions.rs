@@ -49,7 +49,10 @@ impl ActionHandler for PickUpHandler {
     ) -> Result<(), GameError> {
         self.validate(state, player_id)?;
 
-        let p = state.players.get_mut(player_id).unwrap();
+        let p = state
+            .players
+            .get_mut(player_id)
+            .ok_or(GameError::PlayerNotFound)?;
         let room_id = p.room_id;
 
         // Remove from room

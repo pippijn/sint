@@ -2,9 +2,7 @@ use crate::chat::ChatView;
 use crate::map::MapView;
 use crate::state::{provide_game_context, GameContext};
 use leptos::*;
-use sint_core::{
-    types::MapLayout, Action, GameAction, GamePhase, HazardType, MetaAction, SystemType,
-};
+use sint_core::{types::MapLayout, Action, GameAction, GamePhase, MetaAction};
 
 #[component]
 fn PhaseTracker(phase: GamePhase) -> impl IntoView {
@@ -652,7 +650,6 @@ fn Actions(ctx: GameContext) -> impl IntoView {
             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                 {move || {
                     let s = state.get();
-                    let mut buttons = vec![];
                     if s.phase != GamePhase::TacticalPlanning {
                         return vec![
 
@@ -664,488 +661,132 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                 .into_view(),
                         ];
                     }
-                    if let Some(real_p) = s.players.get(&pid) {
-                        let mut player = real_p.clone();
-                        for prop in &s.proposal_queue {
-                            if prop.player_id == pid {
-                                if let GameAction::Move { to_room } = prop.action {
-                                    player.room_id = to_room;
-                                }
+                    let valid_actions = sint_core::logic::actions::get_valid_actions(&s, &pid);
+                    if valid_actions.is_empty() {
+                        return vec![
+
+                            // Use Core Logic to get valid actions
+
+                            view! {
+                                <div style="color: #888; font-style: italic;">
+                                    "No valid actions available."
+                                </div>
                             }
-                        }
-                        if let Some(room) = s.map.rooms.get(&player.room_id) {
-                            for &neighbor in &room.neighbors {
-                                let n_room = s.map.rooms.get(&neighbor);
-                                let name = n_room
-                                    .map(|r| r.name.clone())
-                                    .unwrap_or("?".to_string());
-                                let c_move = ctx_action.clone();
-                                let disabled = player.ap < 1;
-                                let opacity = if disabled { "0.5" } else { "1.0" };
-                                let cursor = if disabled { "not-allowed" } else { "pointer" };
-                                buttons
-                                    .push(
-
-                                        // Move Buttons
-
-                                        view! {
-                                            <button
-                                                style=format!(
-                                                    "padding: 10px; background: #2196f3; border: none; color: white; border-radius: 4px; cursor: {}; opacity: {};",
-                                                    cursor,
-                                                    opacity,
-                                                )
-                                                disabled=disabled
-                                                on:click=move |_| {
-                                                    c_move
-                                                        .perform_action
-                                                        .call(
-                                                            Action::Game(GameAction::Move {
-                                                                to_room: neighbor,
-                                                            }),
-                                                        )
-                                                }
-                                            >
-                                                "Move to "
-                                                {name}
-                                                " ("
-                                                {neighbor}
-                                                ")"
-                                            </button>
-                                        }
-                                            .into_view(),
-                                    );
-                            }
-                            if room.system == Some(SystemType::Kitchen) {
-                                let c_bake = ctx_action.clone();
-                                let disabled = player.ap < 1;
-                                let opacity = if disabled { "0.5" } else { "1.0" };
-                                let cursor = if disabled { "not-allowed" } else { "pointer" };
-                                buttons
-                                    .push(
-
-                                        // Contextual Actions
-                                        view! {
-                                            <button
-                                                style=format!(
-                                                    "padding: 10px; background: #ff9800; border: none; color: white; border-radius: 4px; cursor: {}; opacity: {};",
-                                                    cursor,
-                                                    opacity,
-                                                )
-                                                disabled=disabled
-                                                on:click=move |_| {
-                                                    c_bake.perform_action.call(Action::Game(GameAction::Bake))
-                                                }
-                                            >
-                                                "Bake Peppernuts"
-                                            </button>
-                                        }
-                                            .into_view(),
-                                    );
-                            }
-                            if room.system == Some(SystemType::Cannons) {
-                                let c_shoot = ctx_action.clone();
-                                let disabled = player.ap < 1;
-                                let opacity = if disabled { "0.5" } else { "1.0" };
-                                let cursor = if disabled { "not-allowed" } else { "pointer" };
-                                buttons
-                                    .push(
-
-                                        view! {
-                                            <button
-                                                style=format!(
-                                                    "padding: 10px; background: #f44336; border: none; color: white; border-radius: 4px; cursor: {}; opacity: {};",
-                                                    cursor,
-                                                    opacity,
-                                                )
-                                                disabled=disabled
-                                                on:click=move |_| {
-                                                    c_shoot.perform_action.call(Action::Game(GameAction::Shoot))
-                                                }
-                                            >
-                                                "Fire Cannons!"
-                                            </button>
-                                        }
-                                            .into_view(),
-                                    );
-                            }
-                            if room.system == Some(SystemType::Engine) {
-                                let c_shields = ctx_action.clone();
-                                let disabled = player.ap < 2;
-                                let opacity = if disabled { "0.5" } else { "1.0" };
-                                let cursor = if disabled { "not-allowed" } else { "pointer" };
-                                buttons
-                                    .push(
-
-                                        view! {
-                                            <button
-                                                style=format!(
-                                                    "padding: 10px; background: #3f51b5; border: none; color: white; border-radius: 4px; cursor: {}; opacity: {};",
-                                                    cursor,
-                                                    opacity,
-                                                )
-                                                disabled=disabled
-                                                on:click=move |_| {
-                                                    c_shields
-                                                        .perform_action
-                                                        .call(Action::Game(GameAction::RaiseShields))
-                                                }
-                                            >
-                                                "Raise Shields (2 AP)"
-                                            </button>
-                                        }
-                                            .into_view(),
-                                    );
-                            }
-                            if room.system == Some(SystemType::Bridge) {
-                                let c_evade = ctx_action.clone();
-                                let disabled = player.ap < 2;
-                                let opacity = if disabled { "0.5" } else { "1.0" };
-                                let cursor = if disabled { "not-allowed" } else { "pointer" };
-                                buttons
-                                    .push(
-
-                                        view! {
-                                            <button
-                                                style=format!(
-                                                    "padding: 10px; background: #00bcd4; border: none; color: white; border-radius: 4px; cursor: {}; opacity: {};",
-                                                    cursor,
-                                                    opacity,
-                                                )
-                                                disabled=disabled
-                                                on:click=move |_| {
-                                                    c_evade
-                                                        .perform_action
-                                                        .call(Action::Game(GameAction::EvasiveManeuvers))
-                                                }
-                                            >
-                                                "Evasive Maneuvers (2 AP)"
-                                            </button>
-                                        }
-                                            .into_view(),
-                                    );
-                            }
-                            if room.system == Some(SystemType::Bow) {
-                                let c_lookout = ctx_action.clone();
-                                let disabled = player.ap < 1;
-                                let opacity = if disabled { "0.5" } else { "1.0" };
-                                let cursor = if disabled { "not-allowed" } else { "pointer" };
-                                buttons
-                                    .push(
-                                        view! {
-                                            <button
-                                                style=format!(
-                                                    "padding: 10px; background: #673ab7; border: none; color: white; border-radius: 4px; cursor: {}; opacity: {};",
-                                                    cursor,
-                                                    opacity,
-                                                )
-                                                disabled=disabled
-                                                on:click=move |_| {
-                                                    c_lookout
-                                                        .perform_action
-                                                        .call(Action::Game(GameAction::Lookout))
-                                                }
-                                            >
-                                                "Lookout (Next Event)"
-                                            </button>
-                                        }
-                                            .into_view(),
-                                    );
-                            }
-                            if room.system == Some(SystemType::Sickbay) {
-                                let c_heal_self = ctx_action.clone();
-                                let disabled = player.ap < 1;
-                                let opacity = if disabled { "0.5" } else { "1.0" };
-                                let cursor = if disabled { "not-allowed" } else { "pointer" };
-                                let pid_clone = pid.clone();
-                                buttons
-                                    .push(
-                                        // Heal Self
-                                        view! {
-                                            <button
-                                                style=format!(
-                                                    "padding: 10px; background: #e91e63; border: none; color: white; border-radius: 4px; cursor: {}; opacity: {};",
-                                                    cursor,
-                                                    opacity,
-                                                )
-                                                disabled=disabled
-                                                on:click=move |_| {
-                                                    c_heal_self
-                                                        .perform_action
-                                                        .call(
-                                                            Action::Game(GameAction::FirstAid {
-                                                                target_player: pid_clone.clone(),
-                                                            }),
-                                                        )
-                                                }
-                                            >
-                                                "Heal Self"
-                                            </button>
-                                        }
-                                            .into_view(),
-                                    );
-                                for other_p in s.players.values() {
-                                    if other_p.id == pid {
-                                        continue;
-                                    }
-                                    if room.neighbors.contains(&other_p.room_id)
-                                        || other_p.room_id == player.room_id
-                                    {
-                                        let c_heal_other = ctx_action.clone();
-                                        let target_id = other_p.id.clone();
-                                        let target_name = other_p.name.clone();
-                                        let disabled = player.ap < 1;
-                                        let opacity = if disabled { "0.5" } else { "1.0" };
-                                        let cursor = if disabled {
-                                            "not-allowed"
-                                        } else {
-                                            "pointer"
-                                        };
-                                        buttons
-                                            .push(
-
-                                                // Heal Neighbors
-                                                view! {
-                                                    <button
-                                                        style=format!(
-                                                            "padding: 10px; background: #e91e63; border: none; color: white; border-radius: 4px; cursor: {}; opacity: {};",
-                                                            cursor,
-                                                            opacity,
-                                                        )
-                                                        disabled=disabled
-                                                        on:click=move |_| {
-                                                            c_heal_other
-                                                                .perform_action
-                                                                .call(
-                                                                    Action::Game(GameAction::FirstAid {
-                                                                        target_player: target_id.clone(),
-                                                                    }),
-                                                                )
-                                                        }
-                                                    >
-                                                        "Heal "
-                                                        {target_name}
-                                                    </button>
-                                                }
-                                                    .into_view(),
-                                            );
-                                    }
-                                }
-                            }
-                            if room.hazards.contains(&HazardType::Fire) {
-                                let c_ext = ctx_action.clone();
-                                let disabled = player.ap < 1;
-                                let opacity = if disabled { "0.5" } else { "1.0" };
-                                let cursor = if disabled { "not-allowed" } else { "pointer" };
-                                buttons
-                                    .push(
-
-                                        view! {
-                                            <button
-                                                style=format!(
-                                                    "padding: 10px; background: #607d8b; border: none; color: white; border-radius: 4px; cursor: {}; opacity: {};",
-                                                    cursor,
-                                                    opacity,
-                                                )
-                                                disabled=disabled
-                                                on:click=move |_| {
-                                                    c_ext
-                                                        .perform_action
-                                                        .call(Action::Game(GameAction::Extinguish))
-                                                }
-                                            >
-                                                "Extinguish Fire"
-                                            </button>
-                                        }
-                                            .into_view(),
-                                    );
-                            }
-                            if room.hazards.contains(&HazardType::Water) {
-                                let c_rep = ctx_action.clone();
-                                let disabled = player.ap < 1;
-                                let opacity = if disabled { "0.5" } else { "1.0" };
-                                let cursor = if disabled { "not-allowed" } else { "pointer" };
-                                buttons
-                                    .push(
-
-                                        view! {
-                                            <button
-                                                style=format!(
-                                                    "padding: 10px; background: #2196f3; border: none; color: white; border-radius: 4px; cursor: {}; opacity: {};",
-                                                    cursor,
-                                                    opacity,
-                                                )
-                                                disabled=disabled
-                                                on:click=move |_| {
-                                                    c_rep.perform_action.call(Action::Game(GameAction::Repair))
-                                                }
-                                            >
-                                                "Repair Leak"
-                                            </button>
-                                        }
-                                            .into_view(),
-                                    );
-                            }
-                            for other_p in s.players.values() {
-                                if other_p.id == pid {
-                                    continue;
-                                }
-                                if other_p.room_id == player.room_id
-                                    && other_p.status.contains(&sint_core::PlayerStatus::Fainted)
-                                {
-                                    let c_revive = ctx_action.clone();
-                                    let target_id = other_p.id.clone();
-                                    let target_name = other_p.name.clone();
-                                    let disabled = player.ap < 1;
-                                    let opacity = if disabled { "0.5" } else { "1.0" };
-                                    let cursor = if disabled { "not-allowed" } else { "pointer" };
-                                    buttons
-                                        .push(
-                                            // Check for Revive targets (Fainted players in same room)
-                                            view! {
-                                                <button
-                                                    style=format!(
-                                                        "padding: 10px; background: #009688; border: none; color: white; border-radius: 4px; cursor: {}; opacity: {};",
-                                                        cursor,
-                                                        opacity,
-                                                    )
-                                                    disabled=disabled
-                                                    on:click=move |_| {
-                                                        c_revive
-                                                            .perform_action
-                                                            .call(
-                                                                Action::Game(GameAction::Revive {
-                                                                    target_player: target_id.clone(),
-                                                                }),
-                                                            )
-                                                    }
-                                                >
-                                                    "Revive "
-                                                    {target_name}
-                                                </button>
-                                            }
-                                                .into_view(),
-                                        );
-                                }
-                            }
-                            if !room.items.is_empty() {
-                                let mut unique_items = room.items.clone();
-                                unique_items.sort_by_key(|a| format!("{:?}", a));
-                                unique_items.dedup();
-                                for item in unique_items {
-                                    let c_pick = ctx_action.clone();
-                                    let i_clone = item.clone();
-                                    let count = room.items.iter().filter(|&x| *x == item).count();
-                                    let disabled = player.ap < 1;
-                                    let opacity = if disabled { "0.5" } else { "1.0" };
-                                    let cursor = if disabled { "not-allowed" } else { "pointer" };
-                                    buttons
-                                        .push(
-
-                                            // Item Pickup
-
-                                            view! {
-                                                <button
-                                                    style=format!(
-                                                        "padding: 10px; background: #8bc34a; border: none; color: black; border-radius: 4px; cursor: {}; opacity: {};",
-                                                        cursor,
-                                                        opacity,
-                                                    )
-                                                    disabled=disabled
-                                                    on:click=move |_| {
-                                                        c_pick
-                                                            .perform_action
-                                                            .call(
-                                                                Action::Game(GameAction::PickUp {
-                                                                    item_type: i_clone.clone(),
-                                                                }),
-                                                            )
-                                                    }
-                                                >
-                                                    "Pick Up "
-                                                    {format!("{:?}", item)}
-                                                    {if count > 1 {
-                                                        format!(" (x{})", count)
-                                                    } else {
-                                                        "".to_string()
-                                                    }}
-                                                </button>
-                                            }
-                                                .into_view(),
-                                        );
-                                }
-                            }
-                        }
-                        for card in &s.active_situations {
-                            if let Some(sol) = &card.solution {
-                                let room_match = match sol.target_system {
-                                    Some(sys) => {
-                                        s.map
-                                            .rooms
-                                            .get(&player.room_id)
-                                            .is_some_and(|r| r.system == Some(sys))
-                                    }
-                                    None => true,
-                                };
-                                if room_match {
-                                    let c_interact = ctx_action.clone();
-                                    let title = card.title.clone();
-                                    let cost = sol.ap_cost;
-                                    let disabled = player.ap < cost as i32;
-                                    let opacity = if disabled { "0.5" } else { "1.0" };
-                                    let cursor = if disabled { "not-allowed" } else { "pointer" };
-                                    buttons
-                                        .push(
-
-                                            // Contextual Interact (Solve Situation)
-
-                                            view! {
-                                                <button
-                                                    style=format!(
-                                                        "padding: 10px; background: #9c27b0; border: none; color: white; border-radius: 4px; cursor: {}; border: 2px solid #e1bee7; opacity: {};",
-                                                        cursor,
-                                                        opacity,
-                                                    )
-                                                    disabled=disabled
-                                                    on:click=move |_| {
-                                                        c_interact
-                                                            .perform_action
-                                                            .call(Action::Game(GameAction::Interact))
-                                                    }
-                                                >
-                                                    "SOLVE: "
-                                                    {title}
-                                                    " ("
-                                                    {cost}
-                                                    " AP)"
-                                                </button>
-                                            }
-                                                .into_view(),
-                                        );
-                                }
-                            }
-                        }
-                        let c_pass = ctx_action.clone();
-                        buttons
-                            .push(
-
-                                // Pass
-                                view! {
-                                    <button
-                                        style="padding: 10px; background: #555; border: none; color: white; border-radius: 4px; cursor: pointer;"
-                                        on:click=move |_| {
-                                            c_pass.perform_action.call(Action::Game(GameAction::Pass))
-                                        }
-                                    >
-                                        "End Turn (Pass)"
-                                    </button>
-                                }
-                                    .into_view(),
-                            );
+                                .into_view(),
+                        ];
                     }
-                    buttons
+                    valid_actions
+                        .into_iter()
+                        .filter_map(|a| {
+                            if let Action::Game(ga) = a {
+                                match ga {
+                                    GameAction::Chat { .. }
+                                    | GameAction::Undo { .. }
+                                    | GameAction::VoteReady { .. } => None,
+                                    _ => {
+                                        Some(
+                                            render_action_button(ctx_action.clone(), &s, &pid, ga)
+                                                .into_view(),
+                                        )
+                                    }
+                                }
+                            } else {
+                                None
+                            }
+                        })
+                        .collect::<Vec<View>>()
                 }}
             </div>
         </div>
+    }
+}
+
+fn render_action_button(
+    ctx: GameContext,
+    state: &sint_core::GameState,
+    pid: &str,
+    action: GameAction,
+) -> impl IntoView {
+    // Calculate cost using Core logic
+    let cost = sint_core::logic::actions::action_cost(state, pid, &action);
+
+    // Determine Label & Style
+    let (label, color, border) = match &action {
+        GameAction::Move { to_room } => {
+            let room_name = state
+                .map
+                .rooms
+                .get(to_room)
+                .map(|r| r.name.as_str())
+                .unwrap_or("?");
+            (
+                format!("Move to {} ({})", room_name, to_room),
+                "#2196f3",
+                "none",
+            )
+        }
+        GameAction::Bake => ("Bake Peppernuts".to_string(), "#ff9800", "none"),
+        GameAction::Shoot => ("Fire Cannons!".to_string(), "#f44336", "none"),
+        GameAction::RaiseShields => ("Raise Shields".to_string(), "#3f51b5", "none"),
+        GameAction::EvasiveManeuvers => ("Evasive Maneuvers".to_string(), "#00bcd4", "none"),
+        GameAction::Lookout => ("Lookout".to_string(), "#673ab7", "none"),
+        GameAction::Extinguish => ("Extinguish Fire".to_string(), "#607d8b", "none"),
+        GameAction::Repair => ("Repair Leak".to_string(), "#2196f3", "none"),
+        GameAction::PickUp { item_type } => (format!("Pick Up {:?}", item_type), "#8bc34a", "none"),
+        GameAction::Interact => {
+            // Dynamic Label for Interact
+            let mut lbl = "Interact".to_string();
+            if let Some(p) = state.players.get(pid) {
+                if let Some(room) = state.map.rooms.get(&p.room_id) {
+                    for card in &state.active_situations {
+                        if let Some(sol) = &card.solution {
+                            let matches = match sol.target_system {
+                                Some(sys) => room.system == Some(sys),
+                                None => true,
+                            };
+                            if matches {
+                                lbl = format!("SOLVE: {}", card.title);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            (lbl, "#9c27b0", "2px solid #e1bee7")
+        }
+        GameAction::Revive { target_player } => {
+            let name = state
+                .players
+                .get(target_player)
+                .map(|p| p.name.as_str())
+                .unwrap_or(target_player);
+            (format!("Revive {}", name), "#009688", "none")
+        }
+        GameAction::FirstAid { target_player } => {
+            let name = state
+                .players
+                .get(target_player)
+                .map(|p| p.name.as_str())
+                .unwrap_or(target_player);
+            (format!("Heal {}", name), "#e91e63", "none")
+        }
+        GameAction::Pass => ("End Turn (Pass)".to_string(), "#555", "none"),
+        _ => (format!("{:?}", action), "#777", "none"),
+    };
+
+    view! {
+        <button
+            style=format!(
+                "padding: 10px; background: {}; border: {}; color: white; border-radius: 4px; cursor: pointer; margin-right: 5px; margin-bottom: 5px; opacity: 1.0;",
+                color,
+                border,
+            )
+            on:click=move |_| { ctx.perform_action.call(Action::Game(action.clone())) }
+        >
+            {label}
+            " ("
+            {cost}
+            " AP)"
+        </button>
     }
 }

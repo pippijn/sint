@@ -37,7 +37,10 @@ impl ActionHandler for BakeHandler {
         _simulation: bool,
     ) -> Result<(), GameError> {
         self.validate(state, player_id)?;
-        let p = state.players.get(player_id).unwrap();
+        let p = state
+            .players
+            .get(player_id)
+            .ok_or(GameError::PlayerNotFound)?;
         let room_id = p.room_id;
 
         if let Some(room) = state.map.rooms.get_mut(&room_id) {
@@ -89,7 +92,10 @@ impl ActionHandler for ShootHandler {
         self.validate(state, player_id)?;
 
         // Consume Ammo
-        let p = state.players.get_mut(player_id).unwrap();
+        let p = state
+            .players
+            .get_mut(player_id)
+            .ok_or(GameError::PlayerNotFound)?;
         if let Some(idx) = p.inventory.iter().position(|i| *i == ItemType::Peppernut) {
             p.inventory.remove(idx);
         }

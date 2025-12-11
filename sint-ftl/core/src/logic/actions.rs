@@ -278,7 +278,10 @@ fn apply_game_action(
                         action: GameAction::Move { to_room: step_room },
                     });
                 }
-                let p = state.players.get_mut(player_id).unwrap();
+                let p = state
+                    .players
+                    .get_mut(player_id)
+                    .ok_or(GameError::PlayerNotFound)?;
                 p.ap -= total_cost;
             } else {
                 return Err(GameError::InvalidMove);
@@ -296,7 +299,10 @@ fn apply_game_action(
                 player_id: player_id.to_string(),
                 action: action.clone(),
             });
-            let p = state.players.get_mut(player_id).unwrap();
+            let p = state
+                .players
+                .get_mut(player_id)
+                .ok_or(GameError::PlayerNotFound)?;
             p.ap -= base_cost;
         }
     }
@@ -547,7 +553,13 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
             if let Some(sys) = room.system {
                 let action = match sys {
                     SystemType::Kitchen => Some(GameAction::Bake),
-                    SystemType::Cannons => Some(GameAction::Shoot),
+                    SystemType::Cannons => {
+                        if p.inventory.contains(&ItemType::Peppernut) {
+                            Some(GameAction::Shoot)
+                        } else {
+                            None
+                        }
+                    }
                     SystemType::Engine => Some(GameAction::RaiseShields),
                     SystemType::Bridge => Some(GameAction::EvasiveManeuvers),
                     SystemType::Bow => Some(GameAction::Lookout),
@@ -635,6 +647,32 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
                     }
                 }
                 seen_items.push(item.clone());
+            }
+        }
+
+        // Interact (Situation Solutions)
+        for card in &projected_state.active_situations {
+            if let Some(sol) = &card.solution {
+                let room_match = match sol.target_system {
+                    Some(sys) => {
+                        crate::logic::find_room_with_system_in_map(&projected_state.map, sys)
+                            == Some(p.room_id)
+                    }
+                    None => true, // Solvable anywhere
+                };
+
+                let item_match = sol.item_cost.is_none()
+                    || p.inventory.contains(sol.item_cost.as_ref().unwrap());
+
+                if room_match && item_match {
+                    let action = GameAction::Interact;
+                    if p.ap >= action_cost(&projected_state, player_id, &action) {
+                        // Avoid duplicates if multiple cards solvable in same room
+                        if !actions.contains(&Action::Game(GameAction::Interact)) {
+                            actions.push(Action::Game(action));
+                        }
+                    }
+                }
             }
         }
 

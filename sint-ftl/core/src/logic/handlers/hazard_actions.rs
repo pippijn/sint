@@ -33,7 +33,10 @@ impl ActionHandler for ExtinguishHandler {
     ) -> Result<(), GameError> {
         self.validate(state, player_id)?;
 
-        let p = state.players.get(player_id).unwrap();
+        let p = state
+            .players
+            .get(player_id)
+            .ok_or(GameError::PlayerNotFound)?;
         let has_extinguisher = p.inventory.contains(&ItemType::Extinguisher);
         let room_id = p.room_id;
 
@@ -80,7 +83,10 @@ impl ActionHandler for RepairHandler {
         _simulation: bool,
     ) -> Result<(), GameError> {
         self.validate(state, player_id)?;
-        let p = state.players.get(player_id).unwrap();
+        let p = state
+            .players
+            .get(player_id)
+            .ok_or(GameError::PlayerNotFound)?;
         let room_id = p.room_id;
 
         if let Some(room) = state.map.rooms.get_mut(&room_id) {
@@ -178,7 +184,11 @@ impl ActionHandler for InteractHandler {
         _simulation: bool,
     ) -> Result<(), GameError> {
         self.validate(state, player_id)?;
-        let p_copy = state.players.get(player_id).cloned().unwrap();
+        let p_copy = state
+            .players
+            .get(player_id)
+            .cloned()
+            .ok_or(GameError::PlayerNotFound)?;
         let mut solved_idx = None;
 
         for (i, card) in state.active_situations.iter().enumerate() {
