@@ -113,6 +113,7 @@ pub fn beam_search(config: &SearchConfig, weights: &ScoringWeights) -> Option<Se
     }];
 
     let mut final_solution: Option<SearchNode> = None;
+    let mut best_partial: Option<SearchNode> = beam.first().cloned();
     let mut visited: HashMap<u64, (i32, f64)> = HashMap::new();
 
     for step in 0..config.steps {
@@ -121,6 +122,23 @@ pub fn beam_search(config: &SearchConfig, weights: &ScoringWeights) -> Option<Se
                 println!("💀 Beam died at step {}", step);
             }
             break;
+        }
+
+        // Update best_partial with the longest node (deepest in turns)
+        if let Some(best_in_beam) = beam.first() {
+            if let Some(current_best) = &best_partial {
+                // Prioritize deeper turn count first
+                if best_in_beam.state.turn_count > current_best.state.turn_count {
+                    best_partial = Some(best_in_beam.clone());
+                } else if best_in_beam.state.turn_count == current_best.state.turn_count {
+                    // If turn count is same, keep the better score
+                    if best_in_beam.score > current_best.score {
+                        best_partial = Some(best_in_beam.clone());
+                    }
+                }
+            } else {
+                best_partial = Some(best_in_beam.clone());
+            }
         }
 
         if start_time.elapsed() > time_limit {
@@ -194,7 +212,7 @@ pub fn beam_search(config: &SearchConfig, weights: &ScoringWeights) -> Option<Se
         println!("⏱️ Search finished in {:.2?}", elapsed);
     }
 
-    final_solution.or_else(|| beam.first().cloned())
+    final_solution.or(best_partial)
 }
 
 fn fast_forward_phase(

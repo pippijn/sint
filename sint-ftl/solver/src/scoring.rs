@@ -23,6 +23,7 @@ pub struct ScoringWeights {
     pub death_penalty: f64,
 
     // Roles & Positioning
+    pub station_keeping_reward: f64, // New: Reward for being in assigned room
     pub gunner_base_reward: f64,
     pub gunner_per_ammo: f64,
     pub gunner_working_bonus: f64,
@@ -54,30 +55,45 @@ pub struct ScoringWeights {
 impl Default for ScoringWeights {
     fn default() -> Self {
         Self {
-            hull_integrity: 3078.56,
-            enemy_hp: 2000.0,
+            hull_integrity: 5000.0, // Critical: Hull is Life
+            enemy_hp: 2000.0,       // High value on Damage
             player_hp: 100.0,
             ap_balance: 0.1,
-            fire_penalty_base: 100.0,
-            water_penalty: 50.0,
-            active_situation_penalty: 176.01,
-            threat_player_penalty: 300.0,
-            threat_system_penalty: 300.0,
+
+            // Hazards - significantly increased penalties
+            fire_penalty_base: 200.0,
+            water_penalty: 100.0,
+
+            // Situations & Threats
+            active_situation_penalty: 300.0,
+            threat_player_penalty: 2500.0, // Almost as bad as losing Hull (because it leads to it)
+            threat_system_penalty: 2500.0,
             death_penalty: 50000.0,
+
+            // Roles
+            station_keeping_reward: 200.0, // Strong incentive to stay at post
+
             gunner_base_reward: 50.0,
             gunner_per_ammo: 300.0,
-            gunner_working_bonus: 20.0,
+            gunner_working_bonus: 50.0,
             gunner_distance_factor: 10.0,
-            firefighter_base_reward: 83.0,
+
+            firefighter_base_reward: 100.0,
             firefighter_distance_factor: 10.0,
-            baker_base_reward: 20.0,
+
+            baker_base_reward: 50.0,
             baker_distance_factor: 5.0,
-            healing_reward: 81.23,
+
+            healing_reward: 100.0,
             sickbay_distance_factor: 10.0,
-            backtracking_penalty: 49.7,
-            solution_solver_reward: 100.0,
+
+            backtracking_penalty: 50.0,
+
+            solution_solver_reward: 200.0,
             solution_distance_factor: 10.0,
-            ammo_stockpile_reward: 50.0,
+
+            ammo_stockpile_reward: 500.0, // Encourage dumping ammo in Cannons
+
             boss_level_reward: 10000.0,
         }
     }
@@ -130,14 +146,8 @@ pub fn score_state(
     let mut score = 0.0;
 
     // --- 1. Vital Stats & Progression ---
-    // Hull: Base survival. Weight high.
     score += state.hull_integrity as f64 * weights.hull_integrity;
-
-    // Boss Level: Major milestone.
     score += state.boss_level as f64 * weights.boss_level_reward;
-
-    // Enemy HP: The Goal. Weight high.
-    // We use (Max - Current) so we maximize damage dealt.
     score += (state.enemy.max_hp - state.enemy.hp) as f64 * weights.enemy_hp;
 
     // --- 2. Hazards ---
@@ -162,36 +172,28 @@ pub fn score_state(
             .count();
     }
 
-    // Fire grows and damages systems/players. Exponential penalty.
     score -= (fire_count as f64).powf(1.5) * weights.fire_penalty_base;
-
-    // Water restricts movement/systems. Linear penalty.
     score -= water_count as f64 * weights.water_penalty;
 
     // --- 3. Active Situations ---
-    // Each active situation is a problem.
     score -= state.active_situations.len() as f64 * weights.active_situation_penalty;
 
     // --- 4. Pending Threats (Telegraphs) ---
-    // If the enemy is about to attack, and we are not protected, that's bad.
+    // If we are protected, we essentially negated the threat.
     let protected = state.shields_active || state.evasion_active;
 
     if let Some(attack) = &state.enemy.next_attack {
         if !protected {
-            // Targeting a room with players?
             let players_in_target = state
                 .players
                 .values()
                 .filter(|p| p.room_id == attack.target_room)
                 .count();
             if players_in_target > 0 {
-                // Danger!
                 score -= players_in_target as f64 * weights.threat_player_penalty;
             }
 
-            // Targeting a critical system?
             if let Some(sys) = attack.target_system {
-                // Losing Engines/Cannons is bad
                 if matches!(
                     sys,
                     SystemType::Engine | SystemType::Cannons | SystemType::Bridge
@@ -199,6 +201,12 @@ pub fn score_state(
                     score -= weights.threat_system_penalty;
                 }
             }
+
+            // General threat penalty if ANY room is hit (Hull Damage risk)
+            score -= weights.threat_system_penalty * 0.5;
+        } else {
+            // Reward for being protected when attacked
+            score += 1000.0;
         }
     }
 
@@ -206,10 +214,8 @@ pub fn score_state(
     let mut cannon_rooms = HashSet::new();
     let mut kitchen_rooms = HashSet::new();
     let mut sickbay_rooms = HashSet::new();
-    let mut fire_rooms = HashSet::new();
     let mut nut_locations = HashSet::new();
 
-    // Scan rooms for systems and hazards
     for room in state.map.rooms.values() {
         if let Some(sys) = &room.system {
             match sys {
@@ -225,9 +231,6 @@ pub fn score_state(
                 _ => {}
             }
         }
-        if room.hazards.contains(&HazardType::Fire) {
-            fire_rooms.insert(room.id);
-        }
         if room.items.contains(&ItemType::Peppernut) {
             nut_locations.insert(room.id);
         }
@@ -235,17 +238,13 @@ pub fn score_state(
 
     for p in state.players.values() {
         if p.hp <= 0 {
-            score -= weights.death_penalty; // Avoid death
+            score -= weights.death_penalty;
             continue;
         }
 
-        // Reward for Player HP (Survival)
         score += p.hp as f64 * weights.player_hp;
-
-        // Action Points: Slight bonus for having AP
         score += p.ap as f64 * weights.ap_balance;
 
-        // Inventory Analysis
         let peppernuts = p
             .inventory
             .iter()
@@ -255,9 +254,30 @@ pub fn score_state(
         let has_extinguisher = p.inventory.contains(&ItemType::Extinguisher);
         let nut_cap = if has_wheelbarrow { 5 } else { 1 };
 
-        // -- Role: Healer (Needs Health) --
+        // --- NEW: Station Keeping (Assigned Roles) ---
+        // P1: Kitchen (Room 5)
+        // P3: Bridge (Room 7)
+        // P4: Engine (Room 4)
+        // P5, P6: Cannons (Room 6)
+        // P2: Hallway/Roaming (Room 0) - No strict station
+        let assigned_room = match p.id.as_str() {
+            "P1" => Some(5),
+            "P3" => Some(7),
+            "P4" => Some(4),
+            "P5" | "P6" => Some(6),
+            _ => None,
+        };
+
+        if let Some(target) = assigned_room {
+            if p.room_id == target {
+                score += weights.station_keeping_reward;
+            }
+            // Removed distance penalty to prevent interference with temporary tasks
+        }
+
+        // -- Role: Healer --
         if p.hp < 3 {
-            let urgency = (3 - p.hp).pow(2) as f64; // 1->4, 2->1
+            let urgency = (3 - p.hp).pow(2) as f64;
             let dist = min_distance(state, p.room_id, &sickbay_rooms);
             if dist == 0 {
                 score += weights.healing_reward * urgency;
@@ -266,12 +286,12 @@ pub fn score_state(
             }
         }
 
-        // -- Role: Gunner (Has Peppernut) --
+        // -- Role: Gunner Logic --
+        // P5/P6 are strictly Gunners via Station Keeping, but generic logic applies too.
         if peppernuts > 0 {
             let mut gunner_score = 0.0;
             let dist = min_distance(state, p.room_id, &cannon_rooms);
             if dist == 0 {
-                // In Cannons with Ammo! Very Good.
                 gunner_score +=
                     weights.gunner_per_ammo * peppernuts as f64 + weights.gunner_base_reward;
                 // Bonus if Cannons system is working
@@ -283,49 +303,39 @@ pub fn score_state(
                     }
                 }
             } else {
-                // Move closer
                 gunner_score += (20.0 - dist as f64).max(0.0)
                     * weights.gunner_distance_factor
                     * peppernuts as f64;
             }
-
-            // Penalty for partial loads with Wheelbarrow (Efficiency)
             if has_wheelbarrow && peppernuts < 5 {
                 gunner_score *= 0.1;
             }
-
             score += gunner_score;
         }
 
-        // -- Role: Firefighter (Has Extinguisher) --
+        // -- Role: Firefighter --
         if has_extinguisher {
             if !fire_rooms.is_empty() {
                 let dist = min_distance(state, p.room_id, &fire_rooms);
                 if dist == 0 {
-                    // In a room with fire! Good (can extinguish).
                     score += weights.firefighter_base_reward;
                 } else {
-                    // Move to fire
                     score += (20.0 - dist as f64).max(0.0) * weights.firefighter_distance_factor;
                 }
             }
-            // No penalty for holding it when no fire exists. Safety first!
         }
 
-        // -- Role: Baker (Gather Ammo) --
-        // If we have space for ammo
+        // -- Role: Baker --
+        // P1 is Baker via Station Keeping.
+        // Encourage gathering if low on ammo
         if peppernuts < nut_cap && state.enemy.hp > 0 {
             let mut baker_score = 0.0;
-
-            // Prefer existing nuts on floor (faster)
             let dist_floor = if !nut_locations.is_empty() {
                 min_distance(state, p.room_id, &nut_locations)
             } else {
                 999
             };
-
             let dist_kitchen = min_distance(state, p.room_id, &kitchen_rooms);
-
             let target_dist = dist_floor.min(dist_kitchen);
 
             if target_dist == 0 {
@@ -333,12 +343,9 @@ pub fn score_state(
             } else {
                 baker_score += (20.0 - target_dist as f64).max(0.0) * weights.baker_distance_factor;
             }
-
-            // Bonus for Wheelbarrow gathering (Efficiency)
             if has_wheelbarrow {
                 baker_score *= 2.0;
             }
-
             score += baker_score;
         }
     }
@@ -354,9 +361,7 @@ pub fn score_state(
                         break;
                     }
                 }
-
                 if let Some(tid) = target_room {
-                    // Find closest player (exclude fainted)
                     let mut min_d = 999;
                     for p in state.players.values() {
                         if p.hp > 0 {
@@ -368,7 +373,6 @@ pub fn score_state(
                             }
                         }
                     }
-
                     if min_d == 0 {
                         score += weights.solution_solver_reward;
                     } else {
@@ -387,19 +391,14 @@ pub fn score_state(
                 .iter()
                 .filter(|i| **i == ItemType::Peppernut)
                 .count();
+            // Massive reward for having ammo at Cannons
             score += nuts as f64 * weights.ammo_stockpile_reward;
         }
     }
 
     // --- 6. Trajectory Heuristics (Anti-Oscillation) ---
-    // Detect Move(A) -> ... -> Move(B) -> ... -> Move(A)
-    // where no "useful" action occurred in between.
-
-    // 1. Build per-player timeline of moves and relevant events
-    // Map: PlayerId -> List of (HistoryIndex, RoomId) for moves
+    // (Kept same as before)
     let mut player_moves: HashMap<PlayerId, Vec<(usize, u32)>> = HashMap::new();
-
-    // 2. Scan history to populate moves and identify interaction timestamps
     for (idx, (pid, act)) in history.iter().enumerate() {
         if let GameAction::Move { to_room } = act {
             player_moves
@@ -408,38 +407,22 @@ pub fn score_state(
                 .push((idx, *to_room));
         }
     }
-
-    // 3. Check for backtracks
     for (pid, moves) in player_moves {
         if moves.len() < 3 {
             continue;
         }
-
-        // We look for patterns in the sequence of *destinations*.
-        // If we have moves to: A, B, A
-        // The indices in history are idx1, idx2, idx3.
-        // The interval to check is (idx2 + 1) .. idx3.
-        // Wait: The player is AT 'A' after idx1. They move to 'B' at idx2. They move back to 'A' at idx3.
-        // The "useful" action must happen while they are at 'B'.
-        // That corresponds to the interval [idx2 + 1, idx3 - 1].
-
         for i in 0..moves.len() - 2 {
             let (_idx_a_start, room_a) = moves[i];
             let (idx_b, _room_b) = moves[i + 1];
             let (idx_a_return, room_a_return) = moves[i + 2];
 
             if room_a == room_a_return {
-                // Backtrack detected: A -> B -> A
-                // Check for useful actions in history interval (idx_b, idx_a_return)
-                // This interval represents the time spent at Room B.
-
                 let mut useful = false;
                 for j in (idx_b + 1)..idx_a_return {
                     if let Some((actor, action)) = history.get(j) {
-                        // Case A: Player did something useful themselves
                         if actor == &pid {
                             match action {
-                                GameAction::Move { .. } => {} // Should not happen in this logic as we iterate moves
+                                GameAction::Move { .. } => {}
                                 GameAction::Pass
                                 | GameAction::VoteReady { .. }
                                 | GameAction::Undo { .. }
@@ -447,11 +430,9 @@ pub fn score_state(
                                 _ => {
                                     useful = true;
                                     break;
-                                } // Interact, Shoot, Extinguish, etc.
+                                }
                             }
                         }
-
-                        // Case B: Player was targeted by someone else
                         match action {
                             GameAction::Throw { target_player, .. }
                             | GameAction::Revive { target_player }
@@ -465,7 +446,6 @@ pub fn score_state(
                         }
                     }
                 }
-
                 if !useful {
                     score -= weights.backtracking_penalty;
                 }
@@ -477,7 +457,6 @@ pub fn score_state(
 }
 
 /// Accumulator for trajectory scoring.
-/// Tracks the "Area Under the Curve" for Hull and Hazards.
 #[derive(Debug, Default, Clone)]
 pub struct ScoreAccumulator {
     pub total_hull_integral: f64,
@@ -492,12 +471,10 @@ impl ScoreAccumulator {
         Self::default()
     }
 
-    /// Update the accumulator with a state at the end of a round
     pub fn on_round_end(&mut self, state: &GameState) {
         self.rounds_survived = state.turn_count;
         self.total_hull_integral += state.hull_integrity as f64;
         self.total_enemy_hp_integral += state.enemy.hp as f64;
-
         let hazard_count: usize = state.map.rooms.values().map(|r| r.hazards.len()).sum();
         self.total_hazard_integral += hazard_count as f64;
     }
@@ -508,37 +485,17 @@ impl ScoreAccumulator {
         }
 
         let mut score = 0.0;
-
-        // 1. Victory Bonus (Massive)
         if self.victory {
             score += 1_000_000.0;
         }
-
-        // 2. Hull Integral (The "Living Well" metric)
-        // Living 10 rounds with 20 HP = 200 pts.
-        // Living 10 rounds with 10 HP = 100 pts.
-        // Weight: 10.
         score += self.total_hull_integral * 10.0;
-
-        // 3. Hazard Integral (The "Chaos" metric)
-        // Weight: -5.
         score -= self.total_hazard_integral * 5.0;
-
-        // 4. Enemy HP Integral (The "Dominance" metric)
-        // Rewards dealing damage EARLY.
-        // Weight: -20 (Must be > SurvivalBonus / MinBossHP to discourage farming).
         score -= self.total_enemy_hp_integral * 20.0;
-
-        // 5. Round Bonus (If not victory, strictly better to live longer)
-        // If victory, faster is better?
         if self.victory {
-            // Faster victory bonus: Penalty for rounds taken
             score -= self.rounds_survived as f64 * 100.0;
         } else {
-            // Survival bonus
             score += self.rounds_survived as f64 * 100.0;
         }
-
         score
     }
 }

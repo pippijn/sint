@@ -12,7 +12,7 @@ struct Args {
     players: usize,
 
     /// Random Seed
-    #[arg(short, long, default_value_t = 12345)]
+    #[arg(long, default_value_t = 12345)]
     seed: u64,
 
     /// Beam Width (Number of states to keep per step)
