@@ -5,7 +5,7 @@ use sint_core::{
 
 #[test]
 fn test_deterministic_action_ids() {
-    let state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     // Move to TacticalPlanning
     let mut state = GameLogic::apply_action(
         state,

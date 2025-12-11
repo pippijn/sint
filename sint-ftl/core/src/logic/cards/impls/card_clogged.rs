@@ -10,8 +10,8 @@ impl CardBehavior for CloggedPipeCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::CloggedPipe,
-            title: "Clogged Pipe".to_string(),
-            description: "Kitchen is disabled.".to_string(),
+            title: "Clogged Pipe".to_owned(),
+            description: "Kitchen is disabled.".to_owned(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
@@ -31,7 +31,7 @@ impl CardBehavior for CloggedPipeCard {
     ) -> Result<(), GameError> {
         if let GameAction::Bake = action {
             return Err(GameError::InvalidAction(
-                "Clogged Pipe! Cannot Bake.".to_string(),
+                "Clogged Pipe! Cannot Bake.".to_owned(),
             ));
         }
         Ok(())

@@ -111,8 +111,8 @@ impl CardBehavior for NoOpBehavior {
         // Fallback for missing behaviors
         Card {
             id: CardId::AfternoonNap, // Dummy ID
-            title: "Unknown Card".to_string(),
-            description: "Missing implementation.".to_string(),
+            title: "Unknown Card".to_owned(),
+            description: "Missing implementation.".to_owned(),
             card_type: CardType::Situation,
             options: vec![],
             solution: None,

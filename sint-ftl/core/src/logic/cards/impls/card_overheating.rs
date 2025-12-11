@@ -9,8 +9,8 @@ impl CardBehavior for OverheatingCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::Overheating,
-            title: "Overheating".to_string(),
-            description: "End turn in Engine -> Lose 1 AP next round.".to_string(),
+            title: "Overheating".to_owned(),
+            description: "End turn in Engine -> Lose 1 AP next round.".to_owned(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {

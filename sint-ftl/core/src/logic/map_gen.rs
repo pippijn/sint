@@ -71,7 +71,7 @@ fn generate_star() -> GameMap {
             id,
             Room {
                 id,
-                name: def.name.to_string(),
+                name: def.name.to_owned(),
                 system: def.system,
                 hazards: def.hazards,
                 items: def.items,
@@ -114,7 +114,7 @@ fn generate_torus() -> GameMap {
             id,
             Room {
                 id,
-                name: def.name.to_string(),
+                name: def.name.to_owned(),
                 system: def.system,
                 hazards: def.hazards,
                 items: def.items,

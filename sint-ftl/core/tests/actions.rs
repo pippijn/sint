@@ -6,7 +6,7 @@ use sint_core::{
 
 #[test]
 fn test_cannot_evade_from_dormitory() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     // P1 starts in Dormitory
@@ -34,7 +34,7 @@ fn test_cannot_evade_from_dormitory() {
 
 #[test]
 fn test_can_evade_from_bridge() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     // Teleport P1 to Bridge (9)
@@ -57,7 +57,7 @@ fn test_can_evade_from_bridge() {
 
 #[test]
 fn test_cannot_bake_from_dormitory() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     let res = GameLogic::apply_action(state, "P1", Action::Game(GameAction::Bake), None);
@@ -66,7 +66,7 @@ fn test_cannot_bake_from_dormitory() {
 
 #[test]
 fn test_move_then_evade_valid() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     // P1 in Room 3. Move to 7 -> 9 (2 AP)
@@ -115,7 +115,7 @@ fn test_move_then_evade_valid() {
 
 #[test]
 fn test_move_in_lobby() {
-    let state = GameLogic::new_game(vec!["Player1".to_string()], 12345);
+    let state = GameLogic::new_game(vec!["Player1".to_owned()], 12345);
 
     assert_eq!(state.phase, GamePhase::Lobby);
     let player = state.players.get("Player1").unwrap();
@@ -150,7 +150,7 @@ fn test_move_in_lobby() {
 
 #[test]
 fn test_lookout_action() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     // Move P1 to Bow (2)
@@ -185,7 +185,7 @@ fn test_lookout_action() {
 
 #[test]
 fn test_first_aid_action() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string(), "P2".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned(), "P2".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     // Setup: P1 in Sickbay (10), P2 in Hallway (7) [Neighbor]. P2 injured.
@@ -207,7 +207,7 @@ fn test_first_aid_action() {
         state.clone(),
         "P1",
         Action::Game(GameAction::FirstAid {
-            target_player: "P2".to_string(),
+            target_player: "P2".to_owned(),
         }),
         None,
     );
@@ -236,7 +236,7 @@ fn test_first_aid_action() {
 
 #[test]
 fn test_first_aid_invalid_range() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string(), "P2".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned(), "P2".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     // Setup: P1 in Sickbay (10), P2 in Kitchen (6) [Not Neighbor]
@@ -261,7 +261,7 @@ fn test_first_aid_invalid_range() {
         state,
         "P1",
         Action::Game(GameAction::FirstAid {
-            target_player: "P2".to_string(),
+            target_player: "P2".to_owned(),
         }),
         None,
     );
@@ -270,7 +270,7 @@ fn test_first_aid_invalid_range() {
 
 #[test]
 fn test_pass_with_ap_works() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     // P1 has 2 AP default.
@@ -290,7 +290,7 @@ fn test_pass_with_ap_works() {
 
 #[test]
 fn test_pass_with_0_ap_fails() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     // Set AP to 0
@@ -310,7 +310,7 @@ fn test_pass_with_0_ap_fails() {
 
 #[test]
 fn test_vote_ready_works_any_ap() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     // Case 1: 0 AP
@@ -328,7 +328,7 @@ fn test_vote_ready_works_any_ap() {
     assert_eq!(s.phase, GamePhase::Execution);
 
     // Case 2: 2 AP
-    let mut state2 = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state2 = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state2.phase = GamePhase::TacticalPlanning;
 
     let res2 = GameLogic::apply_action(
@@ -346,7 +346,7 @@ fn test_vote_ready_works_any_ap() {
 
 #[test]
 fn test_planning_loop() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
 
     // 1. Start Game -> Morning
     state = GameLogic::apply_action(
@@ -478,7 +478,7 @@ fn test_planning_loop() {
 
 #[test]
 fn test_projected_location_validation() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     // P1 starts in Room 3 (Dormitory). Neighbors: [7].
@@ -540,7 +540,7 @@ fn test_projected_location_validation() {
 
 #[test]
 fn test_projected_system_availability() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     if let Some(p) = state.players.get_mut("P1") {
@@ -573,7 +573,7 @@ fn test_projected_system_availability() {
 
 #[test]
 fn test_projected_ap_exhaustion() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     // P1 has 2 AP.
@@ -630,7 +630,7 @@ fn test_projected_ap_exhaustion() {
 
 #[test]
 fn test_projected_item_pickup() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     // Setup: P1 in Room 3. Room 3 has items? Default setup Room 3 has NO items.
@@ -681,7 +681,7 @@ fn test_projected_item_pickup() {
 
 #[test]
 fn test_undo_middle_of_chain() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     // P1 starts in Room 3 (Dormitory). Neighbors include 7 (Hallway).

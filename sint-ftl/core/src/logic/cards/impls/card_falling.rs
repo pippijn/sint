@@ -9,8 +9,8 @@ impl CardBehavior for FallingGiftCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::FallingGift,
-            title: "Falling Gift".to_string(),
-            description: "Leak in Cargo. +2 Peppernuts in Cargo.".to_string(),
+            title: "Falling Gift".to_owned(),
+            description: "Leak in Cargo. +2 Peppernuts in Cargo.".to_owned(),
             card_type: CardType::Flash,
             options: vec![],
             solution: None,

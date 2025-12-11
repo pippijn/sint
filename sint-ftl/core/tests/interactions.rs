@@ -12,20 +12,20 @@ fn test_multiple_situation_cards_stack_effects() {
     // 1. Setup: Create a game with two active situation cards:
     // - Flu Wave: Reduces AP to 1 for the round.
     // - Overheating: Player was in the engine room, so they lose 1 AP.
-    let mut state = GameLogic::new_game(vec!["p1".to_string()], 0);
+    let mut state = GameLogic::new_game(vec!["p1".to_owned()], 0);
     state.phase = GamePhase::TacticalPlanning;
     let flu_card = Card {
         id: CardId::FluWave,
-        title: "Flu Wave".to_string(),
-        description: "".to_string(),
+        title: "Flu Wave".to_owned(),
+        description: "".to_owned(),
         card_type: CardType::Timebomb { rounds_left: 0 }, // Make it trigger
         options: vec![],
         solution: None,
     };
     let overheating_card = Card {
         id: CardId::Overheating,
-        title: "Overheating".to_string(),
-        description: "".to_string(),
+        title: "Overheating".to_owned(),
+        description: "".to_owned(),
         card_type: CardType::Situation,
         options: vec![],
         solution: None,
@@ -79,15 +79,15 @@ fn test_multiple_situation_cards_stack_effects() {
 #[test]
 fn test_hazard_blocks_card_effect() {
     // 1. Setup: A player has a Peppernut, and the Seagull Attack card is active.
-    let mut state = GameLogic::new_game(vec!["p1".to_string()], 0);
+    let mut state = GameLogic::new_game(vec!["p1".to_owned()], 0);
     state.phase = GamePhase::TacticalPlanning;
     let player_id = get_player_ids(&state)[0].clone();
 
     // Add Seagull Attack card
     state.active_situations.push(Card {
         id: CardId::SeagullAttack,
-        title: "Seagull Attack".to_string(),
-        description: "".to_string(),
+        title: "Seagull Attack".to_owned(),
+        description: "".to_owned(),
         card_type: CardType::Situation,
         options: vec![],
         solution: None,

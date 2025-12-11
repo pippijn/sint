@@ -5,7 +5,7 @@ use sint_core::{
 
 #[test]
 fn test_cannon_hit() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     let cannons = sint_core::logic::find_room_with_system_in_map(
@@ -44,7 +44,7 @@ fn test_cannon_hit() {
 
 #[test]
 fn test_shields_block_damage() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     let engine = sint_core::logic::find_room_with_system_in_map(
@@ -103,7 +103,7 @@ fn test_shields_block_damage() {
 
 #[test]
 fn test_evasion_blocks_hit() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     let bridge = sint_core::logic::find_room_with_system_in_map(
@@ -158,7 +158,7 @@ fn test_evasion_blocks_hit() {
 
 #[test]
 fn test_boss_progression() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     let cannons = sint_core::logic::find_room_with_system_in_map(
@@ -194,7 +194,7 @@ fn test_boss_progression() {
 
 #[test]
 fn test_game_over_hull() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.hull_integrity = 1;
     state.phase = GamePhase::EnemyAction;
 
@@ -260,7 +260,7 @@ fn test_game_over_hull() {
 
 #[test]
 fn test_game_over_crew() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string(), "P2".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned(), "P2".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     // Kill crew
@@ -314,14 +314,14 @@ fn test_game_over_crew() {
 
 #[test]
 fn test_join_mid_game() {
-    let state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
 
     // Join P2
     let res = GameLogic::apply_action(
         state.clone(),
         "P2",
         Action::Meta(MetaAction::Join {
-            name: "P2".to_string(),
+            name: "P2".to_owned(),
         }),
         None,
     );
@@ -333,7 +333,7 @@ fn test_join_mid_game() {
 
 #[test]
 fn test_full_sync_import() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.turn_count = 100;
 
     let json = serde_json::to_string(&state).unwrap();

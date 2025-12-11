@@ -10,8 +10,8 @@ impl CardBehavior for HighPressureCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::HighPressure,
-            title: "High Pressure".to_string(),
-            description: "Adrenaline! Everyone moves 1 step.".to_string(),
+            title: "High Pressure".to_owned(),
+            description: "Adrenaline! Everyone moves 1 step.".to_owned(),
             card_type: CardType::Flash,
             options: vec![],
             solution: None,

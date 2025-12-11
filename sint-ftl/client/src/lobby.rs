@@ -16,7 +16,7 @@ pub fn LobbyBrowser() -> impl IntoView {
     );
 
     // New Room State
-    let (new_room_name, set_new_room_name) = create_signal("Room_A".to_string());
+    let (new_room_name, set_new_room_name) = create_signal("Room_A".to_owned());
 
     // Fetch Rooms
     let rooms_resource = create_resource(

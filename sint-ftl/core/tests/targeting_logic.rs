@@ -9,7 +9,7 @@ fn test_enemy_targeting_logic_consistency() {
     let seeds = [1, 123, 999, 10101, 55555];
 
     for seed in seeds {
-        let mut state = GameLogic::new_game(vec!["P1".to_string()], seed);
+        let mut state = GameLogic::new_game(vec!["P1".to_owned()], seed);
 
         // 1. Advance Lobby -> MorningReport
         state = GameLogic::apply_action(

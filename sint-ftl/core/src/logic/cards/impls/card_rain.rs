@@ -9,8 +9,8 @@ impl CardBehavior for PeppernutRainCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::PeppernutRain,
-            title: "Peppernut Rain".to_string(),
-            description: "+2 Peppernuts dropped in every occupied room.".to_string(),
+            title: "Peppernut Rain".to_owned(),
+            description: "+2 Peppernuts dropped in every occupied room.".to_owned(),
             card_type: CardType::Flash,
             options: vec![],
             solution: None,

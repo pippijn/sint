@@ -9,8 +9,8 @@ impl CardBehavior for MicePlagueCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::MicePlague,
-            title: "Mice Plague".to_string(),
-            description: "At end of round, lose 2 Peppernuts from Storage.".to_string(),
+            title: "Mice Plague".to_owned(),
+            description: "At end of round, lose 2 Peppernuts from Storage.".to_owned(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {

@@ -10,8 +10,8 @@ impl CardBehavior for SeagullAttackCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::SeagullAttack,
-            title: "Seagull Attack".to_string(),
-            description: "Birds attacking ammo. Cannot Move while holding Peppernuts.".to_string(),
+            title: "Seagull Attack".to_owned(),
+            description: "Birds attacking ammo. Cannot Move while holding Peppernuts.".to_owned(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
@@ -33,7 +33,7 @@ impl CardBehavior for SeagullAttackCard {
             if let Some(player) = state.players.get(player_id) {
                 if player.inventory.contains(&ItemType::Peppernut) {
                     return Err(GameError::InvalidAction(
-                        "Cannot move while holding Peppernuts (Seagull Attack)".to_string(),
+                        "Cannot move while holding Peppernuts (Seagull Attack)".to_owned(),
                     ));
                 }
             }

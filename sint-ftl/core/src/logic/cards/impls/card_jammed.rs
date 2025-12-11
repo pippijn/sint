@@ -10,8 +10,8 @@ impl CardBehavior for JammedCannonCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::JammedCannon,
-            title: "Jammed Cannon".to_string(),
-            description: "Cannons are disabled.".to_string(),
+            title: "Jammed Cannon".to_owned(),
+            description: "Cannons are disabled.".to_owned(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
@@ -31,7 +31,7 @@ impl CardBehavior for JammedCannonCard {
     ) -> Result<(), GameError> {
         if let GameAction::Shoot = action {
             return Err(GameError::InvalidAction(
-                "Cannon Jammed! Cannot Shoot.".to_string(),
+                "Cannon Jammed! Cannot Shoot.".to_owned(),
             ));
         }
         Ok(())

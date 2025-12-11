@@ -9,8 +9,8 @@ impl CardBehavior for SingASongCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::SingASong,
-            title: "Sing a Song".to_string(),
-            description: "Morale boost! Removes 2 Fire/Water tokens.".to_string(),
+            title: "Sing a Song".to_owned(),
+            description: "Morale boost! Removes 2 Fire/Water tokens.".to_owned(),
             card_type: CardType::Flash,
             options: vec![],
             solution: None,

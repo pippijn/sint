@@ -9,8 +9,8 @@ impl CardBehavior for SilentForceCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::SilentForce,
-            title: "Silent Force".to_string(),
-            description: "Remove 3 Tokens (Fire or Water) from the board.".to_string(),
+            title: "Silent Force".to_owned(),
+            description: "Remove 3 Tokens (Fire or Water) from the board.".to_owned(),
             card_type: CardType::Flash,
             options: vec![],
             solution: None,

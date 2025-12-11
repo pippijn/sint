@@ -1,5 +1,6 @@
 use sint_core::{
-    types::{Action, CardId, CardSolution, CardType, GameAction, GamePhase, ItemType}, GameLogic,
+    types::{Action, CardId, CardSolution, CardType, GameAction, GamePhase, ItemType},
+    GameLogic,
 };
 
 fn new_test_game(players: Vec<String>) -> sint_core::types::GameState {
@@ -10,7 +11,7 @@ fn new_test_game(players: Vec<String>) -> sint_core::types::GameState {
 
 #[test]
 fn test_costume_party() {
-    let mut state = new_test_game(vec!["P1".to_string(), "P2".to_string(), "P3".to_string()]);
+    let mut state = new_test_game(vec!["P1".to_owned(), "P2".to_owned(), "P3".to_owned()]);
     state.phase = GamePhase::MorningReport;
 
     // Move players to specific spots (manually for setup)
@@ -35,7 +36,7 @@ fn test_costume_party() {
 
 #[test]
 fn test_amerigo_eats_peppernuts() {
-    let mut state = new_test_game(vec!["P1".to_string()]);
+    let mut state = new_test_game(vec!["P1".to_owned()]);
     state.phase = GamePhase::MorningReport;
 
     let storage_id = sint_core::logic::find_room_with_system_in_map(
@@ -61,13 +62,13 @@ fn test_amerigo_eats_peppernuts() {
 
 #[test]
 fn test_afternoon_nap_blocks_actions() {
-    let mut state = new_test_game(vec!["P1".to_string(), "P2".to_string()]);
+    let mut state = new_test_game(vec!["P1".to_owned(), "P2".to_owned()]);
     state.phase = GamePhase::TacticalPlanning;
 
     let card = sint_core::types::Card {
         id: CardId::AfternoonNap,
-        title: "Nap".to_string(),
-        description: "Reader sleeps".to_string(),
+        title: "Nap".to_owned(),
+        description: "Reader sleeps".to_owned(),
         card_type: sint_core::types::CardType::Situation,
         options: vec![],
         solution: None,
@@ -96,13 +97,13 @@ fn test_afternoon_nap_blocks_actions() {
 
 #[test]
 fn test_wailing_alarm_blocks_bonus_actions() {
-    let mut state = new_test_game(vec!["P1".to_string()]);
+    let mut state = new_test_game(vec!["P1".to_owned()]);
     state.phase = GamePhase::TacticalPlanning;
 
     let card = sint_core::types::Card {
         id: CardId::WailingAlarm,
-        title: "Alarm".to_string(),
-        description: "No Shields".to_string(),
+        title: "Alarm".to_owned(),
+        description: "No Shields".to_owned(),
         card_type: sint_core::types::CardType::Situation,
         options: vec![],
         solution: None,
@@ -125,13 +126,13 @@ fn test_wailing_alarm_blocks_bonus_actions() {
 
 #[test]
 fn test_monster_dough_trigger() {
-    let mut state = new_test_game(vec!["P1".to_string()]);
+    let mut state = new_test_game(vec!["P1".to_owned()]);
     state.phase = GamePhase::MorningReport;
 
     let card = sint_core::types::Card {
         id: CardId::MonsterDough,
-        title: "Dough".to_string(),
-        description: "Boom 3 turns".to_string(),
+        title: "Dough".to_owned(),
+        description: "Boom 3 turns".to_owned(),
         card_type: sint_core::types::CardType::Timebomb { rounds_left: 1 },
         options: vec![],
         solution: None,
@@ -197,13 +198,13 @@ fn test_monster_dough_trigger() {
 
 #[test]
 fn test_flu_wave_ap_reduction() {
-    let mut state = new_test_game(vec!["P1".to_string()]);
+    let mut state = new_test_game(vec!["P1".to_owned()]);
     state.phase = GamePhase::MorningReport;
 
     let card = sint_core::types::Card {
         id: CardId::FluWave,
-        title: "Flu".to_string(),
-        description: "AP -1".to_string(),
+        title: "Flu".to_owned(),
+        description: "AP -1".to_owned(),
         card_type: sint_core::types::CardType::Timebomb { rounds_left: 1 },
         options: vec![],
         solution: None,
@@ -257,7 +258,7 @@ fn test_flu_wave_ap_reduction() {
 
 #[test]
 fn test_lucky_dip_swap() {
-    let mut state = new_test_game(vec!["P1".to_string(), "P2".to_string()]);
+    let mut state = new_test_game(vec!["P1".to_owned(), "P2".to_owned()]);
     state.phase = GamePhase::MorningReport;
 
     if let Some(p) = state.players.get_mut("P1") {
@@ -277,13 +278,13 @@ fn test_lucky_dip_swap() {
 
 #[test]
 fn test_man_overboard_death() {
-    let mut state = new_test_game(vec!["P1".to_string()]);
+    let mut state = new_test_game(vec!["P1".to_owned()]);
     state.phase = GamePhase::MorningReport;
 
     let card = sint_core::types::Card {
         id: CardId::ManOverboard,
-        title: "Man Overboard".to_string(),
-        description: "Die".to_string(),
+        title: "Man Overboard".to_owned(),
+        description: "Die".to_owned(),
         card_type: sint_core::types::CardType::Timebomb { rounds_left: 1 },
         options: vec![],
         solution: None,
@@ -335,13 +336,13 @@ fn test_man_overboard_death() {
 
 #[test]
 fn test_mice_plague_eats_nuts() {
-    let mut state = new_test_game(vec!["P1".to_string()]);
+    let mut state = new_test_game(vec!["P1".to_owned()]);
     state.phase = GamePhase::MorningReport;
 
     let card = sint_core::types::Card {
         id: CardId::MicePlague,
-        title: "Mice".to_string(),
-        description: "Eat nuts".to_string(),
+        title: "Mice".to_owned(),
+        description: "Eat nuts".to_owned(),
         card_type: sint_core::types::CardType::Situation,
         options: vec![],
         solution: None,
@@ -370,13 +371,13 @@ fn test_mice_plague_eats_nuts() {
 
 #[test]
 fn test_overheating_ap_loss() {
-    let mut state = new_test_game(vec!["P1".to_string()]);
+    let mut state = new_test_game(vec!["P1".to_owned()]);
     state.phase = GamePhase::MorningReport;
 
     let card = sint_core::types::Card {
         id: CardId::Overheating,
-        title: "Heat".to_string(),
-        description: "AP -1 if in Engine".to_string(),
+        title: "Heat".to_owned(),
+        description: "AP -1 if in Engine".to_owned(),
         card_type: sint_core::types::CardType::Situation,
         options: vec![],
         solution: None,
@@ -406,7 +407,7 @@ fn test_overheating_ap_loss() {
 
 #[test]
 fn test_panic_move() {
-    let mut state = new_test_game(vec!["P1".to_string()]);
+    let mut state = new_test_game(vec!["P1".to_owned()]);
     let bridge = sint_core::logic::find_room_with_system_in_map(
         &state.map,
         sint_core::types::SystemType::Bridge,
@@ -431,11 +432,11 @@ fn test_panic_move() {
 
 #[test]
 fn test_rudderless_damage() {
-    let mut state = new_test_game(vec!["P1".to_string()]);
+    let mut state = new_test_game(vec!["P1".to_owned()]);
     let card = sint_core::types::Card {
         id: CardId::Rudderless,
-        title: "Rudderless".to_string(),
-        description: "+1 Dmg".to_string(),
+        title: "Rudderless".to_owned(),
+        description: "+1 Dmg".to_owned(),
         card_type: sint_core::types::CardType::Situation,
         options: vec![],
         solution: None,
@@ -449,13 +450,13 @@ fn test_rudderless_damage() {
 
 #[test]
 fn test_seagull_attack_block_move() {
-    let mut state = new_test_game(vec!["P1".to_string()]);
+    let mut state = new_test_game(vec!["P1".to_owned()]);
     state.phase = GamePhase::TacticalPlanning;
 
     let card = sint_core::types::Card {
         id: CardId::SeagullAttack,
-        title: "Seagull".to_string(),
-        description: "No move with nut".to_string(),
+        title: "Seagull".to_owned(),
+        description: "No move with nut".to_owned(),
         card_type: sint_core::types::CardType::Situation,
         options: vec![],
         solution: None,
@@ -490,12 +491,12 @@ fn test_seasick_restriction() {}
 
 #[test]
 fn test_shoe_setting_skip_turn() {
-    let mut state = new_test_game(vec!["P1".to_string()]);
+    let mut state = new_test_game(vec!["P1".to_owned()]);
 
     let card = sint_core::types::Card {
         id: CardId::ShoeSetting,
-        title: "Shoe".to_string(),
-        description: "Skip turn".to_string(),
+        title: "Shoe".to_owned(),
+        description: "Skip turn".to_owned(),
         card_type: sint_core::types::CardType::Timebomb { rounds_left: 0 },
         options: vec![],
         solution: None,
@@ -519,7 +520,7 @@ fn test_shoe_setting_skip_turn() {
 
 #[test]
 fn test_short_circuit() {
-    let mut state = new_test_game(vec!["P1".to_string()]);
+    let mut state = new_test_game(vec!["P1".to_owned()]);
 
     use sint_core::logic::cards::get_behavior;
     let behavior = get_behavior(CardId::ShortCircuit);
@@ -536,7 +537,7 @@ fn test_short_circuit() {
 
 #[test]
 fn test_silent_force() {
-    let mut state = new_test_game(vec!["P1".to_string()]);
+    let mut state = new_test_game(vec!["P1".to_owned()]);
     if let Some(r) = state.map.rooms.get_mut(&5) {
         r.hazards.push(sint_core::types::HazardType::Fire);
     }
@@ -557,11 +558,11 @@ fn test_sing_a_song() {}
 
 #[test]
 fn test_slippery_deck() {
-    let mut state = new_test_game(vec!["P1".to_string()]);
+    let mut state = new_test_game(vec!["P1".to_owned()]);
     let card = sint_core::types::Card {
         id: CardId::SlipperyDeck,
-        title: "Slippery".to_string(),
-        description: "Move 0, Act +1".to_string(),
+        title: "Slippery".to_owned(),
+        description: "Move 0, Act +1".to_owned(),
         card_type: sint_core::types::CardType::Situation,
         options: vec![],
         solution: None,
@@ -578,11 +579,11 @@ fn test_slippery_deck() {
 
 #[test]
 fn test_sticky_floor() {
-    let mut state = new_test_game(vec!["P1".to_string()]);
+    let mut state = new_test_game(vec!["P1".to_owned()]);
     let card = sint_core::types::Card {
         id: CardId::StickyFloor,
-        title: "Sticky".to_string(),
-        description: "Move to Kitchen +1".to_string(),
+        title: "Sticky".to_owned(),
+        description: "Move to Kitchen +1".to_owned(),
         card_type: sint_core::types::CardType::Situation,
         options: vec![],
         solution: None,
@@ -614,11 +615,11 @@ fn test_sticky_floor() {
 
 #[test]
 fn test_sugar_rush() {
-    let mut state = new_test_game(vec!["P1".to_string()]);
+    let mut state = new_test_game(vec!["P1".to_owned()]);
     let card = sint_core::types::Card {
         id: CardId::SugarRush,
-        title: "Sugar".to_string(),
-        description: "Move 0, No Shoot".to_string(),
+        title: "Sugar".to_owned(),
+        description: "Move 0, No Shoot".to_owned(),
         card_type: sint_core::types::CardType::Situation,
         options: vec![],
         solution: None,
@@ -638,14 +639,14 @@ fn test_sugar_rush() {
 
 #[test]
 fn test_can_solve_wailing_alarm_logic() {
-    let mut state = new_test_game(vec!["P1".to_string()]);
+    let mut state = new_test_game(vec!["P1".to_owned()]);
     state.phase = GamePhase::TacticalPlanning;
 
     // Add Wailing Alarm
     let card = sint_core::types::Card {
         id: CardId::WailingAlarm,
-        title: "Alarm".to_string(),
-        description: "Test".to_string(),
+        title: "Alarm".to_owned(),
+        description: "Test".to_owned(),
         card_type: CardType::Situation,
         options: vec![],
         solution: Some(CardSolution {
@@ -694,7 +695,7 @@ fn test_can_solve_wailing_alarm_logic() {
 
 #[test]
 fn test_default_can_solve_logic_amerigo() {
-    let mut state = new_test_game(vec!["P1".to_string()]);
+    let mut state = new_test_game(vec!["P1".to_owned()]);
     state.phase = GamePhase::TacticalPlanning;
 
     // Add Amerigo (Requires Storage)
@@ -734,7 +735,7 @@ fn test_default_can_solve_logic_amerigo() {
 
 #[test]
 fn test_sugar_rush_blocks_shoot_but_allows_solve() {
-    let mut state = new_test_game(vec!["P1".to_string()]);
+    let mut state = new_test_game(vec!["P1".to_owned()]);
     state.phase = GamePhase::TacticalPlanning;
 
     // Add Sugar Rush (Requires Kitchen, Blocks Shoot)
@@ -763,23 +764,25 @@ fn test_sugar_rush_blocks_shoot_but_allows_solve() {
         Action::Game(GameAction::Interact),
         None,
     );
-    assert!(res_solve.is_ok(), "Sugar Rush should be solvable in Kitchen");
+    assert!(
+        res_solve.is_ok(),
+        "Sugar Rush should be solvable in Kitchen"
+    );
 
     // 2. P1 in Cannons -> Cannot Shoot (Blocked by validation)
     if let Some(p) = state.players.get_mut("P1") {
         p.room_id = cannons;
         p.inventory.push(sint_core::types::ItemType::Peppernut);
     }
-    let res_shoot = GameLogic::apply_action(
-        state.clone(),
-        "P1",
-        Action::Game(GameAction::Shoot),
-        None,
-    );
-    
+    let res_shoot =
+        GameLogic::apply_action(state.clone(), "P1", Action::Game(GameAction::Shoot), None);
+
     assert!(res_shoot.is_err(), "Sugar Rush should block Shoot");
     if let Err(sint_core::GameError::InvalidAction(msg)) = res_shoot {
-        assert!(msg.contains("Too shaky"), "Error should be specific to Sugar Rush");
+        assert!(
+            msg.contains("Too shaky"),
+            "Error should be specific to Sugar Rush"
+        );
     } else {
         panic!("Wrong error type");
     }

@@ -9,8 +9,8 @@ impl CardBehavior for StowawayCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::Stowaway,
-            title: "The Stowaway".to_string(),
-            description: "Boom: All players lose all peppernuts.".to_string(),
+            title: "The Stowaway".to_owned(),
+            description: "Boom: All players lose all peppernuts.".to_owned(),
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {

@@ -10,8 +10,8 @@ impl CardBehavior for BlockadeCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::Blockade,
-            title: "Blockade".to_string(),
-            description: "Door to Cannons is closed.".to_string(),
+            title: "Blockade".to_owned(),
+            description: "Door to Cannons is closed.".to_owned(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
@@ -33,13 +33,13 @@ impl CardBehavior for BlockadeCard {
             if let GameAction::Move { to_room } = action {
                 if *to_room == cannons_id {
                     return Err(GameError::InvalidAction(
-                        "Blockade! Cannot enter Cannons.".to_string(),
+                        "Blockade! Cannot enter Cannons.".to_owned(),
                     ));
                 }
                 if let Some(p) = state.players.get(player_id) {
                     if p.room_id == cannons_id {
                         return Err(GameError::InvalidAction(
-                            "Blockade! Cannot exit Cannons.".to_string(),
+                            "Blockade! Cannot exit Cannons.".to_owned(),
                         ));
                     }
                 }

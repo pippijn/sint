@@ -9,8 +9,8 @@ impl CardBehavior for SeasickCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::Seasick,
-            title: "Seasick".to_string(),
-            description: "Nauseous. You may EITHER Walk OR do Actions (not both).".to_string(),
+            title: "Seasick".to_owned(),
+            description: "Nauseous. You may EITHER Walk OR do Actions (not both).".to_owned(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {

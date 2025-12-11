@@ -10,8 +10,8 @@ impl CardBehavior for NoLightCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::NoLight,
-            title: "No Light?".to_string(),
-            description: "Shooting prohibited. The cannons don't work.".to_string(),
+            title: "No Light?".to_owned(),
+            description: "Shooting prohibited. The cannons don't work.".to_owned(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
@@ -31,7 +31,7 @@ impl CardBehavior for NoLightCard {
     ) -> Result<(), GameError> {
         if let GameAction::Shoot = action {
             return Err(GameError::InvalidAction(
-                "No Light! Cannons can't aim.".to_string(),
+                "No Light! Cannons can't aim.".to_owned(),
             ));
         }
         Ok(())

@@ -5,7 +5,7 @@ use sint_core::{
 
 #[test]
 fn test_set_layout_resets_readiness() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string(), "P2".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned(), "P2".to_owned()], 12345);
 
     // 1. P1 votes Ready
     state = apply_action(
@@ -38,7 +38,7 @@ fn test_set_layout_resets_readiness() {
 
 #[test]
 fn test_set_layout_moves_players_to_dormitory() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
 
     // Move P1 to Room 9 (Storage in Star)
     if let Some(p) = state.players.get_mut("P1") {
@@ -66,7 +66,7 @@ fn test_set_layout_moves_players_to_dormitory() {
 #[test]
 fn test_torus_wrap_around_movement() {
     // Initialize directly with Torus
-    let state = GameLogic::new_game_with_layout(vec!["P1".to_string()], 12345, MapLayout::Torus);
+    let state = GameLogic::new_game_with_layout(vec!["P1".to_owned()], 12345, MapLayout::Torus);
 
     // Torus has 12 rooms (0-11). 0 and 11 should be neighbors.
     let room_0 = 0;
@@ -85,7 +85,7 @@ fn test_torus_wrap_around_movement() {
 
 #[test]
 fn test_cannot_change_layout_mid_game() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
 
     // Advance to MorningReport
     state.phase = GamePhase::MorningReport;
@@ -104,7 +104,7 @@ fn test_cannot_change_layout_mid_game() {
 #[test]
 fn test_full_sync_preserves_layout() {
     let state_torus =
-        GameLogic::new_game_with_layout(vec!["P1".to_string()], 12345, MapLayout::Torus);
+        GameLogic::new_game_with_layout(vec!["P1".to_owned()], 12345, MapLayout::Torus);
 
     let json = serde_json::to_string(&state_torus).unwrap();
 

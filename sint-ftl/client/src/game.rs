@@ -278,7 +278,7 @@ fn EnemyView(ctx: GameContext) -> impl IntoView {
                                 .rooms
                                 .get(&attack.target_room)
                                 .map(|r| r.name.clone())
-                                .unwrap_or("Unknown".to_string());
+                                .unwrap_or("Unknown".to_owned());
                             view! {
                                 <div style="color: #ff9800; font-weight: bold;">
                                     "⚠ WARNING: ATTACK IMMINENT"
@@ -411,7 +411,7 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                         .rooms
                         .get(&p.room_id)
                         .map(|r| r.name.clone())
-                        .unwrap_or("Unknown".to_string());
+                        .unwrap_or("Unknown".to_owned());
                     let is_ready = p.is_ready;
                     let c_ready = ctx_ready.clone();
                     let is_lobby = s.phase == GamePhase::Lobby;
@@ -536,7 +536,7 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                                             let title = if is_planning {
                                                 format!("{} (Click to Drop)", name)
                                             } else {
-                                                name.to_string()
+                                                name.to_owned()
                                             };
 
                                             view! {
@@ -725,17 +725,17 @@ fn render_action_button(
                 "none",
             )
         }
-        GameAction::Bake => ("Bake Peppernuts".to_string(), "#ff9800", "none"),
-        GameAction::Shoot => ("Fire Cannons!".to_string(), "#f44336", "none"),
-        GameAction::RaiseShields => ("Raise Shields".to_string(), "#3f51b5", "none"),
-        GameAction::EvasiveManeuvers => ("Evasive Maneuvers".to_string(), "#00bcd4", "none"),
-        GameAction::Lookout => ("Lookout".to_string(), "#673ab7", "none"),
-        GameAction::Extinguish => ("Extinguish Fire".to_string(), "#607d8b", "none"),
-        GameAction::Repair => ("Repair Leak".to_string(), "#2196f3", "none"),
+        GameAction::Bake => ("Bake Peppernuts".to_owned(), "#ff9800", "none"),
+        GameAction::Shoot => ("Fire Cannons!".to_owned(), "#f44336", "none"),
+        GameAction::RaiseShields => ("Raise Shields".to_owned(), "#3f51b5", "none"),
+        GameAction::EvasiveManeuvers => ("Evasive Maneuvers".to_owned(), "#00bcd4", "none"),
+        GameAction::Lookout => ("Lookout".to_owned(), "#673ab7", "none"),
+        GameAction::Extinguish => ("Extinguish Fire".to_owned(), "#607d8b", "none"),
+        GameAction::Repair => ("Repair Leak".to_owned(), "#2196f3", "none"),
         GameAction::PickUp { item_type } => (format!("Pick Up {:?}", item_type), "#8bc34a", "none"),
         GameAction::Interact => {
             // Dynamic Label for Interact
-            let mut lbl = "Interact".to_string();
+            let mut lbl = "Interact".to_owned();
             if let Some(p) = state.players.get(pid) {
                 if let Some(room) = state.map.rooms.get(&p.room_id) {
                     for card in &state.active_situations {
@@ -770,7 +770,7 @@ fn render_action_button(
                 .unwrap_or(target_player);
             (format!("Heal {}", name), "#e91e63", "none")
         }
-        GameAction::Pass => ("End Turn (Pass)".to_string(), "#555", "none"),
+        GameAction::Pass => ("End Turn (Pass)".to_owned(), "#555", "none"),
         _ => (format!("{:?}", action), "#777", "none"),
     };
 

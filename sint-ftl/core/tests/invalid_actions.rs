@@ -6,7 +6,7 @@ use sint_core::{
 #[test]
 fn test_action_from_invalid_player_id() {
     // 1. Setup: Create a game and set it to the planning phase.
-    let mut state = GameLogic::new_game(vec!["p1".to_string()], 0);
+    let mut state = GameLogic::new_game(vec!["p1".to_owned()], 0);
     state.phase = sint_core::types::GamePhase::TacticalPlanning;
 
     // 2. Action: Attempt to perform an action with a player_id that does not exist.
@@ -29,7 +29,7 @@ fn test_action_from_invalid_player_id() {
 #[test]
 fn test_move_to_nonexistent_room() {
     // 1. Setup: Create a game.
-    let mut state = GameLogic::new_game(vec!["p1".to_string()], 0);
+    let mut state = GameLogic::new_game(vec!["p1".to_owned()], 0);
     state.phase = sint_core::types::GamePhase::TacticalPlanning;
     let player_id = state.players.keys().next().unwrap().clone();
 
@@ -53,10 +53,10 @@ fn test_move_to_nonexistent_room() {
 #[test]
 fn test_targeted_action_with_invalid_range() {
     // 1. Setup: Create a game with two players in rooms far from each other.
-    let mut state = GameLogic::new_game(vec!["p1".to_string(), "p2".to_string()], 0);
+    let mut state = GameLogic::new_game(vec!["p1".to_owned(), "p2".to_owned()], 0);
     state.phase = sint_core::types::GamePhase::TacticalPlanning;
-    let p1_id = "p1".to_string();
-    let p2_id = "p2".to_string();
+    let p1_id = "p1".to_owned();
+    let p2_id = "p2".to_owned();
 
     // Manually move p2 to a room that is not adjacent to p1's starting room (Dormitory, ID 2)
     // The Bridge (ID 7) is not adjacent to the Dormitory.

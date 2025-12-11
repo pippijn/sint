@@ -6,7 +6,7 @@ use sint_core::{
 #[test]
 fn test_fire_spread() {
     // Seed selected to ensure spread happens
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::EnemyAction;
 
     let kitchen =
@@ -30,7 +30,7 @@ fn test_fire_spread() {
 
 #[test]
 fn test_fire_damage_hull() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::EnemyAction;
     state.hull_integrity = 20;
 
@@ -48,7 +48,7 @@ fn test_fire_damage_hull() {
 
 #[test]
 fn test_fire_damage_player() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::EnemyAction;
 
     let kitchen =
@@ -69,7 +69,7 @@ fn test_fire_damage_player() {
 
 #[test]
 fn test_water_destroys_peppernuts() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     let kitchen =
         sint_core::logic::find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap();
 
@@ -88,7 +88,7 @@ fn test_water_destroys_peppernuts() {
 
 #[test]
 fn test_water_in_storage_safe() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     let storage_id =
         sint_core::logic::find_room_with_system_in_map(&state.map, SystemType::Storage).unwrap();
     if let Some(r) = state.map.rooms.get_mut(&storage_id) {
@@ -104,7 +104,7 @@ fn test_water_in_storage_safe() {
 
 #[test]
 fn test_extinguish_action() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     let kitchen =
@@ -140,7 +140,7 @@ fn test_extinguish_action() {
 
 #[test]
 fn test_repair_action() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     let kitchen =

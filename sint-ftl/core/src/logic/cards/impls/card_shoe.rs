@@ -9,8 +9,8 @@ impl CardBehavior for ShoeSettingCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::ShoeSetting,
-            title: "Shoe Setting".to_string(),
-            description: "Boom: All players lose their next turn.".to_string(),
+            title: "Shoe Setting".to_owned(),
+            description: "Boom: All players lose their next turn.".to_owned(),
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {

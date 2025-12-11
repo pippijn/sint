@@ -10,8 +10,8 @@ impl CardBehavior for ManOverboardCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::ManOverboard,
-            title: "Man Overboard!".to_string(),
-            description: "Target Player (Random) is removed from play.".to_string(),
+            title: "Man Overboard!".to_owned(),
+            description: "Target Player (Random) is removed from play.".to_owned(),
             card_type: CardType::Timebomb { rounds_left: 2 },
             options: vec![],
             solution: Some(CardSolution {

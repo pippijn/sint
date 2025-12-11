@@ -9,8 +9,8 @@ impl CardBehavior for MutinyCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::Mutiny,
-            title: "Mutiny?".to_string(),
-            description: "If not solved, Game Over (or -10 Hull).".to_string(),
+            title: "Mutiny?".to_owned(),
+            description: "If not solved, Game Over (or -10 Hull).".to_owned(),
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {

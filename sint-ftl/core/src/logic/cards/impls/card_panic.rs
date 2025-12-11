@@ -9,8 +9,8 @@ impl CardBehavior for PanicCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::Panic,
-            title: "Panic!".to_string(),
-            description: "Everyone runs away screaming to Dormitory.".to_string(),
+            title: "Panic!".to_owned(),
+            description: "Everyone runs away screaming to Dormitory.".to_owned(),
             card_type: CardType::Flash,
             options: vec![],
             solution: None,

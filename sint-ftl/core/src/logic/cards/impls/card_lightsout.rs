@@ -9,8 +9,8 @@ impl CardBehavior for LightsOutCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::LightsOut,
-            title: "Lights Out".to_string(),
-            description: "Walking costs DOUBLE (2 AP).".to_string(),
+            title: "Lights Out".to_owned(),
+            description: "Walking costs DOUBLE (2 AP).".to_owned(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {

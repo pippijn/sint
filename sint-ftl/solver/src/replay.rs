@@ -2,7 +2,10 @@ use sint_core::logic::GameLogic;
 use sint_core::types::{Action, GameAction, GamePhase, GameState, HazardType, PlayerId};
 use std::fmt::Write;
 
-pub fn format_trajectory(initial_state: GameState, path: Vec<(PlayerId, Action)>) -> Vec<String> {
+pub fn format_trajectory(
+    initial_state: GameState,
+    path: Vec<(PlayerId, GameAction)>,
+) -> Vec<String> {
     let mut state = initial_state;
     let mut current_round = state.turn_count;
     let mut round_start_hull = state.hull_integrity;
@@ -25,11 +28,12 @@ pub fn format_trajectory(initial_state: GameState, path: Vec<(PlayerId, Action)>
         let prev_phase = state.phase;
 
         // Apply
-        let res = GameLogic::apply_action(state.clone(), &pid, action.clone(), None);
+        let core_act = Action::Game(action.clone());
+        let res = GameLogic::apply_action(state.clone(), &pid, core_act, None);
         match res {
             Ok(new_state) => {
                 match &action {
-                    Action::Game(GameAction::Chat { message }) => {
+                    GameAction::Chat { message } => {
                         if message.starts_with("[MACRO]") {
                             writeln!(
                                 current_buffer,
@@ -40,8 +44,8 @@ pub fn format_trajectory(initial_state: GameState, path: Vec<(PlayerId, Action)>
                             .unwrap();
                         }
                     }
-                    Action::Game(GameAction::VoteReady { .. }) => {} // Silent
-                    Action::Game(GameAction::Pass) => {
+                    GameAction::VoteReady { .. } => {} // Silent
+                    GameAction::Pass => {
                         writeln!(current_buffer, "  {} passes.", pid).unwrap();
                     }
                     _ => {
@@ -115,7 +119,7 @@ pub fn format_trajectory(initial_state: GameState, path: Vec<(PlayerId, Action)>
     rounds_output
 }
 
-pub fn print_trajectory(initial_state: GameState, path: Vec<(PlayerId, Action)>) {
+pub fn print_trajectory(initial_state: GameState, path: Vec<(PlayerId, GameAction)>) {
     let rounds = format_trajectory(initial_state, path);
     for r in rounds {
         print!("{}", r);
@@ -178,7 +182,7 @@ fn format_planning_context(state: &GameState) -> String {
     for pid in pids {
         if let Some(p) = state.players.get(&pid) {
             let inv_str = if p.inventory.is_empty() {
-                "".to_string()
+                "".to_owned()
             } else {
                 format!(" {:?}", p.inventory)
             };

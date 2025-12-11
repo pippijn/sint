@@ -10,8 +10,8 @@ impl CardBehavior for StaticNoiseCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::StaticNoise,
-            title: "Static Noise".to_string(),
-            description: "Radio interference. Chat restricted to Emoji Only.".to_string(),
+            title: "Static Noise".to_owned(),
+            description: "Radio interference. Chat restricted to Emoji Only.".to_owned(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {

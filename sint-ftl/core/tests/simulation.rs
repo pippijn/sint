@@ -6,14 +6,14 @@ use sint_core::{
 
 #[test]
 fn test_interact_validation_wrong_room() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     // 1. Add a dummy situation that requires being in the Bridge (9)
     let card = Card {
         id: CardId::TheBook, // Requires Bridge
-        title: "Test Card".to_string(),
-        description: "Go to Bridge".to_string(),
+        title: "Test Card".to_owned(),
+        description: "Go to Bridge".to_owned(),
         card_type: CardType::Situation,
         options: vec![],
         solution: Some(CardSolution {
@@ -66,7 +66,7 @@ fn test_interact_validation_wrong_room() {
 
 #[test]
 fn test_shoot_simulation_no_side_effects() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     // Setup: P1 in Cannons (8) with Ammo

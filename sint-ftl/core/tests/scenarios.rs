@@ -5,7 +5,7 @@ use sint_core::{
 
 #[test]
 fn test_scenario_fire_in_kitchen() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string(), "P2".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned(), "P2".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     let kitchen = sint_core::logic::find_room_with_system_in_map(
@@ -76,7 +76,7 @@ fn test_scenario_fire_in_kitchen() {
 #[test]
 fn test_scenario_bucket_brigade() {
     let mut state = GameLogic::new_game(
-        vec!["P1".to_string(), "P2".to_string(), "P3".to_string()],
+        vec!["P1".to_owned(), "P2".to_owned(), "P3".to_owned()],
         12345,
     );
     state.phase = GamePhase::TacticalPlanning;
@@ -129,7 +129,7 @@ fn test_scenario_bucket_brigade() {
         state.clone(),
         "P1",
         Action::Game(GameAction::Throw {
-            target_player: "P2".to_string(),
+            target_player: "P2".to_owned(),
             item_index: 0,
         }),
         None,
@@ -142,7 +142,7 @@ fn test_scenario_bucket_brigade() {
         state.clone(),
         "P2",
         Action::Game(GameAction::Throw {
-            target_player: "P3".to_string(),
+            target_player: "P3".to_owned(),
             item_index: 0,
         }),
         None,

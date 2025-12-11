@@ -9,8 +9,8 @@ impl CardBehavior for CostumePartyCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::CostumeParty,
-            title: "Costume Party".to_string(),
-            description: "Players swap positions (Cyclic shift).".to_string(),
+            title: "Costume Party".to_owned(),
+            description: "Players swap positions (Cyclic shift).".to_owned(),
             card_type: CardType::Flash,
             options: vec![],
             solution: None,

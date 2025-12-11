@@ -9,8 +9,8 @@ impl CardBehavior for LeakCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::Leak,
-            title: "Leak!".to_string(),
-            description: "Spawn 1 Water in the Cargo Room.".to_string(),
+            title: "Leak!".to_owned(),
+            description: "Spawn 1 Water in the Cargo Room.".to_owned(),
             card_type: CardType::Flash,
             options: vec![],
             solution: None,

@@ -204,7 +204,7 @@ def r8():
     p6.action("PickUp", 1)
     p5.action("Shoot", 1)
     p6.action("Shoot", 1)
-    p1.action("Move 5", 0) # Kitchen (5)
+    # p1.action("Move 5", 0) # Kitchen (5) - Already there
     p1.action("PickUp", 1)
     for p in players: p.pass_turn()
 
@@ -295,7 +295,7 @@ def r15():
 def r16():
     # print("# Round 16: Return to Stations.")
     start_round()
-    p3.action("EvasiveManeuvers", 2)
+    p3.action("Extinguish", 1) # Fire in Bridge. Boss dies this turn, so no need to evade.
     p1.action("Move 0", 1)
     p1.action("Throw P5 0", 1)
     p2.action("Move 0", 1)
@@ -319,19 +319,21 @@ def r17():
     p4.action("Throw P5 0", 1)
     p5.action("Shoot", 1)
     p6.action("Shoot", 1)
-    p1.action("Move 5", 1) # Kitchen (5)
-    p1.action("Extinguish", 1)
+    p1.action("Move 6", 1) # Cannons (6)
+    # p1.action("Extinguish", 1)
     p2.action("Move 5", 1) # Kitchen (5)
     p2.action("Bake", 1) 
     for p in players: p.pass_turn()
 
 def r18():
     # print("# Round 18: Pickup & Reload.")
-    start_round()
-    p1.action("PickUp", 1)
+    start_round() 
     p1.action("Move 0", 1)
+    p1.action("Move 5", 1)
+    
     p2.action("PickUp", 1)
     p2.action("Move 0", 1)
+    
     p4.action("Move 0", 1)
     p4.action("Move 5", 1) # Kitchen (5)
     p6.action("Move 0", 1)
@@ -343,38 +345,54 @@ def r19():
     # print("# Round 19: Finish Monster (Again).")
     start_round()
     p3.action("EvasiveManeuvers", 2)
-    p1.action("Move 6", 1) # Cannons (6)
-    p1.action("Throw P5 0", 1)
-    p6.action("Move 0", 1)
-    p6.action("Move 6", 1) # Cannons (6)
-    p2.action("Move 6", 1) # Cannons (6)
-    p2.action("Throw P6 0", 1)
+    
+    # P2 supplies P5
+    p2.action("Throw P5 0", 1)
     p5.action("Shoot", 1)
+    
+    # Others reload and move to Hub
+    p1.action("PickUp", 1)
+    p1.action("Move 0", 1)
+    
+    p4.action("PickUp", 1)
     p4.action("Move 0", 1)
-    p4.action("Move 6", 1) # Cannons (6)
+    
+    p6.action("PickUp", 1)
+    p6.action("Move 0", 1)
+    
+    p2.action("Move 5", 1) # P2 goes back to kitchen
     for p in players: p.pass_turn()
 
 def r20():
     # print("# Round 20: Lucky Dip. Monster Low.")
     start_round()
     p3.action("EvasiveManeuvers", 2)
+    
+    # P1 supplies P5
+    p1.action("Throw P5 0", 1)
     p5.action("Shoot", 1)
+    
+    # P6 moves in and shoots
+    p6.action("Move 6", 1)
     p6.action("Shoot", 1)
-    p1.action("Move 0", 1)
-    p1.action("Move 5", 1) # Kitchen (5)
-    p2.action("Move 0", 1)
-    p2.action("Move 5", 1) # Kitchen (5)
-    p4.action("Move 0", 1)
-    p4.action("Move 5", 1) # Kitchen (5)
+    
+    # Reinforcements
+    p4.action("Move 6", 1) # P4 moves to Cannons
+    
+    p2.action("PickUp", 1) # P2 grabs form Kitchen
+    p2.action("Move 0", 1) # Moves to Hub
     for p in players: p.pass_turn()
 
 def r21():
     # print("# Round 21: Reload. P1 Asleep.")
     start_round()
+    
+    p2.action("Move 5", 1)
     p2.action("Bake", 1)
-    p2.action("PickUp", 1)
-    p4.action("PickUp", 1)
+    
     p4.action("Move 0", 1)
+    p4.action("Move 5", 1)
+    
     p3.action("EvasiveManeuvers", 2)
     for p in players: p.pass_turn()
 
@@ -384,8 +402,10 @@ def r22():
     p3.action("EvasiveManeuvers", 2)
     p2.action("Move 0", 1)
     p2.action("Throw P5 0", 1)
-    p4.action("Move 6", 1) # Cannons (6)
+    
+    p4.action("Move 0", 1)
     p4.action("Throw P6 0", 1)
+    
     p5.action("Shoot", 1)
     p6.action("Shoot", 1)
     for p in players: p.pass_turn()
@@ -393,96 +413,154 @@ def r22():
 def r23():
     # print("# Round 23: Solve Nap/Headwind/Clamp/Seasick.")
     start_round()
-    p3.action("Interact", 1)
+    
+    # P4 (in Bow) solves Nap FIRST (Anyone can solve it, must grab it before Bridge team)
+    p4.action("Interact", 1) 
+    
+    # Bridge Team (P5, P6) solve local issues (Headwind, Clamp, Static)
     p6.action("Interact", 1)
-    p4.action("Interact", 1)
-    p4.action("Interact", 1)
-    p2.action("Move 5", 1) # Kitchen (5)
-    p2.action("Interact", 1)
-    p5.action("Move 0", 2)
+    p6.action("Interact", 1)
+    p5.action("Interact", 1)
+    
+    # P2 moves towards Kitchen (Stops at 0 due to Sticky Floor cost in next step)
+    p2.action("Move 0", 1)
+    # p2.action("Move 5", 1) # Cannot do this turn (Cost 2)
+    
+    p3.action("Move 0", 1)
+    
     for p in players: p.pass_turn()
 
 def r24():
     # print("# Round 24: Heal. Solve Sticky. Move.")
     start_round()
+    
+    # Heal P5
+    p3.action("Move 8", 1) # Enter Sickbay
+    p5.action("Move 0", 1) # Enter Hallway (Neighbor of Sickbay)
     p3.action("FirstAid P5", 1)
-    p5.action("Move 5", 1) # Kitchen (5)
-    p5.action("Interact", 1)
-    p3.action("Move 0", 1)
+    
+    # P6 solves The Book (in Bridge)
+    p6.action("Interact", 1)
+    p6.action("Move 0", 1) # Regroup
+    
+    # P2 enters Kitchen (Cost 2 due to Sticky)
+    p2.action("Move 5", 2)
+    
+    # Others regroup
     p1.action("Move 0", 1)
-    p1.action("Move 4", 1) # Engine (4)
-    p2.action("Bake", 1)
-    p2.action("PickUp", 1)
     p4.action("Move 0", 1)
-    p4.action("Move 6", 1) # Cannons (6)
-    p6.action("Move 0", 1)
-    p6.action("Move 6", 1) # Cannons (6)
+    
     for p in players: p.pass_turn()
 
 def r25():
-    # print("# Round 25: Extinguish. Bake. Shoot.")
+    # print("# Round 25: Recovery from High Waves.")
     start_round()
-    p4.action("Move 7", 1) # Bridge (7)
-    p4.action("Extinguish", 1)
-    p3.action("Move 0", 1)
-    p3.action("Move 5", 1) # Kitchen (5)
-    p1.action("Extinguish", 1)
-    p2.action("Move 6", 1) # Cannons (6)
-    p2.action("Shoot", 1)
-    p5.action("Move 5", 1) # Kitchen (5)
-    p5.action("Bake", 1)
-    p6.action("Move 6", 1) # Cannons (6)
+    
+    # P2 Re-enters Kitchen (Cost 2 due to Sticky)
+    p2.action("Move 5", 2)
+    
+    # P4 moves to Cargo to Repair
+    p4.action("Move 0", 1)
+    p4.action("Move 3", 1)
+    
+    # Others leave Engine to Hub
+    p1.action("Move 0", 1)
+    p5.action("Move 0", 1)
+    p6.action("Move 0", 1)
+    
+    # P3 stays in Hub
+    
     for p in players: p.pass_turn()
 
 def r26():
-    # print("# Round 26: Seagull Attack. Extinguish & Relay.")
+    # print("# Round 26: Recovery & Reload.")
     start_round()
-    p1.action("RaiseShields", 2)
-    p3.action("Extinguish", 1)
-    p3.action("PickUp", 1)
+    
+    # P2 Solves Seasick + Sticky
+    p2.action("Interact", 1)
+    p2.action("Interact", 1)
+    
+    # P4 moves to Bow to prepare for Seagull
     p4.action("Move 0", 1)
+    p4.action("Move 1", 1)
+    
+    # Reload Team enters Kitchen
+    p1.action("Move 5", 1)
+    p1.action("Bake", 1)
+    
+    p5.action("Move 5", 1)
     p5.action("PickUp", 1)
-    p5.action("Throw P4 0", 1)
-    p4.action("Throw P6 0", 1)
-    p6.action("Shoot", 1)
+    
+    p6.action("Move 5", 1)
+    p6.action("PickUp", 1)
+    
+    p3.action("Move 5", 1)
+    p3.action("PickUp", 1)
+    
     for p in players: p.pass_turn()
 
 def r27():
     # print("# Round 27: Big Leak. Victory.")
     start_round()
-    p1.action("RaiseShields", 2)
-    p3.action("Throw P4 0", 1)
-    p5.action("PickUp", 1)
-    p5.action("Throw P4 0", 1)
-    p4.action("Throw P6 0", 1)
-    p4.action("Throw P2 0", 1)
-    p6.action("Shoot", 1)
-    p2.action("Shoot", 1)
+    
+    # P4 Solves Seagull (Bow)
+    p4.action("Interact", 1)
+    p4.action("Move 0", 1)
+    
+    # P1 to Engine (Prepare Shield/Extinguish)
+    p1.action("Move 0", 1)
+    p1.action("Move 4", 1)
+    
+    # Gunners to Cannons
+    p3.action("Move 0", 1); p3.action("Move 6", 1)
+    p5.action("Move 0", 1); p5.action("Move 6", 1)
+    p6.action("Move 0", 1); p6.action("Move 6", 1)
+    
+    # P2 Supply
+    p2.action("PickUp", 1)
+    p2.action("Move 0", 1)
+    
     for p in players: p.pass_turn()
 
 def r28():
-    # print("# Round 28: Final Shot. Victory.")
+    # print("# Round 28: Recipe Reload & Volley.")
     start_round()
-    p5.action("Bake", 1)
-    p5.action("PickUp", 1)
-    p3.action("PickUp", 1)
-    p3.action("Throw P4 0", 1)
-    p4.action("Throw P6 0", 1)
-    p6.action("Shoot", 1)
-    p1.action("RaiseShields", 2)
+    
+    # P4 Solves Recipe (Bow) -> Ammo for everyone
+    p4.action("Move 1", 1)
+    p4.action("Interact", 1)
+    
+    # P1 Extinguish Engine
+    p1.action("Extinguish", 1)
+    
+    # Gunners Unleash Hell
+    p5.action("Shoot", 1); p5.action("Shoot", 1)
+    p6.action("Shoot", 1); p6.action("Shoot", 1)
+    p3.action("Shoot", 1); p3.action("Shoot", 1)
+    
+    # P2 Supply -> Attack
+    p2.action("Move 6", 1)
+    p2.action("Shoot", 1)
+    
     for p in players: p.pass_turn()
 
 def r29():
-    # print("# Round 29: Attack Wave. Shield & Kill.")
+    # print("# Round 29: Kill Monster. Cancel Attack Wave.")
     start_round()
-    p1.action("RaiseShields", 2)
-    p5.action("Throw P4 0", 1)
-    p3.action("PickUp", 1)
-    p3.action("Throw P4 0", 1)
-    p4.action("Throw P6 0", 1)
-    p4.action("Throw P2 0", 1)
+    
+    # Fire Everything
+    p5.action("Shoot", 1)
     p6.action("Shoot", 1)
+    p3.action("Shoot", 1)
     p2.action("Shoot", 1)
+    
+    # P1 Extinguish Engine (Save Hull)
+    p1.action("Extinguish", 1)
+    
+    # P4 Regroup
+    p4.action("Move 0", 1)
+    p4.action("Move 6", 1)
+    
     for p in players: p.pass_turn()
 
 def r30():

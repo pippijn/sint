@@ -10,8 +10,8 @@ impl CardBehavior for SugarRushCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::SugarRush,
-            title: "Sugar Rush".to_string(),
-            description: "Move 1 room extra for free. Cannons prohibited.".to_string(),
+            title: "Sugar Rush".to_owned(),
+            description: "Move 1 room extra for free. Cannons prohibited.".to_owned(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
@@ -31,7 +31,7 @@ impl CardBehavior for SugarRushCard {
     ) -> Result<(), GameError> {
         if let GameAction::Shoot = action {
             return Err(GameError::InvalidAction(
-                "Sugar Rush! Too shaky to shoot.".to_string(),
+                "Sugar Rush! Too shaky to shoot.".to_owned(),
             ));
         }
         Ok(())

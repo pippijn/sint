@@ -5,7 +5,7 @@ use sint_core::{
 };
 
 fn create_test_state() -> GameState {
-    let players = vec!["P1".to_string(), "P2".to_string()];
+    let players = vec!["P1".to_owned(), "P2".to_owned()];
     GameLogic::new_game(players, 12345)
 }
 

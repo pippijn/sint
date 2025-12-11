@@ -9,8 +9,8 @@ impl CardBehavior for StrongHeadwindCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::StrongHeadwind,
-            title: "Strong Headwind".to_string(),
-            description: "Cannons are inaccurate. Hit Threshold is 5+.".to_string(),
+            title: "Strong Headwind".to_owned(),
+            description: "Cannons are inaccurate. Hit Threshold is 5+.".to_owned(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {

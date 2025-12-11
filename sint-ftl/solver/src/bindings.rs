@@ -7,7 +7,7 @@ use pyo3::types::PyDict;
 #[cfg(feature = "python")]
 use pythonize::{depythonize, pythonize};
 #[cfg(feature = "python")]
-use sint_core::types::{Action, GameState};
+use sint_core::types::{GameAction, GameState};
 
 #[cfg(feature = "python")]
 #[pyfunction]
@@ -20,7 +20,7 @@ fn verify_solution(
         PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid initial state: {}", e))
     })?;
 
-    let actions: Vec<(String, Action)> = depythonize(&actions_list).map_err(|e| {
+    let actions: Vec<(String, GameAction)> = depythonize(&actions_list).map_err(|e| {
         PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid actions list: {}", e))
     })?;
 
@@ -52,7 +52,7 @@ fn get_trajectory_log(
         PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid initial state: {}", e))
     })?;
 
-    let history: Vec<(String, Action)> = depythonize(&history_list).map_err(|e| {
+    let history: Vec<(String, GameAction)> = depythonize(&history_list).map_err(|e| {
         PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid history list: {}", e))
     })?;
 

@@ -5,7 +5,7 @@ mod tests {
 
     #[test]
     fn test_player_spawn_location() {
-        let state = GameLogic::new_game(vec!["p1".to_string()], 12345);
+        let state = GameLogic::new_game(vec!["p1".to_owned()], 12345);
         let p1 = state.players.get("p1").unwrap();
 
         println!("Player 1 spawned in Room ID: {}", p1.room_id);

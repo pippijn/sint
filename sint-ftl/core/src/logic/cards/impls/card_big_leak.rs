@@ -9,8 +9,8 @@ impl CardBehavior for BigLeakCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::BigLeak,
-            title: "The Big Leak".to_string(),
-            description: "Flooding. Start of round: 1 Water in Cargo.".to_string(),
+            title: "The Big Leak".to_owned(),
+            description: "Flooding. Start of round: 1 Water in Cargo.".to_owned(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {

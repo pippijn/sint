@@ -9,8 +9,8 @@ impl CardBehavior for LuckyDipCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::LuckyDip,
-            title: "Lucky Dip".to_string(),
-            description: "Tool Swap! All players pass their Special Item to the left.".to_string(),
+            title: "Lucky Dip".to_owned(),
+            description: "Tool Swap! All players pass their Special Item to the left.".to_owned(),
             card_type: CardType::Flash,
             options: vec![],
             solution: None,

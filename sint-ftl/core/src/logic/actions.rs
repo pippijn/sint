@@ -45,7 +45,7 @@ fn apply_meta_action(
                 return Ok(state);
             }
             if state.players.values().any(|p| p.name == name) {
-                return Err(GameError::InvalidAction("Name already taken".to_string()));
+                return Err(GameError::InvalidAction("Name already taken".to_owned()));
             }
 
             // Correctly find the Dormitory's Room ID
@@ -53,9 +53,9 @@ fn apply_meta_action(
                 find_room_with_system_in_map(&state.map, SystemType::Dormitory).unwrap_or(0); // Fallback to 0 if not found
 
             state.players.insert(
-                player_id.to_string(),
+                player_id.to_owned(),
                 Player {
-                    id: player_id.to_string(),
+                    id: player_id.to_owned(),
                     name,
                     room_id: start_room,
                     hp: 3,
@@ -77,7 +77,7 @@ fn apply_meta_action(
         MetaAction::SetName { name } => {
             if state.phase != GamePhase::Lobby {
                 return Err(GameError::InvalidAction(
-                    "Cannot change name after game start".to_string(),
+                    "Cannot change name after game start".to_owned(),
                 ));
             }
             if state
@@ -85,7 +85,7 @@ fn apply_meta_action(
                 .values()
                 .any(|p| p.name == name && p.id != player_id)
             {
-                return Err(GameError::InvalidAction("Name already taken".to_string()));
+                return Err(GameError::InvalidAction("Name already taken".to_owned()));
             }
             if let Some(p) = state.players.get_mut(player_id) {
                 p.name = name;
@@ -98,7 +98,7 @@ fn apply_meta_action(
         MetaAction::SetMapLayout { layout } => {
             if state.phase != GamePhase::Lobby {
                 return Err(GameError::InvalidAction(
-                    "Cannot change map layout after game start".to_string(),
+                    "Cannot change map layout after game start".to_owned(),
                 ));
             }
 
@@ -170,7 +170,7 @@ fn apply_game_action(
             }
 
             state.chat_log.push(ChatMessage {
-                sender: player_id.to_string(),
+                sender: player_id.to_owned(),
                 text: message.clone(),
                 timestamp: 0,
             });
@@ -203,7 +203,7 @@ fn apply_game_action(
 
             if p.ap == 0 {
                 return Err(GameError::InvalidAction(
-                    "Cannot Pass with 0 AP. Vote ready instead.".to_string(),
+                    "Cannot Pass with 0 AP. Vote ready instead.".to_owned(),
                 ));
             }
 
@@ -221,7 +221,7 @@ fn apply_game_action(
                 let proposal = &state.proposal_queue[i];
                 if proposal.player_id != player_id {
                     return Err(GameError::InvalidAction(
-                        "Cannot undo another player's action".to_string(),
+                        "Cannot undo another player's action".to_owned(),
                     ));
                 }
                 let removed = state.proposal_queue.remove(i);
@@ -231,7 +231,7 @@ fn apply_game_action(
                 }
             } else {
                 return Err(GameError::InvalidAction(
-                    "Action not found to undo".to_string(),
+                    "Action not found to undo".to_owned(),
                 ));
             }
             state.sequence_id += 1;
@@ -274,7 +274,7 @@ fn apply_game_action(
                     let id = deterministic_uuid(&mut state);
                     state.proposal_queue.push(ProposedAction {
                         id,
-                        player_id: player_id.to_string(),
+                        player_id: player_id.to_owned(),
                         action: GameAction::Move { to_room: step_room },
                     });
                 }
@@ -296,7 +296,7 @@ fn apply_game_action(
             let id = deterministic_uuid(&mut state);
             state.proposal_queue.push(ProposedAction {
                 id,
-                player_id: player_id.to_string(),
+                player_id: player_id.to_owned(),
                 action: action.clone(),
             });
             let p = state
@@ -503,7 +503,7 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
 
     // Always allowed (technically)
     actions.push(Action::Game(GameAction::Chat {
-        message: "".to_string(),
+        message: "".to_owned(),
     }));
 
     // Phase-specific checks
@@ -512,7 +512,7 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
             actions.push(Action::Game(GameAction::VoteReady { ready: true }));
             actions.push(Action::Game(GameAction::VoteReady { ready: false }));
             actions.push(Action::Meta(MetaAction::SetName {
-                name: "".to_string(),
+                name: "".to_owned(),
             }));
             return actions;
         }
@@ -579,13 +579,13 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
                             &projected_state,
                             player_id,
                             &GameAction::FirstAid {
-                                target_player: "".to_string(),
+                                target_player: "".to_owned(),
                             },
                         )
                 {
                     // Target Self
                     actions.push(Action::Game(GameAction::FirstAid {
-                        target_player: player_id.to_string(),
+                        target_player: player_id.to_owned(),
                     }));
 
                     // Target Neighbors

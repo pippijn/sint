@@ -10,8 +10,8 @@ impl CardBehavior for MonsterDoughCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::MonsterDough,
-            title: "Monster Dough".to_string(),
-            description: "Boom: Kitchen is unusable.".to_string(),
+            title: "Monster Dough".to_owned(),
+            description: "Boom: Kitchen is unusable.".to_owned(),
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {
@@ -38,7 +38,7 @@ impl CardBehavior for MonsterDoughCard {
             });
             if triggered {
                 return Err(GameError::InvalidAction(
-                    "Monster Dough! Kitchen blocked.".to_string(),
+                    "Monster Dough! Kitchen blocked.".to_owned(),
                 ));
             }
         }

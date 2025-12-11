@@ -10,8 +10,8 @@ impl CardBehavior for WailingAlarmCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::WailingAlarm,
-            title: "Wailing Alarm".to_string(),
-            description: "No Bonuses. Solve in any Empty Room.".to_string(),
+            title: "Wailing Alarm".to_owned(),
+            description: "No Bonuses. Solve in any Empty Room.".to_owned(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
@@ -31,10 +31,10 @@ impl CardBehavior for WailingAlarmCard {
     ) -> Result<(), GameError> {
         match action {
             GameAction::RaiseShields => Err(GameError::InvalidAction(
-                "Wailing Alarm! Shields are disabled.".to_string(),
+                "Wailing Alarm! Shields are disabled.".to_owned(),
             )),
             GameAction::EvasiveManeuvers => Err(GameError::InvalidAction(
-                "Wailing Alarm! Evasive Maneuvers are disabled.".to_string(),
+                "Wailing Alarm! Evasive Maneuvers are disabled.".to_owned(),
             )),
             _ => Ok(()),
         }

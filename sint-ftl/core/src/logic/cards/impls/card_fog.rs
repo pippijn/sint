@@ -12,8 +12,8 @@ impl CardBehavior for FogBankCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::FogBank,
-            title: "Fog Bank".to_string(),
-            description: "Cannot see Enemy Intent (Telegraph disabled).".to_string(),
+            title: "Fog Bank".to_owned(),
+            description: "Cannot see Enemy Intent (Telegraph disabled).".to_owned(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {

@@ -10,8 +10,8 @@ impl CardBehavior for AnchorLooseCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::AnchorLoose,
-            title: "Anchor Loose".to_string(),
-            description: "Start of round: 1 Water token on random spot.".to_string(),
+            title: "Anchor Loose".to_owned(),
+            description: "Start of round: 1 Water token on random spot.".to_owned(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {

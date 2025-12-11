@@ -16,9 +16,9 @@ fn test_join_action_spawns_in_dormitory() {
         .id;
 
     // 2. Action: A new player joins the game
-    let player_id = "player_joining".to_string();
+    let player_id = "player_joining".to_owned();
     let join_action = Action::Meta(MetaAction::Join {
-        name: "Joiner".to_string(),
+        name: "Joiner".to_owned(),
     });
 
     let final_state = apply_action(initial_state, &player_id, join_action).unwrap();

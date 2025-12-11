@@ -10,7 +10,7 @@ fn get_player_ids(state: &sint_core::types::GameState) -> Vec<String> {
 #[test]
 fn test_phase_advances_when_all_players_pass() {
     // 1. Setup: Create a game with two players in the TacticalPlanning phase.
-    let mut state = GameLogic::new_game(vec!["p1".to_string(), "p2".to_string()], 0);
+    let mut state = GameLogic::new_game(vec!["p1".to_owned(), "p2".to_owned()], 0);
     state.phase = GamePhase::TacticalPlanning;
     for p in state.players.values_mut() {
         p.ap = 2; // Ensure players have AP to pass
@@ -47,7 +47,7 @@ fn test_phase_advances_when_all_players_pass() {
 #[test]
 fn test_actions_are_disallowed_outside_planning_phase() {
     // 1. Setup: Create a game with one player.
-    let mut state = GameLogic::new_game(vec!["p1".to_string()], 0);
+    let mut state = GameLogic::new_game(vec!["p1".to_owned()], 0);
     let player_id = get_player_ids(&state)[0].clone();
 
     // Find a valid room to move to
@@ -85,7 +85,7 @@ fn test_actions_are_disallowed_outside_planning_phase() {
 #[test]
 fn test_full_phase_cycle() {
     // 1. Setup: Create a game with one player.
-    let mut state = GameLogic::new_game(vec!["p1".to_string()], 0);
+    let mut state = GameLogic::new_game(vec!["p1".to_owned()], 0);
     let player_id = get_player_ids(&state)[0].clone();
 
     // 2. Action & Assert: Manually step through the phases

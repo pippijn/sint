@@ -119,13 +119,11 @@ impl ActionHandler for ReviveHandler {
 
         if target.room_id != p.room_id {
             return Err(GameError::InvalidAction(
-                "Target not in same room".to_string(),
+                "Target not in same room".to_owned(),
             ));
         }
         if !target.status.contains(&PlayerStatus::Fainted) {
-            return Err(GameError::InvalidAction(
-                "Target is not Fainted".to_string(),
-            ));
+            return Err(GameError::InvalidAction("Target is not Fainted".to_owned()));
         }
         Ok(())
     }
@@ -157,16 +155,26 @@ impl ActionHandler for InteractHandler {
         // Check if ANY active situation allows interaction here
         let mut valid = false;
         for card in &state.active_situations {
-            if get_behavior(card.id).can_solve(state, player_id) {
+            let solvable = get_behavior(card.id).can_solve(state, player_id);
+            // DEBUG
+            if card.id == crate::types::CardId::AfternoonNap {
+                // println!("DEBUG: Checking Nap for {}. Solvable: {}", player_id, solvable);
+            }
+            if solvable {
                 valid = true;
                 break;
             }
         }
 
         if !valid {
-            return Err(GameError::InvalidAction(
-                "Nothing to Interact with here".to_string(),
-            ));
+            return Err(GameError::InvalidAction(format!(
+                "Nothing to Interact with here. Cards: {:?}",
+                state
+                    .active_situations
+                    .iter()
+                    .map(|c| c.id)
+                    .collect::<Vec<_>>()
+            )));
         }
         Ok(())
     }

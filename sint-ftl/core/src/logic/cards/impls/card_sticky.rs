@@ -9,8 +9,8 @@ impl CardBehavior for StickyFloorCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::StickyFloor,
-            title: "Sticky Floor".to_string(),
-            description: "Moving into the Kitchen costs +1 AP.".to_string(),
+            title: "Sticky Floor".to_owned(),
+            description: "Moving into the Kitchen costs +1 AP.".to_owned(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {

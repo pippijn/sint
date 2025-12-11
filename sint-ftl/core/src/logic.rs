@@ -142,14 +142,14 @@ pub const MAX_PLAYER_AP: i32 = 2;
 pub fn get_boss(level: u32) -> Enemy {
     if let Some((name, hp)) = BOSS_DEFINITIONS.get(level as usize) {
         Enemy {
-            name: name.to_string(),
+            name: (*name).to_owned(),
             hp: *hp,
             max_hp: *hp,
             next_attack: None,
         }
     } else {
         Enemy {
-            name: "Unknown Threat".to_string(),
+            name: "Unknown Threat".to_owned(),
             hp: 50,
             max_hp: 50,
             next_attack: None,

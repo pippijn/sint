@@ -9,8 +9,8 @@ impl CardBehavior for RecipeCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::Recipe,
-            title: "Recipe".to_string(),
-            description: "Mission: Go to The Bow. Reward: Super Peppernuts.".to_string(),
+            title: "Recipe".to_owned(),
+            description: "Mission: Go to The Bow. Reward: Super Peppernuts.".to_owned(),
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {
@@ -28,8 +28,8 @@ impl CardBehavior for RecipeCard {
             p.inventory.push(ItemType::Peppernut);
         }
         state.chat_log.push(crate::types::ChatMessage {
-            sender: "SYSTEM".to_string(),
-            text: "Recipe found! Everyone receives Super Peppernuts (2x Ammo).".to_string(),
+            sender: "SYSTEM".to_owned(),
+            text: "Recipe found! Everyone receives Super Peppernuts (2x Ammo).".to_owned(),
             timestamp: 0,
         });
     }

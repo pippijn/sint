@@ -10,8 +10,8 @@ impl CardBehavior for AnchorStuckCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::AnchorStuck,
-            title: "Anchor Stuck".to_string(),
-            description: "Evasion action (Engine) is disabled.".to_string(),
+            title: "Anchor Stuck".to_owned(),
+            description: "Evasion action (Engine) is disabled.".to_owned(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
@@ -31,7 +31,7 @@ impl CardBehavior for AnchorStuckCard {
     ) -> Result<(), GameError> {
         if let GameAction::EvasiveManeuvers = action {
             return Err(GameError::InvalidAction(
-                "Anchor Stuck! Cannot use Evasive Maneuvers.".to_string(),
+                "Anchor Stuck! Cannot use Evasive Maneuvers.".to_owned(),
             ));
         }
         Ok(())

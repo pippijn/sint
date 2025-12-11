@@ -10,8 +10,8 @@ impl CardBehavior for AfternoonNapCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::AfternoonNap,
-            title: "Afternoon Nap".to_string(),
-            description: "The Reader falls asleep. Cannot spend AP.".to_string(),
+            title: "Afternoon Nap".to_owned(),
+            description: "The Reader falls asleep. Cannot spend AP.".to_owned(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
@@ -50,7 +50,7 @@ impl CardBehavior for AfternoonNapCard {
 
                 if !is_free {
                     return Err(GameError::InvalidAction(
-                        "The Reader (You) is asleep and cannot spend AP!".to_string(),
+                        "The Reader (You) is asleep and cannot spend AP!".to_owned(),
                     ));
                 }
             }

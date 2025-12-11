@@ -9,8 +9,8 @@ impl CardBehavior for WheelClampCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::WheelClamp,
-            title: "Wheel Clamp".to_string(),
-            description: "Ship turns. Players shift to (Room ID + 1).".to_string(),
+            title: "Wheel Clamp".to_owned(),
+            description: "Ship turns. Players shift to (Room ID + 1).".to_owned(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {

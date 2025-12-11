@@ -93,7 +93,7 @@ impl ActionHandler for DropHandler {
                 .count();
             if nut_count > 1 {
                 return Err(GameError::InvalidAction(
-                    "Cannot drop Wheelbarrow while holding >1 Peppernuts".to_string(),
+                    "Cannot drop Wheelbarrow while holding >1 Peppernuts".to_owned(),
                 ));
             }
         }
@@ -157,7 +157,7 @@ impl ActionHandler for ThrowHandler {
         let is_adjacent = (p.room_id == target.room_id) || room.neighbors.contains(&target.room_id);
 
         if !is_adjacent {
-            return Err(GameError::InvalidAction("Target not in range".to_string()));
+            return Err(GameError::InvalidAction("Target not in range".to_owned()));
         }
         Ok(())
     }

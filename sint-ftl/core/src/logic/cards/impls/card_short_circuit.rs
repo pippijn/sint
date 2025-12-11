@@ -9,8 +9,8 @@ impl CardBehavior for ShortCircuitCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::ShortCircuit,
-            title: "Short Circuit".to_string(),
-            description: "Spawn 1 Fire in the Engine Room.".to_string(),
+            title: "Short Circuit".to_owned(),
+            description: "Spawn 1 Fire in the Engine Room.".to_owned(),
             card_type: CardType::Flash,
             options: vec![],
             solution: None,

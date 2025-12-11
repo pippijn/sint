@@ -9,8 +9,8 @@ impl CardBehavior for AttackWaveCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::AttackWave,
-            title: "Attack Wave".to_string(),
-            description: "Enemy attacks twice this round!".to_string(),
+            title: "Attack Wave".to_owned(),
+            description: "Enemy attacks twice this round!".to_owned(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {

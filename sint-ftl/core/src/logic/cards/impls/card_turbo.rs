@@ -9,8 +9,8 @@ impl CardBehavior for TurboModeCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::TurboMode,
-            title: "Turbo Mode".to_string(),
-            description: "Advantage: +1 AP. Boom: 2 Fire in Engine, 1 in neighbor.".to_string(),
+            title: "Turbo Mode".to_owned(),
+            description: "Advantage: +1 AP. Boom: 2 Fire in Engine, 1 in neighbor.".to_owned(),
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {

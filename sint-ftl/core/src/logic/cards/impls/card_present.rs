@@ -9,8 +9,8 @@ impl CardBehavior for PresentCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::Present,
-            title: "Present".to_string(),
-            description: "Choose your gift: Repair 3 Tokens.".to_string(),
+            title: "Present".to_owned(),
+            description: "Choose your gift: Repair 3 Tokens.".to_owned(),
             card_type: CardType::Flash,
             options: vec![],
             solution: None,

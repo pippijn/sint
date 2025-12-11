@@ -21,7 +21,7 @@ fn has_action(actions: &[sint_core::types::Action], target: &GameAction) -> bool
 
 #[test]
 fn test_fire_blocks_system_action() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     let kitchen = find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap();
@@ -55,7 +55,7 @@ fn test_fire_blocks_system_action() {
 
 #[test]
 fn test_cannons_ammo_requirement() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     let cannons = find_room_with_system_in_map(&state.map, SystemType::Cannons).unwrap();
@@ -87,7 +87,7 @@ fn test_cannons_ammo_requirement() {
 
 #[test]
 fn test_first_aid_adjacency() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string(), "P2".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned(), "P2".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     let sickbay = find_room_with_system_in_map(&state.map, SystemType::Sickbay).unwrap();
@@ -108,7 +108,7 @@ fn test_first_aid_adjacency() {
         has_action(
             &actions_adj,
             &GameAction::FirstAid {
-                target_player: "P2".to_string()
+                target_player: "P2".to_owned()
             }
         ),
         "Should show FirstAid for neighbor"
@@ -123,7 +123,7 @@ fn test_first_aid_adjacency() {
         !has_action(
             &actions_far,
             &GameAction::FirstAid {
-                target_player: "P2".to_string()
+                target_player: "P2".to_owned()
             }
         ),
         "Should NOT show FirstAid for far player"
@@ -132,7 +132,7 @@ fn test_first_aid_adjacency() {
 
 #[test]
 fn test_revive_same_room() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string(), "P2".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned(), "P2".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     let kitchen = find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap();
@@ -151,7 +151,7 @@ fn test_revive_same_room() {
         has_action(
             &actions,
             &GameAction::Revive {
-                target_player: "P2".to_string()
+                target_player: "P2".to_owned()
             }
         ),
         "Should show Revive for fainted player in same room"
@@ -160,7 +160,7 @@ fn test_revive_same_room() {
 
 #[test]
 fn test_interact_situation_context() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     let kitchen = find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap();
@@ -169,8 +169,8 @@ fn test_interact_situation_context() {
     // Add Situation: Solvable in Kitchen
     let card = Card {
         id: CardId::StickyFloor,
-        title: "Sticky Floor".to_string(),
-        description: "Test".to_string(),
+        title: "Sticky Floor".to_owned(),
+        description: "Test".to_owned(),
         card_type: CardType::Situation,
         options: vec![],
         solution: Some(CardSolution {

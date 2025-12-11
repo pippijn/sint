@@ -5,7 +5,7 @@ use sint_core::{
 
 #[test]
 fn test_pickup_limit() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     let kitchen = sint_core::logic::find_room_with_system_in_map(
@@ -38,7 +38,7 @@ fn test_pickup_limit() {
 
 #[test]
 fn test_pickup_limit_with_wheelbarrow() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     let kitchen = sint_core::logic::find_room_with_system_in_map(
@@ -69,7 +69,7 @@ fn test_pickup_limit_with_wheelbarrow() {
 
 #[test]
 fn test_drop_wheelbarrow_fail_if_full() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     if let Some(p) = state.players.get_mut("P1") {
@@ -90,7 +90,7 @@ fn test_drop_wheelbarrow_fail_if_full() {
 
 #[test]
 fn test_throw_item() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string(), "P2".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned(), "P2".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
     let kitchen = sint_core::logic::find_room_with_system_in_map(
@@ -112,7 +112,7 @@ fn test_throw_item() {
         state.clone(),
         "P1",
         Action::Game(GameAction::Throw {
-            target_player: "P2".to_string(),
+            target_player: "P2".to_owned(),
             item_index: 0,
         }),
         None,

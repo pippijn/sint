@@ -9,8 +9,8 @@ impl CardBehavior for RudderlessCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::Rudderless,
-            title: "Rudderless".to_string(),
-            description: "Hard Hits. Enemy damage tokens +1.".to_string(),
+            title: "Rudderless".to_owned(),
+            description: "Hard Hits. Enemy damage tokens +1.".to_owned(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {

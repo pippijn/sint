@@ -9,8 +9,8 @@ impl CardBehavior for GoldenNutCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::GoldenNut,
-            title: "Golden Nut".to_string(),
-            description: "Mission: Go to Storage. Reward: Auto Hit.".to_string(),
+            title: "Golden Nut".to_owned(),
+            description: "Mission: Go to Storage. Reward: Auto Hit.".to_owned(),
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {
@@ -25,8 +25,8 @@ impl CardBehavior for GoldenNutCard {
     fn on_solved(&self, state: &mut GameState) {
         state.enemy.hp -= 1;
         state.chat_log.push(crate::types::ChatMessage {
-            sender: "SYSTEM".to_string(),
-            text: "Golden Nut used! 1 Damage dealt to the Enemy.".to_string(),
+            sender: "SYSTEM".to_owned(),
+            text: "Golden Nut used! 1 Damage dealt to the Enemy.".to_owned(),
             timestamp: 0,
         });
 
@@ -36,15 +36,15 @@ impl CardBehavior for GoldenNutCard {
             if state.boss_level >= crate::logic::MAX_BOSS_LEVEL {
                 state.phase = crate::types::GamePhase::Victory;
                 state.chat_log.push(crate::types::ChatMessage {
-                    sender: "SYSTEM".to_string(),
-                    text: "VICTORY! All bosses defeated!".to_string(),
+                    sender: "SYSTEM".to_owned(),
+                    text: "VICTORY! All bosses defeated!".to_owned(),
                     timestamp: 0,
                 });
             } else {
                 // Spawn next boss
                 state.enemy = crate::logic::get_boss(state.boss_level);
                 state.chat_log.push(crate::types::ChatMessage {
-                    sender: "SYSTEM".to_string(),
+                    sender: "SYSTEM".to_owned(),
                     text: format!("Enemy Defeated! approaching: {}", state.enemy.name),
                     timestamp: 0,
                 });

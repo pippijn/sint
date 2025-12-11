@@ -12,8 +12,8 @@ impl CardBehavior for FalseNoteCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::FalseNote,
-            title: "False Note".to_string(),
-            description: "Everyone in Cannons flees to the nearest Empty Room.".to_string(),
+            title: "False Note".to_owned(),
+            description: "Everyone in Cannons flees to the nearest Empty Room.".to_owned(),
             card_type: CardType::Flash,
             options: vec![],
             solution: None,

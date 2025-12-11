@@ -77,7 +77,7 @@ impl ActionHandler for ShootHandler {
         }
         if !p.inventory.contains(&ItemType::Peppernut) {
             return Err(GameError::InvalidAction(
-                "No ammo (Peppernut) to shoot".to_string(),
+                "No ammo (Peppernut) to shoot".to_owned(),
             ));
         }
         Ok(())
@@ -124,14 +124,14 @@ impl ActionHandler for ShootHandler {
                     if state.boss_level >= crate::logic::MAX_BOSS_LEVEL {
                         state.phase = crate::types::GamePhase::Victory;
                         state.chat_log.push(ChatMessage {
-                            sender: "SYSTEM".to_string(),
-                            text: "VICTORY! All bosses defeated!".to_string(),
+                            sender: "SYSTEM".to_owned(),
+                            text: "VICTORY! All bosses defeated!".to_owned(),
                             timestamp: 0,
                         });
                     } else {
                         state.enemy = crate::logic::get_boss(state.boss_level);
                         state.chat_log.push(ChatMessage {
-                            sender: "SYSTEM".to_string(),
+                            sender: "SYSTEM".to_owned(),
                             text: format!("Enemy Defeated! approaching: {}", state.enemy.name),
                             timestamp: 0,
                         });
@@ -140,7 +140,7 @@ impl ActionHandler for ShootHandler {
             } else {
                 // Miss
                 state.chat_log.push(ChatMessage {
-                    sender: "SYSTEM".to_string(),
+                    sender: "SYSTEM".to_owned(),
                     text: format!("{} missed the shot! (Rolled {})", player_id, roll),
                     timestamp: 0,
                 });
@@ -278,11 +278,11 @@ impl ActionHandler for LookoutHandler {
                 c.title, c.description
             )
         } else {
-            "LOOKOUT REPORT: The horizon is clear (Deck Empty).".to_string()
+            "LOOKOUT REPORT: The horizon is clear (Deck Empty).".to_owned()
         };
 
         state.chat_log.push(ChatMessage {
-            sender: "SYSTEM".to_string(),
+            sender: "SYSTEM".to_owned(),
             text: msg,
             timestamp: 0,
         });
@@ -326,7 +326,7 @@ impl ActionHandler for FirstAidHandler {
 
         if !is_self && !is_adjacent && !is_here {
             return Err(GameError::InvalidAction(
-                "Target for First Aid must be self or in adjacent/same room".to_string(),
+                "Target for First Aid must be self or in adjacent/same room".to_owned(),
             ));
         }
         Ok(())

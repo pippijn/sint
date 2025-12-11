@@ -4,13 +4,30 @@ use sint_core::logic::GameLogic;
 use sint_core::types::{Action, GameAction, GamePhase, GameState, ItemType};
 use sint_core::GameError;
 
+fn get_hazard_emoji(h: &sint_core::types::HazardType) -> &'static str {
+    match h {
+        sint_core::types::HazardType::Fire => "🔥",
+        sint_core::types::HazardType::Water => "💧",
+    }
+}
+
+fn get_item_emoji(i: &ItemType) -> &'static str {
+    match i {
+        ItemType::Peppernut => "🍪",
+        ItemType::Extinguisher => "🧯",
+        ItemType::Keychain => "🔑",
+        ItemType::Wheelbarrow => "🛒",
+        ItemType::Mitre => "🧢",
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VerificationResult {
     pub success: bool,
-    pub history: Vec<(String, Action)>,
+    pub history: Vec<(String, GameAction)>,
     pub final_state: GameState,
     pub error: Option<GameError>,
-    pub failed_action: Option<(String, Action)>,
+    pub failed_action: Option<(String, GameAction)>,
     pub score: f64,
 }
 
@@ -27,6 +44,7 @@ impl VerificationResult {
         out.push_str("\n=== FAILURE SUMMARY ===\n");
         out.push_str(&format!("Round: {}\n", state.turn_count));
         out.push_str(&format!("Phase: {:?}\n", state.phase));
+        // Action is now GameAction, so formatting {:?} gives the clean output directly
         out.push_str(&format!("Failed Action: {} performs {:?}\n", pid, action));
         out.push_str(&format!("Error: {}\n", error));
 
@@ -64,10 +82,15 @@ impl VerificationResult {
                 let sys = room
                     .system
                     .map(|s| format!("{:?}", s))
-                    .unwrap_or("Empty".to_string());
+                    .unwrap_or("Empty".to_owned());
+
+                let hazards_str: String = room.hazards.iter().map(get_hazard_emoji).collect();
+
+                let items_str: String = room.items.iter().map(get_item_emoji).collect();
+
                 out.push_str(&format!(
-                    "  Room {} ({}): System={} | Neighbors={:?} | Items={:?} | Hazards={:?}\n",
-                    rid, room.name, sys, room.neighbors, room.items, room.hazards
+                    "  Room {} ({}): System={} | Neighbors={:?} | Hazards=[{}] | Items=[{}]\n",
+                    rid, room.name, sys, room.neighbors, hazards_str, items_str
                 ));
             }
         }
@@ -77,9 +100,11 @@ impl VerificationResult {
         pids.sort();
         for p_id in pids {
             if let Some(p) = state.players.get(&p_id) {
+                let inv_str: String = p.inventory.iter().map(get_item_emoji).collect();
+
                 out.push_str(&format!(
-                    "  {}: Room {} | AP {} | HP {} | Inv {:?} | Status {:?}\n",
-                    p_id, p.room_id, p.ap, p.hp, p.inventory, p.status
+                    "  {}: Room {} | AP {} | HP {} | Inv [{}] | Status {:?}\n",
+                    p_id, p.room_id, p.ap, p.hp, inv_str, p.status
                 ));
             }
         }
@@ -88,7 +113,7 @@ impl VerificationResult {
     }
 }
 
-pub fn parse_solution_text(text: &str) -> (Vec<(String, Action)>, Option<u64>, Option<usize>) {
+pub fn parse_solution_text(text: &str) -> (Vec<(String, GameAction)>, Option<u64>, Option<usize>) {
     let mut actions = Vec::new();
     let mut seed = None;
     let mut players = None;
@@ -118,60 +143,60 @@ pub fn parse_solution_text(text: &str) -> (Vec<(String, Action)>, Option<u64>, O
             continue;
         }
 
-        let pid = parts[0].trim().to_string();
+        let pid = parts[0].trim().to_owned();
         let cmd = parts[1].trim();
 
         let action = if cmd.starts_with("Move") {
             let target: u32 = cmd.split_whitespace().nth(1).unwrap().parse().unwrap();
-            Action::Game(GameAction::Move { to_room: target })
+            GameAction::Move { to_room: target }
         } else if cmd == "Bake" {
-            Action::Game(GameAction::Bake)
+            GameAction::Bake
         } else if cmd == "Shoot" {
-            Action::Game(GameAction::Shoot)
+            GameAction::Shoot
         } else if cmd.starts_with("Throw") {
             let parts: Vec<&str> = cmd.split_whitespace().collect();
-            let target = parts[1].to_string();
+            let target = parts[1].to_owned();
             let idx = parts[2].parse().unwrap();
-            Action::Game(GameAction::Throw {
+            GameAction::Throw {
                 target_player: target,
                 item_index: idx,
-            })
+            }
         } else if cmd == "Extinguish" {
-            Action::Game(GameAction::Extinguish)
+            GameAction::Extinguish
         } else if cmd == "Repair" {
-            Action::Game(GameAction::Repair)
+            GameAction::Repair
         } else if cmd == "PickUp" {
-            Action::Game(GameAction::PickUp {
+            GameAction::PickUp {
                 item_type: ItemType::Peppernut,
-            })
+            }
         } else if cmd.starts_with("Drop") {
             let idx = cmd.split_whitespace().nth(1).unwrap().parse().unwrap();
-            Action::Game(GameAction::Drop { item_index: idx })
+            GameAction::Drop { item_index: idx }
         } else if cmd == "Pass" {
-            Action::Game(GameAction::Pass)
+            GameAction::Pass
         } else if cmd == "Ready" {
-            Action::Game(GameAction::VoteReady { ready: true })
+            GameAction::VoteReady { ready: true }
         } else if cmd == "RaiseShields" {
-            Action::Game(GameAction::RaiseShields)
+            GameAction::RaiseShields
         } else if cmd == "EvasiveManeuvers" {
-            Action::Game(GameAction::EvasiveManeuvers)
+            GameAction::EvasiveManeuvers
         } else if cmd == "Lookout" {
-            Action::Game(GameAction::Lookout)
+            GameAction::Lookout
         } else if cmd == "Interact" {
-            Action::Game(GameAction::Interact)
+            GameAction::Interact
         } else if cmd.starts_with("Revive") {
-            let target = cmd.split_whitespace().nth(1).unwrap().to_string();
-            Action::Game(GameAction::Revive {
+            let target = cmd.split_whitespace().nth(1).unwrap().to_owned();
+            GameAction::Revive {
                 target_player: target,
-            })
+            }
         } else if cmd.starts_with("FirstAid") {
-            let target = cmd.split_whitespace().nth(1).unwrap().to_string();
-            Action::Game(GameAction::FirstAid {
+            let target = cmd.split_whitespace().nth(1).unwrap().to_owned();
+            GameAction::FirstAid {
                 target_player: target,
-            })
+            }
         } else if cmd.starts_with("Chat") {
-            let msg = cmd.replace("Chat ", "").trim().to_string();
-            Action::Game(GameAction::Chat { message: msg })
+            let msg = cmd.replace("Chat ", "").trim().to_owned();
+            GameAction::Chat { message: msg }
         } else {
             panic!("Unknown command: {}", cmd);
         };
@@ -183,7 +208,7 @@ pub fn parse_solution_text(text: &str) -> (Vec<(String, Action)>, Option<u64>, O
 
 pub fn run_verification(
     initial_state: GameState,
-    user_actions: Vec<(String, Action)>,
+    user_actions: Vec<(String, GameAction)>,
 ) -> VerificationResult {
     let mut state = initial_state;
     let mut full_history = Vec::new();
@@ -210,8 +235,10 @@ pub fn run_verification(
             // Just Vote Ready for everyone
             let pids: Vec<String> = state.players.keys().cloned().collect();
             for pid in pids {
-                let act = Action::Game(GameAction::VoteReady { ready: true });
-                match GameLogic::apply_action(state.clone(), &pid, act.clone(), None) {
+                let act = GameAction::VoteReady { ready: true };
+                // Wrap in Action::Game for core logic
+                let core_act = Action::Game(act.clone());
+                match GameLogic::apply_action(state.clone(), &pid, core_act, None) {
                     Ok(s) => {
                         state = s;
                         full_history.push((pid, act));
@@ -223,7 +250,9 @@ pub fn run_verification(
         }
 
         if let Some((pid, action)) = action_iter.next() {
-            match GameLogic::apply_action(state.clone(), &pid, action.clone(), None) {
+            // Wrap in Action::Game for core logic
+            let core_act = Action::Game(action.clone());
+            match GameLogic::apply_action(state.clone(), &pid, core_act, None) {
                 Ok(mut s) => {
                     full_history.push((pid.clone(), action.clone()));
 
@@ -231,13 +260,9 @@ pub fn run_verification(
                     if s.phase == GamePhase::TacticalPlanning {
                         if let Some(p) = s.players.get(&pid) {
                             if p.ap == 0 && !p.is_ready {
-                                let ready_act = Action::Game(GameAction::VoteReady { ready: true });
-                                match GameLogic::apply_action(
-                                    s.clone(),
-                                    &pid,
-                                    ready_act.clone(),
-                                    None,
-                                ) {
+                                let ready_act = GameAction::VoteReady { ready: true };
+                                let core_ready = Action::Game(ready_act.clone());
+                                match GameLogic::apply_action(s.clone(), &pid, core_ready, None) {
                                     Ok(next_s) => {
                                         s = next_s;
                                         full_history.push((pid.clone(), ready_act));

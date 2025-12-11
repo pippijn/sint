@@ -9,8 +9,8 @@ impl CardBehavior for TheStaffCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::TheStaff,
-            title: "The Staff".to_string(),
-            description: "Mission: Dormitory -> Bridge. Reward: Magical Recovery.".to_string(),
+            title: "The Staff".to_owned(),
+            description: "Mission: Dormitory -> Bridge. Reward: Magical Recovery.".to_owned(),
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {
@@ -28,9 +28,9 @@ impl CardBehavior for TheStaffCard {
             p.status.retain(|s| *s != PlayerStatus::Fainted);
         }
         state.chat_log.push(crate::types::ChatMessage {
-            sender: "SYSTEM".to_string(),
+            sender: "SYSTEM".to_owned(),
             text: "The Staff is activated! The crew is fully healed via Magical Recovery."
-                .to_string(),
+                .to_owned(),
             timestamp: 0,
         });
     }

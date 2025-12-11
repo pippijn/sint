@@ -9,8 +9,8 @@ impl CardBehavior for SlipperyDeckCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::SlipperyDeck,
-            title: "Slippery Deck".to_string(),
-            description: "Soap everywhere. Move costs 0 AP, but Actions cost +1 AP.".to_string(),
+            title: "Slippery Deck".to_owned(),
+            description: "Soap everywhere. Move costs 0 AP, but Actions cost +1 AP.".to_owned(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {

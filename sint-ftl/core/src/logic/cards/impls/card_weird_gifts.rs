@@ -9,8 +9,8 @@ impl CardBehavior for WeirdGiftsCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::WeirdGifts,
-            title: "Weird Gifts".to_string(),
-            description: "Boom: 3 Fire in Cargo, 1 Fire in Sickbay.".to_string(),
+            title: "Weird Gifts".to_owned(),
+            description: "Boom: 3 Fire in Cargo, 1 Fire in Sickbay.".to_owned(),
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {

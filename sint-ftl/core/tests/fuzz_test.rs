@@ -6,7 +6,7 @@ fn test_fuzz_random_walk() {
     let mut rng = thread_rng();
     // Use a fixed seed for reproducibility of the initial state,
     // but the walk itself is randomized by thread_rng.
-    let mut state = GameLogic::new_game(vec!["P1".to_string(), "P2".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned(), "P2".to_owned()], 12345);
 
     // Fuzz for a set number of steps
     let max_steps = 2000;

@@ -9,8 +9,8 @@ impl CardBehavior for HighWavesCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::HighWaves,
-            title: "High Waves".to_string(),
-            description: "All players are pushed 1 Room towards the Engine.".to_string(),
+            title: "High Waves".to_owned(),
+            description: "All players are pushed 1 Room towards the Engine.".to_owned(),
             card_type: CardType::Flash,
             options: vec![],
             solution: None,

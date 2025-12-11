@@ -9,8 +9,8 @@ impl CardBehavior for ListingCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::Listing,
-            title: "Listing Ship".to_string(),
-            description: "Walking is easy (0 AP), but working is hard (2x Cost).".to_string(),
+            title: "Listing Ship".to_owned(),
+            description: "Walking is easy (0 AP), but working is hard (2x Cost).".to_owned(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {

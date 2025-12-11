@@ -9,8 +9,8 @@ impl CardBehavior for AmerigoCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::Amerigo,
-            title: "Amerigo".to_string(),
-            description: "Hungry Horse in Storage. Eats 1 Peppernut per round.".to_string(),
+            title: "Amerigo".to_owned(),
+            description: "Hungry Horse in Storage. Eats 1 Peppernut per round.".to_owned(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {

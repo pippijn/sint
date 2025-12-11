@@ -5,7 +5,7 @@ use sint_core::{
 
 #[test]
 fn test_v2_star_topology() {
-    let state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     let hub_id = 0;
 
     // 1. Verify Hub is Room 0 and Empty
@@ -31,7 +31,7 @@ fn test_v2_star_topology() {
 
 #[test]
 fn test_system_mapping_v2() {
-    let state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
 
     // Verify Storage is System 10
     assert_eq!(SystemType::Storage.as_u32(), 10);
@@ -59,7 +59,7 @@ fn test_enemy_targeting_miss() {
 
 #[test]
 fn test_amerigo_diet_restriction() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     let storage_id = find_room_with_system(&state, SystemType::Storage).unwrap();
 
     // Setup: Storage has 1 Extinguisher and 1 Peppernut
@@ -86,7 +86,7 @@ fn test_amerigo_diet_restriction() {
 
 #[test]
 fn test_wheel_clamp_glitch_movement() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
 
     // Place P1 in Room 9 (Storage in default layout)
     let max_room = 9;
@@ -104,7 +104,7 @@ fn test_wheel_clamp_glitch_movement() {
 
 #[test]
 fn test_false_note_flee_to_hub() {
-    let mut state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     let cannons = find_room_with_system(&state, SystemType::Cannons).unwrap();
 
     if let Some(p) = state.players.get_mut("P1") {
@@ -121,7 +121,7 @@ fn test_false_note_flee_to_hub() {
 
 #[test]
 fn test_v2_start_location_and_mapping() {
-    let state = GameLogic::new_game(vec!["P1".to_string()], 12345);
+    let state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
 
     // 1. Verify specific room mappings (Room 2=Dormitory, Room 3=Cargo)
     // Note: These IDs rely on the order in ROOM_DEFINITIONS

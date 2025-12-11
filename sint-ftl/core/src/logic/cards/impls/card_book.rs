@@ -9,8 +9,8 @@ impl CardBehavior for TheBookCard {
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::TheBook,
-            title: "The Book".to_string(),
-            description: "Mission: Storage -> Bridge. Reward: Skip Enemy Attack.".to_string(),
+            title: "The Book".to_owned(),
+            description: "Mission: Storage -> Bridge. Reward: Skip Enemy Attack.".to_owned(),
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {
@@ -25,9 +25,8 @@ impl CardBehavior for TheBookCard {
     fn on_solved(&self, state: &mut GameState) {
         state.enemy.next_attack = None;
         state.chat_log.push(crate::types::ChatMessage {
-            sender: "SYSTEM".to_string(),
-            text: "The Book is recovered! The enemy is confused and skips their attack."
-                .to_string(),
+            sender: "SYSTEM".to_owned(),
+            text: "The Book is recovered! The enemy is confused and skips their attack.".to_owned(),
             timestamp: 0,
         });
     }
