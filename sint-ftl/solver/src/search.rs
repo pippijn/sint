@@ -268,7 +268,9 @@ fn expand_node(node: &SearchNode, weights: &ScoringWeights) -> Vec<SearchNode> {
         }];
     }
 
-    let active_player = state.players.values().find(|p| !p.is_ready && p.ap > 0);
+    let mut players: Vec<_> = state.players.values().collect();
+    players.sort_by_key(|p| &p.id);
+    let active_player = players.into_iter().find(|p| !p.is_ready && p.ap > 0);
 
     match active_player {
         Some(p) => {

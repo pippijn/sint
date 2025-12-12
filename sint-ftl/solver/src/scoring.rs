@@ -47,54 +47,62 @@ pub struct ScoringWeights {
 
     // Logistics
     pub ammo_stockpile_reward: f64,
+    pub loose_ammo_reward: f64,
+    pub hazard_proximity_reward: f64,
+    pub situation_exposure_penalty: f64,
+    pub system_disabled_penalty: f64,
 
     // Progression
     pub boss_level_reward: f64,
+    pub turn_penalty: f64,
 }
 
 impl Default for ScoringWeights {
     fn default() -> Self {
         Self {
-            hull_integrity: 10000.0, // Critical: Hull is Life (Increased)
-            enemy_hp: 1000.0,        // High value on Damage (Decreased to prioritize survival)
+            hull_integrity: 2000.0, // Critical: Hull is Life (Decreased to allow trading blows)
+            enemy_hp: 3000.0,        // High value on Damage (Increased to prioritize offense)
             player_hp: 100.0,
             ap_balance: 0.1,
 
             // Hazards - significantly increased penalties
-            fire_penalty_base: 500.0, // Burn, baby, burn (but don't)
-            water_penalty: 200.0,
+            fire_penalty_base: 10000.0, // Burn, baby, burn (but don't)
+            water_penalty: 1000.0,
 
             // Situations & Threats
             active_situation_penalty: 500.0,
             threat_player_penalty: 100.0, // Reduced to allow calculated risks
-            threat_system_penalty: 5000.0,
-            death_penalty: 50000.0,
-
-            // Roles
-            station_keeping_reward: 10.0, // Mild tie-breaker
-
-            gunner_base_reward: 600.0, // STAY AT THE CANNONS
-            gunner_per_ammo: 300.0, // LOAD THE CANNONS
-            gunner_working_bonus: 50.0,
-            gunner_distance_factor: 100.0, // Extreme pull to cannons
-
-            firefighter_base_reward: 100.0,
-            firefighter_distance_factor: 10.0,
-
-            baker_base_reward: 300.0, // CRITICAL: We need ammo
-            baker_distance_factor: 20.0,
-
-            healing_reward: 50.0,
-            sickbay_distance_factor: 10.0,
-
-            backtracking_penalty: 50.0,
-
-            solution_solver_reward: 200.0,
-            solution_distance_factor: 10.0,
-
-            ammo_stockpile_reward: 500.0, // Encourage dumping ammo in Cannons
-
+                                    threat_system_penalty: 2000.0,
+                                    death_penalty: 50000.0,
+                        
+                                    // Roles
+                                    station_keeping_reward: 5000.0, // Critical: Must be in position to react
+                                    gunner_base_reward: 600.0, // STAY AT THE CANNONS
+                                    gunner_per_ammo: 300.0, // LOAD THE CANNONS
+                                    gunner_working_bonus: 50.0,
+                                    gunner_distance_factor: 500.0, // Extreme pull to cannons
+                        
+                                    firefighter_base_reward: 2000.0,
+                                    firefighter_distance_factor: 10.0,
+                        
+                                    baker_base_reward: 300.0, // CRITICAL: We need ammo
+                                    baker_distance_factor: 20.0,
+                        
+                                    healing_reward: 50.0,
+                                    sickbay_distance_factor: 10.0,
+                        
+                                    backtracking_penalty: 50.0,
+                        
+                                    solution_solver_reward: 200.0,
+                                    solution_distance_factor: 10.0,
+                        
+                                    ammo_stockpile_reward: 500.0, // Encourage dumping ammo in Cannons
+                                    loose_ammo_reward: 200.0, // Every nut on the map is hope
+                                    hazard_proximity_reward: 50.0,
+                                    situation_exposure_penalty: 1000.0,
+                                    system_disabled_penalty: 5000.0,
             boss_level_reward: 10000.0,
+            turn_penalty: 50.0,
         }
     }
 }
@@ -149,6 +157,7 @@ pub fn score_state(
     score += state.hull_integrity as f64 * weights.hull_integrity;
     score += state.boss_level as f64 * weights.boss_level_reward;
     score += (state.enemy.max_hp - state.enemy.hp) as f64 * weights.enemy_hp;
+    score -= state.turn_count as f64 * weights.turn_penalty;
 
     // --- 2. Hazards ---
     let mut fire_rooms = HashSet::new();
@@ -175,8 +184,67 @@ pub fn score_state(
     score -= (fire_count as f64).powf(1.3) * weights.fire_penalty_base;
     score -= water_count as f64 * weights.water_penalty;
 
+    // -- System Disabled --
+    for room in state.map.rooms.values() {
+        if let Some(sys) = room.system {
+            if matches!(sys, SystemType::Engine | SystemType::Cannons | SystemType::Bridge) {
+                if !room.hazards.is_empty() {
+                    let has_disabling_hazard = room.hazards.contains(&HazardType::Fire) || room.hazards.contains(&HazardType::Water);
+                    if has_disabling_hazard {
+                        score -= weights.system_disabled_penalty;
+                    }
+                }
+            }
+        }
+    }
+
+    // -- Hazard Proximity --
+    let mut hazardous_rooms = fire_rooms.clone();
+    for room in state.map.rooms.values() {
+        if room.hazards.contains(&HazardType::Water) {
+            hazardous_rooms.insert(room.id);
+        }
+    }
+
+    for &hid in &hazardous_rooms {
+        let mut min_d = 999;
+        for p in state.players.values() {
+            if p.hp > 0 {
+                let mut t_set = HashSet::new();
+                t_set.insert(hid);
+                let d = min_distance(state, p.room_id, &t_set);
+                if d < min_d {
+                    min_d = d;
+                }
+            }
+        }
+        if min_d < 20 {
+             score += (20.0 - min_d as f64) * weights.hazard_proximity_reward;
+        }
+    }
+
     // --- 3. Active Situations ---
     score -= state.active_situations.len() as f64 * weights.active_situation_penalty;
+
+    for card in &state.active_situations {
+        if card.id == sint_core::types::CardId::Overheating {
+            let mut engine_id = None;
+            for r in state.map.rooms.values() {
+                if r.system == Some(SystemType::Engine) {
+                    engine_id = Some(r.id);
+                    break;
+                }
+            }
+            if let Some(eid) = engine_id {
+                let count = state
+                    .players
+                    .values()
+                    .filter(|p| p.room_id == eid)
+                    .count();
+                score -= count as f64 * weights.situation_exposure_penalty;
+            }
+        }
+    }
 
     // --- 4. Pending Threats (Telegraphs) ---
     let protected = state.shields_active || state.evasion_active;
@@ -401,12 +469,16 @@ pub fn score_state(
 
     // --- 8. Logistics (Ammo Stockpile) ---
     for room in state.map.rooms.values() {
+        let nuts = room
+            .items
+            .iter()
+            .filter(|i| **i == ItemType::Peppernut)
+            .count();
+        
+        // General loose ammo reward
+        score += nuts as f64 * weights.loose_ammo_reward;
+
         if room.system == Some(SystemType::Cannons) {
-            let nuts = room
-                .items
-                .iter()
-                .filter(|i| **i == ItemType::Peppernut)
-                .count();
             // Massive reward for having ammo at Cannons
             score += nuts as f64 * weights.ammo_stockpile_reward;
         }
