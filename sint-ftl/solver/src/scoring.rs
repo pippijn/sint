@@ -75,8 +75,8 @@ impl Default for ScoringWeights {
             water_penalty: 1000.0,
 
             // Situations & Threats
-            active_situation_penalty: 500.0,
-            threat_player_penalty: 100.0, // Reduced to allow calculated risks
+            active_situation_penalty: 5000.0, // WAS 500.0 - HUGE increase. Situations kill runs.
+            threat_player_penalty: 100.0,     // Reduced to allow calculated risks
             threat_system_penalty: 2000.0,
             death_penalty: 50000.0,
 
@@ -98,7 +98,7 @@ impl Default for ScoringWeights {
 
             backtracking_penalty: 50.0,
 
-            solution_solver_reward: 1000.0,
+            solution_solver_reward: 5000.0, // WAS 1000.0. Solving problems is as important as avoiding damage.
             solution_distance_factor: 100.0,
 
             ammo_stockpile_reward: 2000.0, // Encourage dumping ammo in Cannons
