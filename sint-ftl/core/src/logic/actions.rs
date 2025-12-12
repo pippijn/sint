@@ -617,7 +617,9 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
                 actions.push(Action::Game(action));
             }
         }
-        if room.hazards.contains(&HazardType::Water) {
+        if room.hazards.contains(&HazardType::Water)
+            || (room.system == Some(SystemType::Cargo) && projected_state.hull_integrity < MAX_HULL)
+        {
             let action = GameAction::Repair;
             if p.ap >= action_cost(&projected_state, player_id, &action) {
                 actions.push(Action::Game(action));

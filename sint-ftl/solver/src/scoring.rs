@@ -1,5 +1,5 @@
 use sint_core::types::{
-    GameAction, GamePhase, GameState, HazardType, ItemType, PlayerId, RoomId, SystemType,
+    GameAction, GamePhase, GameState, HazardType, ItemType, PlayerId, RoomId, SystemType, MAX_HULL,
 };
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -55,6 +55,7 @@ pub struct ScoringWeights {
 
     pub scavenger_reward: f64,
     pub repair_proximity_reward: f64,
+    pub cargo_repair_incentive: f64,
 
     // Progression
     pub boss_level_reward: f64,
@@ -109,9 +110,10 @@ impl Default for ScoringWeights {
 
             scavenger_reward: 500.0,
             repair_proximity_reward: 1000.0,
+            cargo_repair_incentive: 50.0,
 
             boss_level_reward: 10000.0,
-            turn_penalty: 100.0,
+            turn_penalty: 20.0,
         }
     }
 }
@@ -206,6 +208,29 @@ pub fn score_state(
                         score -= weights.system_disabled_penalty;
                     }
                 }
+            }
+        }
+    }
+
+    // -- Cargo Hull Repair Incentive --
+    let urgency = (MAX_HULL as f64 - state.hull_integrity as f64)
+        .max(0.0)
+        .powf(1.5);
+
+    // Reward for being in Cargo scales with damage
+    let dynamic_incentive = urgency * weights.cargo_repair_incentive;
+
+    let mut cargo_id = None;
+    for r in state.map.rooms.values() {
+        if r.system == Some(SystemType::Cargo) {
+            cargo_id = Some(r.id);
+            break;
+        }
+    }
+    if let Some(cid) = cargo_id {
+        for p in state.players.values() {
+            if p.room_id == cid {
+                score += dynamic_incentive;
             }
         }
     }

@@ -36,7 +36,7 @@ The Enemy targets specific **Systems** determined by a **2d6 Dice Roll**. The Ro
 | :--- | :--- | :--- | :--- |
 | **2** | **The Bow** | *Lookout.* Reveals the top card of the Enemy Deck (Forecasting). | - |
 | **3** | **Dormitory** | *Respawn Point.* Fainted players revive here at the start of the next round. | - |
-| **4** | **Cargo** | *Fuel.* Contains flammable gifts. Fire spreads 2x faster here (Spread Threshold 1). | **Wheelbarrow** |
+| **4** | **Cargo** | *Fuel.* Fire spreads 2x faster. Action: **"Repair"** (1 AP) -> +1 Hull (Max 20). | **Wheelbarrow** |
 | **5** | **Engine** | *Power.* Action: **"Raise Shields"** (2 AP). Blocks **all** incoming **Damage** events this round. | **Extinguisher** |
 | **6** | **Kitchen** | *Ammo.* Action: **"Bake"** (1 AP). Create 3 Peppernuts (placed in room). | - |
 | **7** | **Cannons** | *Attack.* Action: **"Load & Fire"** (1 AP + 1 Nut). Deals 1 Dmg to Enemy (**1d6 >= 3**). | - |
@@ -64,7 +64,7 @@ The Enemy targets specific **Systems** determined by a **2d6 Dice Roll**. The Ro
 1.  **Move:** Move to an adjacent room.
 2.  **Interact:** Perform the specific Room Action (Bake, Shoot, Shield, etc.).
 3.  **Extinguish:** Remove 1 Fire token from current room (Removes **2** if holding **Extinguisher**).
-4.  **Repair:** Remove 1 Water token from current room.
+4.  **Repair:** Remove 1 Water token from current room. If in **Cargo** and no Water is present, restores **1 Hull Integrity** (Max 20).
 5.  **Throw:** Toss 1 Peppernut to a player in an adjacent room (100% success).
 6.  **Pick Up:** Add item from room to inventory.
 7.  **Drop:** Drop item from inventory to room (**Free**).

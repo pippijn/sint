@@ -6,6 +6,8 @@ use std::collections::BTreeMap;
 pub type PlayerId = String;
 pub type RoomId = u32;
 
+pub const MAX_HULL: i32 = 20;
+
 // --- Map Layout ---
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Default, Hash)]
 pub enum MapLayout {

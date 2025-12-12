@@ -1,6 +1,6 @@
 use super::ActionHandler;
 use crate::logic::cards::get_behavior;
-use crate::types::{GameState, HazardType, ItemType, PlayerStatus};
+use crate::types::{GameState, HazardType, ItemType, PlayerStatus, MAX_HULL};
 use crate::GameError;
 
 // --- EXTINGUISH ---
@@ -72,6 +72,16 @@ impl ActionHandler for RepairHandler {
             .ok_or(GameError::RoomNotFound)?;
 
         if !room.hazards.contains(&HazardType::Water) {
+            // Special: Cargo allows Hull Repair
+            if room.system == Some(crate::types::SystemType::Cargo) {
+                if state.hull_integrity >= MAX_HULL {
+                    return Err(GameError::InvalidAction(
+                        "Hull is already at maximum integrity".to_owned(),
+                    ));
+                }
+                return Ok(());
+            }
+
             return Err(GameError::InvalidAction(format!(
                 "No water to repair in {} ({})",
                 room.name, room.id
@@ -96,6 +106,10 @@ impl ActionHandler for RepairHandler {
         if let Some(room) = state.map.rooms.get_mut(&room_id) {
             if let Some(idx) = room.hazards.iter().position(|&h| h == HazardType::Water) {
                 room.hazards.remove(idx);
+            } else if room.system == Some(crate::types::SystemType::Cargo) {
+                if state.hull_integrity < MAX_HULL {
+                    state.hull_integrity += 1;
+                }
             }
         }
         Ok(())

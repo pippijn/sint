@@ -78,7 +78,7 @@ impl GameLogic {
             rng_seed: next_seed,
             phase: GamePhase::Lobby,
             turn_count: 1,
-            hull_integrity: 20,
+            hull_integrity: MAX_HULL,
             boss_level: 0,
             layout,
             map,
