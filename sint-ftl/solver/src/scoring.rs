@@ -55,36 +55,36 @@ pub struct ScoringWeights {
 impl Default for ScoringWeights {
     fn default() -> Self {
         Self {
-            hull_integrity: 5000.0, // Critical: Hull is Life
-            enemy_hp: 2000.0,       // High value on Damage
+            hull_integrity: 10000.0, // Critical: Hull is Life (Increased)
+            enemy_hp: 1000.0,        // High value on Damage (Decreased to prioritize survival)
             player_hp: 100.0,
             ap_balance: 0.1,
 
             // Hazards - significantly increased penalties
-            fire_penalty_base: 200.0,
-            water_penalty: 100.0,
+            fire_penalty_base: 500.0, // Burn, baby, burn (but don't)
+            water_penalty: 200.0,
 
             // Situations & Threats
-            active_situation_penalty: 300.0,
-            threat_player_penalty: 2500.0, // Almost as bad as losing Hull (because it leads to it)
-            threat_system_penalty: 2500.0,
+            active_situation_penalty: 500.0,
+            threat_player_penalty: 100.0, // Reduced to allow calculated risks
+            threat_system_penalty: 5000.0,
             death_penalty: 50000.0,
 
             // Roles
-            station_keeping_reward: 200.0, // Strong incentive to stay at post
+            station_keeping_reward: 10.0, // Mild tie-breaker
 
-            gunner_base_reward: 50.0,
-            gunner_per_ammo: 300.0,
+            gunner_base_reward: 600.0, // STAY AT THE CANNONS
+            gunner_per_ammo: 300.0, // LOAD THE CANNONS
             gunner_working_bonus: 50.0,
-            gunner_distance_factor: 10.0,
+            gunner_distance_factor: 100.0, // Extreme pull to cannons
 
             firefighter_base_reward: 100.0,
             firefighter_distance_factor: 10.0,
 
-            baker_base_reward: 50.0,
-            baker_distance_factor: 5.0,
+            baker_base_reward: 300.0, // CRITICAL: We need ammo
+            baker_distance_factor: 20.0,
 
-            healing_reward: 100.0,
+            healing_reward: 50.0,
             sickbay_distance_factor: 10.0,
 
             backtracking_penalty: 50.0,
@@ -172,23 +172,33 @@ pub fn score_state(
             .count();
     }
 
-    score -= (fire_count as f64).powf(1.5) * weights.fire_penalty_base;
+    score -= (fire_count as f64).powf(1.3) * weights.fire_penalty_base;
     score -= water_count as f64 * weights.water_penalty;
 
     // --- 3. Active Situations ---
     score -= state.active_situations.len() as f64 * weights.active_situation_penalty;
 
     // --- 4. Pending Threats (Telegraphs) ---
-    // If we are protected, we essentially negated the threat.
     let protected = state.shields_active || state.evasion_active;
 
     if let Some(attack) = &state.enemy.next_attack {
-        if !protected {
-            let players_in_target = state
-                .players
-                .values()
-                .filter(|p| p.room_id == attack.target_room)
-                .count();
+        let players_in_target = state
+            .players
+            .values()
+            .filter(|p| p.room_id == attack.target_room)
+            .count();
+        
+        let targets_system = attack.target_system.is_some();
+        let is_severe = players_in_target > 0 || targets_system;
+
+        if protected {
+            if is_severe {
+                score += 2000.0; // High value for mitigating a real threat
+            } else {
+                score += 500.0; // Small value for safety
+            }
+        } else {
+            // Not protected - Apply penalties
             if players_in_target > 0 {
                 score -= players_in_target as f64 * weights.threat_player_penalty;
             }
@@ -201,12 +211,13 @@ pub fn score_state(
                     score -= weights.threat_system_penalty;
                 }
             }
-
-            // General threat penalty if ANY room is hit (Hull Damage risk)
+            // General hull risk
             score -= weights.threat_system_penalty * 0.5;
-        } else {
-            // Reward for being protected when attacked
-            score += 1000.0;
+        }
+    } else {
+        // No attack coming, but shields up? Wasted AP mostly, but small safety bonus
+        if protected {
+            score -= 100.0; 
         }
     }
 
@@ -291,9 +302,14 @@ pub fn score_state(
         if peppernuts > 0 {
             let mut gunner_score = 0.0;
             let dist = min_distance(state, p.room_id, &cannon_rooms);
+            
+            // Distance heuristic: Pull players with ammo to cannons
+            // Note: Not multiplied by peppernuts to prevent hoarding abuse
+            gunner_score += (20.0 - dist as f64).max(0.0) * weights.gunner_distance_factor * (1.0 + 0.2 * peppernuts as f64);
+
             if dist == 0 {
-                gunner_score +=
-                    weights.gunner_per_ammo * peppernuts as f64 + weights.gunner_base_reward;
+                // At cannons: Reward quantity heavily to encourage stocking/shooting
+                gunner_score += weights.gunner_per_ammo * peppernuts as f64 + weights.gunner_base_reward;
                 // Bonus if Cannons system is working
                 for &rid in &cannon_rooms {
                     if let Some(r) = state.map.rooms.get(&rid) {
@@ -303,10 +319,10 @@ pub fn score_state(
                     }
                 }
             } else {
-                gunner_score += (20.0 - dist as f64).max(0.0)
-                    * weights.gunner_distance_factor
-                    * peppernuts as f64;
+                // En route: Small reward per nut to encourage picking up, but not hoarding
+                gunner_score += weights.gunner_per_ammo * 0.1 * peppernuts as f64;
             }
+            
             if has_wheelbarrow && peppernuts < 5 {
                 gunner_score *= 0.1;
             }

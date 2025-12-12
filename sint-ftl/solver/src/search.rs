@@ -277,6 +277,9 @@ fn expand_node(node: &SearchNode, weights: &ScoringWeights) -> Vec<SearchNode> {
 
             for action_wrapper in legal_actions {
                 if let Action::Game(act) = action_wrapper {
+                    // Undo isn't useful: we rather do the right thing from the start instead of
+                    // doing and undoing a bunch of things. Also, VoteReady isn't needed, because
+                    // all that does is cycle through another planning/execution phase pair.
                     if matches!(act, GameAction::Undo { .. } | GameAction::VoteReady { .. }) {
                         continue;
                     }
