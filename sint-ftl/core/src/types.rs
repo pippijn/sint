@@ -54,6 +54,9 @@ pub struct GameState {
     pub shields_active: bool,
     pub evasion_active: bool,
 
+    // Rest Round Flag
+    pub is_resting: bool,
+
     /// Proposed Actions (for Tactical Planning phase)
     pub proposal_queue: Vec<ProposedAction>,
 
@@ -182,10 +185,17 @@ pub enum PlayerStatus {
 // --- Enemy ---
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Hash)]
+pub enum EnemyState {
+    Active,
+    Defeated,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Hash)]
 pub struct Enemy {
     pub name: String,
     pub hp: i32,
     pub max_hp: i32,
+    pub state: EnemyState,
     /// What the enemy plans to do next (Telegraphing)
     pub next_attack: Option<EnemyAttack>,
 }

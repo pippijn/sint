@@ -87,6 +87,7 @@ impl GameLogic {
             chat_log: vec![],
             shields_active: false,
             evasion_active: false,
+            is_resting: false,
             proposal_queue: vec![],
             active_situations: vec![],
             latest_event: None,
@@ -145,6 +146,7 @@ pub fn get_boss(level: u32) -> Enemy {
             name: (*name).to_owned(),
             hp: *hp,
             max_hp: *hp,
+            state: EnemyState::Active,
             next_attack: None,
         }
     } else {
@@ -152,6 +154,7 @@ pub fn get_boss(level: u32) -> Enemy {
             name: "Unknown Threat".to_owned(),
             hp: 50,
             max_hp: 50,
+            state: EnemyState::Active,
             next_attack: None,
         }
     }

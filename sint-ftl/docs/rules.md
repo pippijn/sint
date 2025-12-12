@@ -109,6 +109,11 @@ The game does not have fixed turns. It plays in a series of **Rounds**, each con
 3.  **Spread:** Fire may spread (Dice Roll).
 4.  **Respawn:** Fainted players return to the Dormitory.
 
+### **REST ROUND**
+*   Triggered when a Boss is defeated.
+*   **Safety:** No Enemy Telegraph or Event Cards occur.
+*   **Opportunity:** Players have one full round (Tactical Planning + Execution) to repair, heal, and reposition before the next Boss arrives.
+
 ---
 
 ## **5. HAZARDS**

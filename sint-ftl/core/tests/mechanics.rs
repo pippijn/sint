@@ -175,10 +175,100 @@ fn test_boss_progression() {
     if let Some(p) = state.players.get_mut("P1") {
         p.room_id = cannons;
         p.inventory.push(ItemType::Peppernut);
+        // Ensure AP is consumed or set to 0 to force phase advance
     }
 
+    // 1. Tactical -> Execution
     let res = GameLogic::apply_action(state.clone(), "P1", Action::Game(GameAction::Shoot), None);
     let mut state = res.unwrap();
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Game(GameAction::VoteReady { ready: true }),
+        None,
+    )
+    .unwrap();
+
+    // Should be in Execution? Wait, VoteReady triggers advance if all ready.
+    // If AP > 0, it might loop Tactical? No, Shoot costs 1 AP. P1 starts with 2. 1 left.
+    // VoteReady with AP left -> TacticalPlanning loop?
+    // Let's force AP to 0 before voting.
+    state.players.get_mut("P1").unwrap().ap = 0;
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Game(GameAction::VoteReady { ready: true }),
+        None,
+    )
+    .unwrap();
+
+    // Now in Execution -> EnemyAction (auto? No, advance_phase usually stops at EnemyAction)
+    // Actually, `advance_phase(Execution)` transitions to `EnemyAction`.
+    // Then returns. So state.phase should be EnemyAction.
+    assert_eq!(state.phase, GamePhase::EnemyAction);
+    assert_eq!(state.boss_level, 0); // Still 0
+    assert_eq!(state.enemy.state, sint_core::types::EnemyState::Defeated);
+
+    // 2. EnemyAction -> MorningReport (Rest Start)
+    state.players.get_mut("P1").unwrap().is_ready = false;
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Game(GameAction::VoteReady { ready: true }),
+        None,
+    )
+    .unwrap();
+    assert_eq!(state.phase, GamePhase::MorningReport);
+    assert!(state.is_resting);
+
+    // 3. Morning -> Telegraph -> Tactical (Rest Round)
+    state.players.get_mut("P1").unwrap().is_ready = false;
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Game(GameAction::VoteReady { ready: true }),
+        None,
+    )
+    .unwrap(); // Morning -> Telegraph
+    state.players.get_mut("P1").unwrap().is_ready = false;
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Game(GameAction::VoteReady { ready: true }),
+        None,
+    )
+    .unwrap(); // Telegraph -> Tactical
+
+    assert_eq!(state.phase, GamePhase::TacticalPlanning);
+
+    // 4. Tactical -> Execution
+    state.players.get_mut("P1").unwrap().ap = 0;
+    state.players.get_mut("P1").unwrap().is_ready = false;
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Game(GameAction::VoteReady { ready: true }),
+        None,
+    )
+    .unwrap();
+
+    assert_eq!(state.phase, GamePhase::Execution);
+
+    // Execution -> EnemyAction
+    state.players.get_mut("P1").unwrap().is_ready = false;
+    state = GameLogic::apply_action(
+        state,
+        "P1",
+        Action::Game(GameAction::VoteReady { ready: true }),
+        None,
+    )
+    .unwrap();
+
+    assert_eq!(state.phase, GamePhase::EnemyAction);
+    assert!(state.is_resting); // Still resting until this phase ENDS
+
+    // 5. EnemyAction -> MorningReport (New Boss)
+    state.players.get_mut("P1").unwrap().is_ready = false;
     state = GameLogic::apply_action(
         state,
         "P1",
@@ -190,6 +280,7 @@ fn test_boss_progression() {
     // Check Boss Level increased
     assert_eq!(state.boss_level, 1);
     assert_eq!(state.enemy.name, "The Monster"); // Level 1 Boss
+    assert!(!state.is_resting);
 }
 
 #[test]

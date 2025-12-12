@@ -345,34 +345,44 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
             // Archive the event
             state.latest_event = None;
 
-            // Generate telegraph normally
-            let mut rng = StdRng::seed_from_u64(state.rng_seed);
-            // 2d6 distribution (2-12). 11-12 is a miss.
-            let roll = rng.gen_range(1..=6) + rng.gen_range(1..=6);
-            state.rng_seed = rng.gen();
-
-            let mut attack = if let Some(sys) = SystemType::from_u32(roll) {
-                let room_id = find_room_with_system_in_map(&state.map, sys).unwrap_or(0);
-                EnemyAttack {
-                    target_room: room_id,
-                    target_system: Some(sys),
-                    effect: AttackEffect::Fireball,
-                }
+            if state.is_resting {
+                state.chat_log.push(ChatMessage {
+                    sender: "SYSTEM".to_owned(),
+                    text: "Rest Round: The horizon is clear.".to_owned(),
+                    timestamp: 0,
+                });
+                state.enemy.next_attack = None;
             } else {
-                EnemyAttack {
-                    target_room: 0,
-                    target_system: None,
-                    effect: AttackEffect::Miss,
+                // Generate telegraph normally
+                let mut rng = StdRng::seed_from_u64(state.rng_seed);
+                // 2d6 distribution (2-12). 11-12 is a miss.
+                let roll = rng.gen_range(1..=6) + rng.gen_range(1..=6);
+                state.rng_seed = rng.gen();
+
+                let mut attack = if let Some(sys) = SystemType::from_u32(roll) {
+                    let room_id = find_room_with_system_in_map(&state.map, sys).unwrap_or(0);
+                    EnemyAttack {
+                        target_room: room_id,
+                        target_system: Some(sys),
+                        effect: AttackEffect::Fireball,
+                    }
+                } else {
+                    EnemyAttack {
+                        target_room: 0,
+                        target_system: None,
+                        effect: AttackEffect::Miss,
+                    }
+                };
+
+                // Allow cards to modify it (e.g. FogBank masking it)
+                let active_ids: Vec<CardId> =
+                    state.active_situations.iter().map(|c| c.id).collect();
+                for id in active_ids {
+                    get_behavior(id).modify_telegraph(&mut attack);
                 }
-            };
 
-            // Allow cards to modify it (e.g. FogBank masking it)
-            let active_ids: Vec<CardId> = state.active_situations.iter().map(|c| c.id).collect();
-            for id in active_ids {
-                get_behavior(id).modify_telegraph(&mut attack);
+                state.enemy.next_attack = Some(attack);
             }
-
-            state.enemy.next_attack = Some(attack);
 
             // Reset ready
             for p in state.players.values_mut() {
@@ -434,24 +444,50 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
             state.shields_active = false;
             state.evasion_active = false;
 
+            // Check Rest Round Logic
+            if state.enemy.state == EnemyState::Defeated {
+                if state.is_resting {
+                    // Rest is over
+                    state.is_resting = false;
+                    state.boss_level += 1;
+                    state.enemy = crate::logic::get_boss(state.boss_level);
+                    state.chat_log.push(ChatMessage {
+                        sender: "SYSTEM".to_owned(),
+                        text: format!("Rest Over! Approaching: {}", state.enemy.name),
+                        timestamp: 0,
+                    });
+                } else {
+                    // Start Rest
+                    state.is_resting = true;
+                    state.chat_log.push(ChatMessage {
+                        sender: "SYSTEM".to_owned(),
+                        text: "Victory! Taking a rest round...".to_owned(),
+                        timestamp: 0,
+                    });
+                }
+            }
+
             // Reset AP (New Round)
             for p in state.players.values_mut() {
                 p.ap = 2;
             }
 
-            // Trigger Card End-of-Round Effects (e.g. Timebombs, Mice)
-            let active_ids: Vec<CardId> = state.active_situations.iter().map(|c| c.id).collect();
-            for id in active_ids {
-                get_behavior(id).on_round_end(&mut state);
-            }
+            if !state.is_resting {
+                // Trigger Card End-of-Round Effects (e.g. Timebombs, Mice)
+                let active_ids: Vec<CardId> =
+                    state.active_situations.iter().map(|c| c.id).collect();
+                for id in active_ids {
+                    get_behavior(id).on_round_end(&mut state);
+                }
 
-            cards::draw_card(&mut state);
+                cards::draw_card(&mut state);
 
-            // Round Start Hook (New Round)
-            let active_ids_new: Vec<CardId> =
-                state.active_situations.iter().map(|c| c.id).collect();
-            for id in active_ids_new {
-                get_behavior(id).on_round_start(&mut state);
+                // Round Start Hook (New Round)
+                let active_ids_new: Vec<CardId> =
+                    state.active_situations.iter().map(|c| c.id).collect();
+                for id in active_ids_new {
+                    get_behavior(id).on_round_start(&mut state);
+                }
             }
 
             // Respawn Logic

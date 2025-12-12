@@ -1,5 +1,5 @@
 use super::ActionHandler;
-use crate::types::{ChatMessage, GameState, ItemType, SystemType};
+use crate::types::{ChatMessage, EnemyState, GameState, ItemType, SystemType};
 use crate::GameError;
 use log::info;
 use rand::{rngs::StdRng, Rng, SeedableRng};
@@ -128,8 +128,7 @@ impl ActionHandler for ShootHandler {
                 state.enemy.hp -= 1;
 
                 if state.enemy.hp <= 0 {
-                    state.boss_level += 1;
-                    if state.boss_level >= crate::logic::MAX_BOSS_LEVEL {
+                    if state.boss_level >= crate::logic::MAX_BOSS_LEVEL - 1 {
                         state.phase = crate::types::GamePhase::Victory;
                         state.chat_log.push(ChatMessage {
                             sender: "SYSTEM".to_owned(),
@@ -137,10 +136,10 @@ impl ActionHandler for ShootHandler {
                             timestamp: 0,
                         });
                     } else {
-                        state.enemy = crate::logic::get_boss(state.boss_level);
+                        state.enemy.state = EnemyState::Defeated;
                         state.chat_log.push(ChatMessage {
                             sender: "SYSTEM".to_owned(),
-                            text: format!("Enemy Defeated! approaching: {}", state.enemy.name),
+                            text: format!("{} Defeated! Taking a breather...", state.enemy.name),
                             timestamp: 0,
                         });
                     }
