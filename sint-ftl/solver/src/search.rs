@@ -282,7 +282,12 @@ fn expand_node(node: &SearchNode, weights: &ScoringWeights) -> Vec<SearchNode> {
                     // Undo isn't useful: we rather do the right thing from the start instead of
                     // doing and undoing a bunch of things. Also, VoteReady isn't needed, because
                     // all that does is cycle through another planning/execution phase pair.
-                    if matches!(act, GameAction::Undo { .. } | GameAction::VoteReady { .. }) {
+                    if matches!(
+                        act,
+                        GameAction::Undo { .. }
+                            | GameAction::VoteReady { .. }
+                            | GameAction::Chat { .. }
+                    ) {
                         continue;
                     }
 
@@ -306,6 +311,38 @@ fn expand_node(node: &SearchNode, weights: &ScoringWeights) -> Vec<SearchNode> {
                     }
                 }
             }
+
+            if results.is_empty() {
+                // Fallback: If no valid actions (or all filtered), use Pass or VoteReady.
+                // If we have AP, we MUST Pass to clear it and avoid infinite loops between Planning <-> Execution.
+                // If Pass fails (shouldn't if AP > 0), we try VoteReady.
+
+                let fallback_actions =
+                    vec![GameAction::Pass, GameAction::VoteReady { ready: true }];
+
+                for act in fallback_actions {
+                    let mut current_state = state.clone();
+                    let mut current_history = node.history.clone();
+
+                    if let Ok(next) = GameLogic::apply_action(
+                        current_state.clone(),
+                        &p.id,
+                        Action::Game(act.clone()),
+                        None,
+                    ) {
+                        current_state = next;
+                        current_history.push((p.id.clone(), act));
+                        let score = score_state(&current_state, &current_history, weights);
+                        results.push(SearchNode {
+                            state: current_state,
+                            history: current_history,
+                            score,
+                        });
+                        break; // Found a working fallback
+                    }
+                }
+            }
+
             results
         }
         None => {

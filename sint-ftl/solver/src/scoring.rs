@@ -65,13 +65,13 @@ pub struct ScoringWeights {
 impl Default for ScoringWeights {
     fn default() -> Self {
         Self {
-            hull_integrity: 4000.0, // Critical: Hull is Life (Increased to prioritize survival)
+            hull_integrity: 5000.0, // Critical: Hull is Life (Increased to prioritize survival)
             enemy_hp: 5000.0,       // High value on Damage (Increased to prioritize offense)
-            player_hp: 100.0,
-            ap_balance: 0.1,
+            player_hp: 200.0,
+            ap_balance: 10.0,
 
             // Hazards - significantly increased penalties
-            fire_penalty_base: 10000.0, // Burn, baby, burn (but don't)
+            fire_penalty_base: 12000.0, // Burn, baby, burn (but don't)
             water_penalty: 1000.0,
 
             // Situations & Threats
@@ -81,7 +81,7 @@ impl Default for ScoringWeights {
             death_penalty: 50000.0,
 
             // Roles
-            station_keeping_reward: 3000.0, // Critical: Must be in position to react
+            station_keeping_reward: 2000.0, // High discipline
             gunner_base_reward: 600.0,      // STAY AT THE CANNONS
             gunner_per_ammo: 300.0,         // LOAD THE CANNONS
             gunner_working_bonus: 50.0,
@@ -93,8 +93,8 @@ impl Default for ScoringWeights {
             baker_base_reward: 300.0, // CRITICAL: We need ammo
             baker_distance_factor: 20.0,
 
-            healing_reward: 50.0,
-            sickbay_distance_factor: 10.0,
+            healing_reward: 500.0, // Increased to prioritize survival (was 50)
+            sickbay_distance_factor: 50.0,
 
             backtracking_penalty: 50.0,
 
@@ -383,6 +383,10 @@ pub fn score_state(
 
         // Dynamic Role Override: Firefighter roams free
         if has_extinguisher {
+            assigned_room = None;
+        }
+        // Dynamic Role Override: Critical Health (Seek Healing)
+        if p.hp < 2 {
             assigned_room = None;
         }
 
