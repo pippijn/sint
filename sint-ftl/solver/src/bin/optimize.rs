@@ -31,7 +31,7 @@ enum Strategy {
     SPSA,
 }
 
-const PARAM_COUNT: usize = 25;
+const PARAM_COUNT: usize = 23;
 
 fn get_base_weights() -> ScoringWeights {
     ScoringWeights::default()
@@ -55,15 +55,13 @@ fn apply_multipliers(base: &ScoringWeights, m: &[f64]) -> ScoringWeights {
     w.gunner_distance_factor *= m[13];
     w.firefighter_base_reward *= m[14];
     w.firefighter_distance_factor *= m[15];
-    w.baker_base_reward *= m[16];
-    w.baker_distance_factor *= m[17];
-    w.healing_reward *= m[18];
-    w.sickbay_distance_factor *= m[19];
-    w.backtracking_penalty *= m[20];
-    w.solution_solver_reward *= m[21];
-    w.solution_distance_factor *= m[22];
-    w.ammo_stockpile_reward *= m[23];
-    w.boss_level_reward *= m[24];
+    w.healing_reward *= m[16];
+    w.sickbay_distance_factor *= m[17];
+    w.backtracking_penalty *= m[18];
+    w.solution_solver_reward *= m[19];
+    w.solution_distance_factor *= m[20];
+    w.ammo_stockpile_reward *= m[21];
+    w.boss_level_reward *= m[22];
     w
 }
 

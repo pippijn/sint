@@ -91,7 +91,7 @@ pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
 
         // Send Join Action (Game State)
         let join_action = PlayerEvent {
-            id: Uuid::new_v4().to_string(),
+            id: Uuid::new_v4(),
             player_id: pid_ws.clone(),
             action: Action::Meta(MetaAction::Join {
                 name: pid_ws.clone(),
@@ -187,7 +187,7 @@ pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
                                         if guard.verified_state.sequence_id > 0 {
                                             leptos::logging::log!("Providing Sync State");
                                             let sync_action = PlayerEvent {
-                                                id: Uuid::new_v4().to_string(),
+                                                id: Uuid::new_v4(),
                                                 player_id: pid_ws.clone(),
                                                 action: Action::Meta(MetaAction::FullSync {
                                                     state_json: serde_json::to_string(&guard.verified_state).unwrap()
@@ -250,7 +250,7 @@ pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
                 set_state.set(new_predicted);
 
                 let event = PlayerEvent {
-                    id: Uuid::new_v4().to_string(),
+                    id: Uuid::new_v4(),
                     player_id: pid_action.clone(),
                     action: action.clone(),
                 };

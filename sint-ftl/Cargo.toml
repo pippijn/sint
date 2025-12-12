@@ -6,3 +6,6 @@ members = [
     "client",
     "solver",
 ]
+
+[profile.release]
+debug = true

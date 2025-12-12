@@ -140,3 +140,7 @@ pub fn get_all_cards() -> Vec<Card> {
         .map(|&id| get_behavior(id).get_struct())
         .collect()
 }
+
+pub fn get_all_ids() -> Vec<CardId> {
+    ALL_IDS.to_vec()
+}

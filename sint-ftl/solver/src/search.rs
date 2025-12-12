@@ -1,3 +1,4 @@
+use crate::driver::GameDriver;
 use crate::scoring::{score_state, ScoringWeights};
 use rayon::prelude::*;
 use sint_core::logic::GameLogic;
@@ -12,6 +13,7 @@ pub struct SearchNode {
     pub state: GameState,
     pub history: Vec<(PlayerId, GameAction)>,
     pub score: f64,
+    pub signature: u64,
 }
 
 impl PartialEq for SearchNode {
@@ -147,6 +149,9 @@ pub fn beam_search(config: &SearchConfig, weights: &ScoringWeights) -> Option<Se
     let player_ids: Vec<String> = (0..config.players).map(|i| format!("P{}", i + 1)).collect();
     let initial_state = GameLogic::new_game(player_ids.clone(), config.seed);
 
+    // Stabilize initial state using Driver
+    let initial_driver = GameDriver::new(initial_state);
+
     if config.verbose {
         println!(
             "🚀 Starting Beam Search: Width={}, Seed={}, Players={}, Steps={}, TimeLimit={}s",
@@ -157,10 +162,12 @@ pub fn beam_search(config: &SearchConfig, weights: &ScoringWeights) -> Option<Se
     let start_time = Instant::now();
     let time_limit = Duration::from_secs(config.time_limit);
 
+    let start_sig = get_state_signature(&initial_driver.state);
     let mut beam = vec![SearchNode {
-        state: initial_state,
+        state: initial_driver.state,
         history: Vec::new(),
         score: 0.0,
+        signature: start_sig,
     }];
 
     let mut final_solution: Option<SearchNode> = None;
@@ -221,10 +228,12 @@ pub fn beam_search(config: &SearchConfig, weights: &ScoringWeights) -> Option<Se
             .flat_map(|node| expand_node(node, weights, config, step, &debug_clone))
             .collect();
 
+        let total_generated = next_nodes.len();
+
         let mut unique_nodes: std::collections::BTreeMap<u64, SearchNode> =
             std::collections::BTreeMap::new();
-        for n in next_nodes {
-            let sig = get_state_signature(&n.state);
+        for n in &next_nodes {
+            let sig = n.signature;
             let total_ap: i32 = n.state.players.values().map(|p| p.ap).sum();
 
             if let Some(&(max_ap, max_score)) = visited.get(&sig) {
@@ -236,11 +245,11 @@ pub fn beam_search(config: &SearchConfig, weights: &ScoringWeights) -> Option<Se
                 }
             }
             visited.insert(sig, (total_ap, n.score));
-            unique_nodes.insert(sig, n);
+            unique_nodes.insert(sig, n.clone());
         }
 
         let mut sorted_nodes: Vec<SearchNode> = unique_nodes.into_values().collect();
-        sorted_nodes.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
+        sorted_nodes.par_sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
 
         if sorted_nodes.is_empty() && !beam.is_empty() {
             if config.verbose {
@@ -256,6 +265,20 @@ pub fn beam_search(config: &SearchConfig, weights: &ScoringWeights) -> Option<Se
                     best.state.enemy.hp,
                     beam.len()
                 );
+
+                let kept_nodes = sorted_nodes.len(); // 0 in this block
+
+                println!(
+                    "💀 Beam died! Generated {} nodes, kept {} (filtered by visited).",
+                    total_generated, kept_nodes
+                );
+                if total_generated == 0 {
+                    println!("   Possible reasons: No legal actions, or all actions filtered (Undo/Chat/etc), or apply_action failed.");
+                    debug_ctx.dump();
+                } else {
+                    println!("   Reason: All generated states were already visited with better/equal cost.");
+                    // Print collision info if useful
+                }
             }
         }
 
@@ -289,43 +312,6 @@ pub fn beam_search(config: &SearchConfig, weights: &ScoringWeights) -> Option<Se
     final_solution.or(best_partial)
 }
 
-fn fast_forward_phase(
-    mut state: GameState,
-    mut history: Vec<(PlayerId, GameAction)>,
-) -> (GameState, Vec<(PlayerId, GameAction)>) {
-    let mut i = 0;
-    while state.phase != GamePhase::TacticalPlanning
-        && state.phase != GamePhase::GameOver
-        && state.phase != GamePhase::Victory
-    {
-        i += 1;
-        if i > 1000 {
-            break;
-        }
-
-        let mut ready_action = None;
-        for p in state.players.values() {
-            if !p.is_ready {
-                ready_action = Some((p.id.clone(), GameAction::VoteReady { ready: true }));
-                break;
-            }
-        }
-
-        if let Some((pid, act)) = ready_action {
-            let core_act = Action::Game(act.clone());
-            if let Ok(next) = GameLogic::apply_action(state.clone(), &pid, core_act, None) {
-                state = next;
-                history.push((pid, act));
-            } else {
-                break;
-            }
-        } else {
-            break;
-        }
-    }
-    (state, history)
-}
-
 fn expand_node(
     node: &SearchNode,
     weights: &ScoringWeights,
@@ -335,30 +321,13 @@ fn expand_node(
 ) -> Vec<SearchNode> {
     let state = &node.state;
 
-    // If not in planning phase, fast forward until we are (or game ends)
-    if state.phase != GamePhase::TacticalPlanning {
-        if state.phase == GamePhase::GameOver || state.phase == GamePhase::Victory {
-            return vec![node.clone()];
-        }
-        let (new_state, new_history) = fast_forward_phase(state.clone(), node.history.clone());
+    // Driver guarantees we are in a stable state (TacticalPlanning or GameOver)
 
-        if new_state.phase == GamePhase::GameOver || new_state.phase == GamePhase::Victory {
-            let score = score_state(&new_state, &new_history, weights);
-            return vec![SearchNode {
-                state: new_state,
-                history: new_history,
-                score,
-            }];
-        }
-
-        let score = score_state(&new_state, &new_history, weights);
-        return vec![SearchNode {
-            state: new_state,
-            history: new_history,
-            score,
-        }];
+    if state.phase == GamePhase::GameOver || state.phase == GamePhase::Victory {
+        return vec![node.clone()];
     }
 
+    // Identify active player (Deterministic order: P1, P2, ...)
     let mut players: Vec<_> = state.players.values().collect();
     players.sort_by_key(|p| &p.id);
     let active_player = players.into_iter().find(|p| !p.is_ready && p.ap > 0);
@@ -386,29 +355,34 @@ fn expand_node(
                     if matches!(
                         act,
                         GameAction::Undo { .. }
-                            | GameAction::VoteReady { .. }
+                            | GameAction::VoteReady { .. } // Driver handles readiness
                             | GameAction::Chat { .. }
+                            | GameAction::Pass // Pass is allowed if AP > 0 to skip turn
                     ) {
-                        // log_entry.outcomes.push(format!("Skipped (Filter): {:?}", act));
-                        continue;
+                        if matches!(act, GameAction::Pass) {
+                            // Keep Pass
+                        } else {
+                            // Filter others
+                            continue;
+                        }
                     }
 
-                    match GameLogic::apply_action(
-                        state.clone(),
-                        &p.id,
-                        Action::Game(act.clone()),
-                        None,
-                    ) {
-                        Ok(next) => {
+                    // Apply using Driver
+                    let mut driver = GameDriver {
+                        state: state.clone(),
+                    };
+                    match driver.apply(&p.id, act.clone()) {
+                        Ok(_) => {
                             let mut current_history = node.history.clone();
                             current_history.push((p.id.clone(), act.clone()));
-                            let score = score_state(&next, &current_history, weights);
+                            let score = score_state(&driver.state, &current_history, weights);
+                            let signature = get_state_signature(&driver.state);
                             results.push(SearchNode {
-                                state: next,
+                                state: driver.state,
                                 history: current_history,
                                 score,
+                                signature,
                             });
-                            // log_entry.outcomes.push(format!("Success: {:?}", act));
                         }
                         Err(e) => {
                             log_entry
@@ -427,41 +401,24 @@ fn expand_node(
             results
         }
         None => {
-            // Logic for when no player is active (shouldn't happen if phase check works, but handled anyway)
-            let mut current_state = state.clone();
-            let mut current_history = node.history.clone();
+            // No active players with AP > 0.
+            // This implies stable state requires a transition, but Driver.stabilize()
+            // guarantees that if we are in TacticalPlanning, there IS an unready player with AP > 0,
+            // UNLESS all unready players have AP <= 0 (which Driver should have forced ready).
 
-            loop {
-                if current_state.phase != GamePhase::TacticalPlanning {
-                    break;
-                }
-                let next_unready = current_state.players.values().find(|p| !p.is_ready);
-                match next_unready {
-                    Some(p) => {
-                        let pid = p.id.clone();
-                        let act = GameAction::VoteReady { ready: true };
-                        if let Ok(next) = GameLogic::apply_action(
-                            current_state.clone(),
-                            &pid,
-                            Action::Game(act.clone()),
-                            None,
-                        ) {
-                            current_state = next;
-                            current_history.push((pid, act));
-                        } else {
-                            break;
-                        }
-                    }
-                    None => break,
-                }
-            }
+            // If we hit this, it means we are "stuck" in TacticalPlanning with everyone Ready (wait, no, Driver advances phase then)
+            // or everyone who is Unready has 0 AP (Driver advances them).
 
-            let score = score_state(&current_state, &current_history, weights);
-            vec![SearchNode {
-                state: current_state,
-                history: current_history,
-                score,
-            }]
+            // So if we return None here, it means we are in a state not covered by Driver logic,
+            // or Driver returned a state where everyone is Ready but phase didn't change?
+
+            // Log it
+            log_entry
+                .outcomes
+                .push("No Active Player found in ostensibly stable state".to_string());
+            debug.log(log_entry);
+
+            vec![]
         }
     }
 }

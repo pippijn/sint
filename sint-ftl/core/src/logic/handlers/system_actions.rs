@@ -290,8 +290,9 @@ impl ActionHandler for LookoutHandler {
     ) -> Result<(), GameError> {
         self.validate(state, player_id)?;
 
-        let card = state.deck.last();
-        let msg = if let Some(c) = card {
+        let card_id = state.deck.last();
+        let msg = if let Some(c_id) = card_id {
+            let c = crate::logic::cards::registry::get_behavior(*c_id).get_struct();
             format!(
                 "LOOKOUT REPORT: The next event is '{}' ({})",
                 c.title, c.description

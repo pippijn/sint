@@ -8,7 +8,7 @@ use crate::{logic::GameError, types::*};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use uuid::Uuid;
 
-fn deterministic_uuid(state: &mut GameState) -> String {
+fn deterministic_uuid(state: &mut GameState) -> Uuid {
     let mut rng = StdRng::seed_from_u64(state.rng_seed);
     let mut bytes = [0u8; 16];
     rng.fill(&mut bytes);
@@ -18,7 +18,7 @@ fn deterministic_uuid(state: &mut GameState) -> String {
     bytes[6] = (bytes[6] & 0x0f) | 0x40; // Version 4
     bytes[8] = (bytes[8] & 0x3f) | 0x80; // Variant 1
 
-    Uuid::from_bytes(bytes).to_string()
+    Uuid::from_bytes(bytes)
 }
 
 pub fn apply_action(

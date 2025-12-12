@@ -1,6 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use uuid::Uuid;
 
 // --- ID Aliases ---
 pub type PlayerId = String;
@@ -67,9 +68,9 @@ pub struct GameState {
     pub latest_event: Option<Card>,
 
     /// The Draw Deck
-    pub deck: Vec<Card>,
+    pub deck: Vec<CardId>,
     /// The Discard Pile
-    pub discard: Vec<Card>,
+    pub discard: Vec<CardId>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Hash)]
@@ -228,14 +229,14 @@ pub struct ChatMessage {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Hash)]
 pub struct ProposedAction {
-    pub id: String, // UUID
+    pub id: Uuid, // UUID
     pub player_id: PlayerId,
     pub action: GameAction,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Hash)]
 pub struct PlayerEvent {
-    pub id: String, // UUID
+    pub id: Uuid, // UUID
     pub player_id: PlayerId,
     pub action: Action,
 }
@@ -293,7 +294,7 @@ pub enum GameAction {
     /// Skip remaining AP for this round
     Pass,
     /// Undo a queued proposed action
-    Undo { action_id: String },
+    Undo { action_id: Uuid },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Hash)]

@@ -1,16 +1,19 @@
-use sint_core::logic::GameLogic;
-use sint_core::types::{Action, GameAction, GamePhase, GameState, HazardType, PlayerId};
+use crate::driver::GameDriver;
+use sint_core::types::{GameAction, GamePhase, GameState, HazardType, PlayerId};
 use std::fmt::Write;
 
 pub fn format_trajectory(
     initial_state: GameState,
     path: Vec<(PlayerId, GameAction)>,
 ) -> Vec<String> {
-    let mut state = initial_state;
-    let mut current_round = state.turn_count;
-    let mut round_start_hull = state.hull_integrity;
-    let mut round_start_hazards = count_hazards(&state);
-    let mut last_enemy_name = state.enemy.name.clone();
+    // Replay now uses the Driver to implicitly handle VoteReady
+    let mut driver = GameDriver::new(initial_state);
+
+    // Tracking vars
+    let mut current_round = driver.state.turn_count;
+    let mut round_start_hull = driver.state.hull_integrity;
+    let mut round_start_hazards = count_hazards(&driver.state);
+    let mut last_enemy_name = driver.state.enemy.name.clone();
 
     let mut rounds_output = Vec::new();
     let mut current_buffer = String::new();
@@ -18,46 +21,54 @@ pub fn format_trajectory(
     writeln!(current_buffer, "\n=== BEST TRAJECTORY FOUND ===").unwrap();
     writeln!(
         current_buffer,
-        "Start: Hull {}, Boss {}, Players {}",
-        state.hull_integrity,
+        "Start: Hull {}, Boss {}, Playersィ {}",
+        driver.state.hull_integrity,
         last_enemy_name,
-        state.players.len()
+        driver.state.players.len()
     )
     .unwrap();
 
+    // Initial context print (Round 1)
+    if driver.state.phase == GamePhase::TacticalPlanning {
+        write!(
+            current_buffer,
+            "\n--- ROUND {} ---\n{}",
+            current_round,
+            format_planning_context(&driver.state)
+        )
+        .unwrap();
+    }
+
     for (pid, action) in path {
-        let prev_phase = state.phase;
+        let prev_phase = driver.state.phase;
 
-        // Apply
-        let core_act = Action::Game(action.clone());
-        let res = GameLogic::apply_action(state.clone(), &pid, core_act, None);
-        match res {
-            Ok(new_state) => {
-                match &action {
-                    GameAction::Chat { message } => {
-                        if message.starts_with("[MACRO]") {
-                            writeln!(
-                                current_buffer,
-                                "\n  {} plans: {}",
-                                pid,
-                                message.replace("[MACRO] ", "")
-                            )
-                            .unwrap();
-                        }
-                    }
-                    GameAction::VoteReady { .. } => {} // Silent
-                    GameAction::Pass => {
-                        writeln!(current_buffer, "  {} passes.", pid).unwrap();
-                    }
-                    _ => {
-                        writeln!(current_buffer, "    -> {:?} ({})", action, pid).unwrap();
-                    }
+        // Log action attempt
+        match &action {
+            GameAction::Chat { message } => {
+                if message.starts_with("[MACRO]") {
+                    writeln!(
+                        current_buffer,
+                        "\n  {} plans: {}",
+                        pid,
+                        message.replace("[MACRO] ", "")
+                    )
+                    .unwrap();
                 }
+            }
+            GameAction::VoteReady { .. } => {} // Should not exist in new path, but silent if so
+            GameAction::Pass => {
+                writeln!(current_buffer, "  {} passes.", pid).unwrap();
+            }
+            _ => {
+                writeln!(current_buffer, "    -> {:?} ({})", action, pid).unwrap();
+            }
+        }
 
-                state = new_state;
-
+        // Apply via Driver
+        match driver.apply(&pid, action.clone()) {
+            Ok(_) => {
                 // Detect Boss Defeat/Change
-                if state.enemy.name != last_enemy_name {
+                if driver.state.enemy.name != last_enemy_name {
                     writeln!(
                         current_buffer,
                         "\n**************************************************"
@@ -67,7 +78,7 @@ pub fn format_trajectory(
                     writeln!(
                         current_buffer,
                         "💀  NEW CHALLENGER: {}  💀",
-                        state.enemy.name
+                        driver.state.enemy.name
                     )
                     .unwrap();
                     writeln!(
@@ -75,53 +86,62 @@ pub fn format_trajectory(
                         "**************************************************\n"
                     )
                     .unwrap();
-                    last_enemy_name = state.enemy.name.clone();
+                    last_enemy_name = driver.state.enemy.name.clone();
                 }
 
-                if state.phase != prev_phase {
-                    if state.turn_count > current_round {
-                        // Finish previous round
-                        let results = format_results(
-                            round_start_hull,
-                            state.hull_integrity,
-                            round_start_hazards,
-                            count_hazards(&state),
-                        );
-                        write!(current_buffer, "{}", results).unwrap();
+                // If phase changed or round incremented
+                if driver.state.turn_count > current_round {
+                    // Round Finished
+                    let results = format_results(
+                        round_start_hull,
+                        driver.state.hull_integrity,
+                        round_start_hazards,
+                        count_hazards(&driver.state),
+                    );
+                    write!(current_buffer, "{}", results).unwrap();
 
-                        rounds_output.push(current_buffer);
-                        current_buffer = String::new();
+                    rounds_output.push(current_buffer);
+                    current_buffer = String::new();
 
-                        current_round = state.turn_count;
-                        round_start_hull = state.hull_integrity;
-                        round_start_hazards = count_hazards(&state);
+                    current_round = driver.state.turn_count;
+                    round_start_hull = driver.state.hull_integrity;
+                    round_start_hazards = count_hazards(&driver.state);
 
-                        writeln!(current_buffer, "\n--- ROUND {} ---", current_round).unwrap();
-                    }
+                    writeln!(current_buffer, "\n--- ROUND {} ---", current_round).unwrap();
 
-                    if state.phase == GamePhase::MorningReport
-                        && prev_phase != GamePhase::MorningReport
-                    {
-                        if let Some(card) = &state.latest_event {
-                            writeln!(
-                                current_buffer,
-                                "[EVENT] {} - {}",
-                                card.title, card.description
-                            )
+                    // If we jumped straight to Planning (or Morning -> Planning), print context
+                    if driver.state.phase == GamePhase::TacticalPlanning {
+                        write!(current_buffer, "{}", format_planning_context(&driver.state))
                             .unwrap();
+                    } else {
+                        // Might be in MorningReport if something weird happened, but usually Driver stabilizes to Planning.
+                        if driver.state.phase == GamePhase::MorningReport {
+                            if let Some(card) = &driver.state.latest_event {
+                                writeln!(
+                                    current_buffer,
+                                    "[EVENT] {} - {}",
+                                    card.title, card.description
+                                )
+                                .unwrap();
+                            }
                         }
-                        if !state.active_situations.is_empty() {
-                            let names: Vec<String> = state
-                                .active_situations
-                                .iter()
-                                .map(|c| c.title.clone())
-                                .collect();
-                            writeln!(current_buffer, "[ACTIVE] {}", names.join(", ")).unwrap();
-                        }
-                    } else if state.phase == GamePhase::TacticalPlanning
-                        && prev_phase != GamePhase::TacticalPlanning
+                    }
+                } else if driver.state.phase != prev_phase {
+                    // Phase changed but same round (e.g. Planning -> Execution -> Planning?? No, Driver stabilizes out of Execution)
+                    // Driver.stabilize() only stops at TacticalPlanning or EndGame.
+                    // So if we see a phase change here, it means we went Planning -> Planning (via Execution/Morning).
+                    // But that would increment turn count usually.
+                    // Unless we went from Planning -> GameOver.
+
+                    if driver.state.phase == GamePhase::GameOver
+                        || driver.state.phase == GamePhase::Victory
                     {
-                        write!(current_buffer, "{}", format_planning_context(&state)).unwrap();
+                        writeln!(
+                            current_buffer,
+                            "\n=== GAME ENDED: {:?} ===",
+                            driver.state.phase
+                        )
+                        .unwrap();
                     }
                 }
             }
@@ -136,7 +156,12 @@ pub fn format_trajectory(
         }
     }
 
-    writeln!(current_buffer, "\n=== GAME OVER: {:?} ===", state.phase).unwrap();
+    writeln!(
+        current_buffer,
+        "\n=== LAST PHASE: {:?} ===",
+        driver.state.phase
+    )
+    .unwrap();
     rounds_output.push(current_buffer);
 
     rounds_output
@@ -152,7 +177,23 @@ pub fn print_trajectory(initial_state: GameState, path: Vec<(PlayerId, GameActio
 fn format_planning_context(state: &GameState) -> String {
     let mut out = String::new();
 
-    // 1. Enemy Intent
+    // 1. Morning Report Info (Event) - Recovered from state if possible
+    // Note: In strict Driver mode, we might miss the MorningReport event print if we don't catch it during stabilization.
+    // Ideally Driver would return a log of events.
+    // For now, we print what we see in the state.
+    if let Some(card) = &state.latest_event {
+        writeln!(out, "[EVENT] {} - {}", card.title, card.description).unwrap();
+    }
+    if !state.active_situations.is_empty() {
+        let names: Vec<String> = state
+            .active_situations
+            .iter()
+            .map(|c| c.title.clone())
+            .collect();
+        writeln!(out, "[ACTIVE] {}", names.join(", ")).unwrap();
+    }
+
+    // 2. Enemy Intent
     if let Some(attack) = &state.enemy.next_attack {
         writeln!(
             out,
@@ -162,7 +203,7 @@ fn format_planning_context(state: &GameState) -> String {
         .unwrap();
     }
 
-    // 2. Hazards
+    // 3. Hazards
     let mut fire_rooms = Vec::new();
     let mut water_rooms = Vec::new();
 
@@ -198,7 +239,7 @@ fn format_planning_context(state: &GameState) -> String {
         writeln!(out, "[HAZARDS] Water: {}", water_rooms.join(", ")).unwrap();
     }
 
-    // 3. Players
+    // 4. Players
     let mut players_info = Vec::new();
     let mut pids: Vec<String> = state.players.keys().cloned().collect();
     pids.sort();
