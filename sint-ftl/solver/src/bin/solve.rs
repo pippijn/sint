@@ -30,7 +30,7 @@ struct Args {
     time_limit: u64,
 
     /// Output file for trajectory
-    #[arg(short, long)]
+    #[arg(short, long, default_value = "/tmp/solve_output.txt")]
     output: Option<String>,
 }
 

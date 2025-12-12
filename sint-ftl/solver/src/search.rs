@@ -2,8 +2,9 @@ use crate::scoring::{score_state, ScoringWeights};
 use rayon::prelude::*;
 use sint_core::logic::GameLogic;
 use sint_core::types::{Action, GameAction, GamePhase, GameState, PlayerId};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::hash::{Hash, Hasher};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 #[derive(Clone)]
@@ -56,6 +57,7 @@ fn get_state_signature(state: &GameState) -> u64 {
     for p in state.players.values() {
         p.room_id.hash(&mut hasher);
         p.hp.hash(&mut hasher);
+        p.ap.hash(&mut hasher);
         p.is_ready.hash(&mut hasher);
         p.inventory.hash(&mut hasher);
         p.status.hash(&mut hasher);
@@ -92,6 +94,55 @@ pub struct SearchConfig {
     pub verbose: bool,
 }
 
+// --- DEBUG CONTEXT ---
+#[derive(Debug, Clone)]
+pub struct ExpansionLog {
+    pub step: usize,
+    pub phase: GamePhase,
+    pub active_player: Option<String>,
+    pub ap: i32,
+    pub actions_generated: Vec<String>,
+    pub outcomes: Vec<String>,
+}
+
+pub struct DebugContext {
+    pub logs: Mutex<VecDeque<ExpansionLog>>,
+}
+
+impl DebugContext {
+    pub fn new() -> Self {
+        Self {
+            logs: Mutex::new(VecDeque::with_capacity(50)), // Keep last 50
+        }
+    }
+
+    pub fn log(&self, entry: ExpansionLog) {
+        let mut logs = self.logs.lock().unwrap();
+        if logs.len() >= 50 {
+            logs.pop_front();
+        }
+        logs.push_back(entry);
+    }
+
+    pub fn dump(&self) {
+        let logs = self.logs.lock().unwrap();
+        if !logs.is_empty() {
+            println!("\n=== CRASH DUMP: Last 50 Expansions ===");
+            for log in logs.iter() {
+                println!(
+                    "Step {}: Phase {:?} | Active: {:?} (AP: {})",
+                    log.step, log.phase, log.active_player, log.ap
+                );
+                println!("  Generated: {:?}", log.actions_generated);
+                for out in &log.outcomes {
+                    println!("  -> {}", out);
+                }
+                println!("------------------------------------------------");
+            }
+        }
+    }
+}
+
 pub fn beam_search(config: &SearchConfig, weights: &ScoringWeights) -> Option<SearchNode> {
     let player_ids: Vec<String> = (0..config.players).map(|i| format!("P{}", i + 1)).collect();
     let initial_state = GameLogic::new_game(player_ids.clone(), config.seed);
@@ -116,10 +167,13 @@ pub fn beam_search(config: &SearchConfig, weights: &ScoringWeights) -> Option<Se
     let mut best_partial: Option<SearchNode> = beam.first().cloned();
     let mut visited: HashMap<u64, (i32, f64)> = HashMap::new();
 
+    let debug_ctx = Arc::new(DebugContext::new());
+
     for step in 0..config.steps {
         if beam.is_empty() {
             if config.verbose {
                 println!("💀 Beam died at step {}", step);
+                debug_ctx.dump(); // DUMP LOGS ON DEATH
             }
             break;
         }
@@ -161,9 +215,10 @@ pub fn beam_search(config: &SearchConfig, weights: &ScoringWeights) -> Option<Se
             }
         }
 
+        let debug_clone = debug_ctx.clone();
         let next_nodes: Vec<SearchNode> = beam
             .par_iter()
-            .flat_map(|node| expand_node(node, weights))
+            .flat_map(|node| expand_node(node, weights, config, step, &debug_clone))
             .collect();
 
         let mut unique_nodes: std::collections::BTreeMap<u64, SearchNode> =
@@ -187,23 +242,42 @@ pub fn beam_search(config: &SearchConfig, weights: &ScoringWeights) -> Option<Se
         let mut sorted_nodes: Vec<SearchNode> = unique_nodes.into_values().collect();
         sorted_nodes.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
 
+        if sorted_nodes.is_empty() && !beam.is_empty() {
+            if config.verbose {
+                let best = &beam[0];
+                let round_num = if step > 0 { step - 1 } else { 0 };
+                println!(
+                    "Step {} (Last Valid): Best Score {:.1} | Round {} | Phase {:?} | Hull {} | Boss {} | Beam {}",
+                    round_num,
+                    best.score,
+                    best.state.turn_count,
+                    best.state.phase,
+                    best.state.hull_integrity,
+                    best.state.enemy.hp,
+                    beam.len()
+                );
+            }
+        }
+
         if sorted_nodes.len() > config.width {
             sorted_nodes.truncate(config.width);
         }
         beam = sorted_nodes;
 
-        if config.verbose && step % 10 == 0 && !beam.is_empty() {
-            let best = &beam[0];
-            println!(
-                "Step {}: Best Score {:.1} | Round {} | Phase {:?} | Hull {} | Boss {} | Beam {}",
-                step,
-                best.score,
-                best.state.turn_count,
-                best.state.phase,
-                best.state.hull_integrity,
-                best.state.enemy.hp,
-                beam.len()
-            );
+        if config.verbose && !beam.is_empty() {
+            if step % 10 == 0 || step == config.steps - 1 {
+                let best = &beam[0];
+                println!(
+                    "Step {}: Best Score {:.1} | Round {} | Phase {:?} | Hull {} | Boss {} | Beam {}",
+                    step,
+                    best.score,
+                    best.state.turn_count,
+                    best.state.phase,
+                    best.state.hull_integrity,
+                    best.state.enemy.hp,
+                    beam.len()
+                );
+            }
         }
     }
 
@@ -252,14 +326,31 @@ fn fast_forward_phase(
     (state, history)
 }
 
-fn expand_node(node: &SearchNode, weights: &ScoringWeights) -> Vec<SearchNode> {
+fn expand_node(
+    node: &SearchNode,
+    weights: &ScoringWeights,
+    _config: &SearchConfig,
+    step: usize,
+    debug: &DebugContext,
+) -> Vec<SearchNode> {
     let state = &node.state;
 
+    // If not in planning phase, fast forward until we are (or game ends)
     if state.phase != GamePhase::TacticalPlanning {
         if state.phase == GamePhase::GameOver || state.phase == GamePhase::Victory {
             return vec![node.clone()];
         }
         let (new_state, new_history) = fast_forward_phase(state.clone(), node.history.clone());
+
+        if new_state.phase == GamePhase::GameOver || new_state.phase == GamePhase::Victory {
+            let score = score_state(&new_state, &new_history, weights);
+            return vec![SearchNode {
+                state: new_state,
+                history: new_history,
+                score,
+            }];
+        }
+
         let score = score_state(&new_state, &new_history, weights);
         return vec![SearchNode {
             state: new_state,
@@ -272,80 +363,71 @@ fn expand_node(node: &SearchNode, weights: &ScoringWeights) -> Vec<SearchNode> {
     players.sort_by_key(|p| &p.id);
     let active_player = players.into_iter().find(|p| !p.is_ready && p.ap > 0);
 
+    // Prepare log entry
+    let mut log_entry = ExpansionLog {
+        step,
+        phase: state.phase.clone(),
+        active_player: active_player.map(|p| p.id.clone()),
+        ap: active_player.map(|p| p.ap).unwrap_or(0),
+        actions_generated: Vec::new(),
+        outcomes: Vec::new(),
+    };
+
     match active_player {
         Some(p) => {
             let legal_actions = sint_core::logic::actions::get_valid_actions(state, &p.id);
+            log_entry.actions_generated =
+                legal_actions.iter().map(|a| format!("{:?}", a)).collect();
+
             let mut results = Vec::new();
 
-            for action_wrapper in legal_actions {
+            for action_wrapper in &legal_actions {
                 if let Action::Game(act) = action_wrapper {
-                    // Undo isn't useful: we rather do the right thing from the start instead of
-                    // doing and undoing a bunch of things. Also, VoteReady isn't needed, because
-                    // all that does is cycle through another planning/execution phase pair.
                     if matches!(
                         act,
                         GameAction::Undo { .. }
                             | GameAction::VoteReady { .. }
                             | GameAction::Chat { .. }
                     ) {
+                        // log_entry.outcomes.push(format!("Skipped (Filter): {:?}", act));
                         continue;
                     }
 
-                    let mut current_state = state.clone();
-                    let mut current_history = node.history.clone();
-
-                    if let Ok(next) = GameLogic::apply_action(
-                        current_state.clone(),
+                    match GameLogic::apply_action(
+                        state.clone(),
                         &p.id,
                         Action::Game(act.clone()),
                         None,
                     ) {
-                        current_state = next;
-                        current_history.push((p.id.clone(), act));
-                        let score = score_state(&current_state, &current_history, weights);
-                        results.push(SearchNode {
-                            state: current_state,
-                            history: current_history,
-                            score,
-                        });
+                        Ok(next) => {
+                            let mut current_history = node.history.clone();
+                            current_history.push((p.id.clone(), act.clone()));
+                            let score = score_state(&next, &current_history, weights);
+                            results.push(SearchNode {
+                                state: next,
+                                history: current_history,
+                                score,
+                            });
+                            // log_entry.outcomes.push(format!("Success: {:?}", act));
+                        }
+                        Err(e) => {
+                            log_entry
+                                .outcomes
+                                .push(format!("Failed {:?}: {:?}", act, e));
+                        }
                     }
                 }
             }
 
+            // Only log if we failed to produce children
             if results.is_empty() {
-                // Fallback: If no valid actions (or all filtered), use Pass or VoteReady.
-                // If we have AP, we MUST Pass to clear it and avoid infinite loops between Planning <-> Execution.
-                // If Pass fails (shouldn't if AP > 0), we try VoteReady.
-
-                let fallback_actions =
-                    vec![GameAction::Pass, GameAction::VoteReady { ready: true }];
-
-                for act in fallback_actions {
-                    let mut current_state = state.clone();
-                    let mut current_history = node.history.clone();
-
-                    if let Ok(next) = GameLogic::apply_action(
-                        current_state.clone(),
-                        &p.id,
-                        Action::Game(act.clone()),
-                        None,
-                    ) {
-                        current_state = next;
-                        current_history.push((p.id.clone(), act));
-                        let score = score_state(&current_state, &current_history, weights);
-                        results.push(SearchNode {
-                            state: current_state,
-                            history: current_history,
-                            score,
-                        });
-                        break; // Found a working fallback
-                    }
-                }
+                debug.log(log_entry);
             }
 
             results
         }
         None => {
+            // Logic for when no player is active (shouldn't happen if phase check works, but handled anyway)
             let mut current_state = state.clone();
             let mut current_history = node.history.clone();
 

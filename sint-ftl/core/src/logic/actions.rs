@@ -743,5 +743,36 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
         }
     }
 
+    // FINAL VALIDATION FILTER:
+    // Ensure all generated actions are actually permitted by active cards AND game rules.
+    actions.retain(|action| {
+        if let Action::Game(game_action) = action {
+            // 1. Check Card Constraints
+            for card in &projected_state.active_situations {
+                if let Err(_) =
+                    get_behavior(card.id).validate_action(&projected_state, player_id, game_action)
+                {
+                    return false;
+                }
+            }
+            // 2. Check Game Logic Constraints (e.g. InventoryFull)
+            // Note: Some actions like Chat/VoteReady don't have handlers or valid logic in get_handler
+            // but those are handled by the pattern match in apply_game_action anyway.
+            // We only care about Move/Pick/Shoot etc.
+            match game_action {
+                GameAction::Chat { .. }
+                | GameAction::VoteReady { .. }
+                | GameAction::Pass
+                | GameAction::Undo { .. } => true,
+                _ => {
+                    let handler = get_handler(game_action);
+                    handler.validate(&projected_state, player_id).is_ok()
+                }
+            }
+        } else {
+            true
+        }
+    });
+
     actions
 }
