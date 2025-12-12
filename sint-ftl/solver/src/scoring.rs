@@ -51,6 +51,10 @@ pub struct ScoringWeights {
     pub hazard_proximity_reward: f64,
     pub situation_exposure_penalty: f64,
     pub system_disabled_penalty: f64,
+    pub shooting_reward: f64,
+
+    pub scavenger_reward: f64,
+    pub repair_proximity_reward: f64,
 
     // Progression
     pub boss_level_reward: f64,
@@ -60,8 +64,8 @@ pub struct ScoringWeights {
 impl Default for ScoringWeights {
     fn default() -> Self {
         Self {
-            hull_integrity: 2000.0, // Critical: Hull is Life (Decreased to allow trading blows)
-            enemy_hp: 3000.0,        // High value on Damage (Increased to prioritize offense)
+            hull_integrity: 4000.0, // Critical: Hull is Life (Increased to prioritize survival)
+            enemy_hp: 5000.0,       // High value on Damage (Increased to prioritize offense)
             player_hp: 100.0,
             ap_balance: 0.1,
 
@@ -72,41 +76,45 @@ impl Default for ScoringWeights {
             // Situations & Threats
             active_situation_penalty: 500.0,
             threat_player_penalty: 100.0, // Reduced to allow calculated risks
-                                    threat_system_penalty: 2000.0,
-                                    death_penalty: 50000.0,
-                        
-                                    // Roles
-                                    station_keeping_reward: 5000.0, // Critical: Must be in position to react
-                                    gunner_base_reward: 600.0, // STAY AT THE CANNONS
-                                    gunner_per_ammo: 300.0, // LOAD THE CANNONS
-                                    gunner_working_bonus: 50.0,
-                                    gunner_distance_factor: 500.0, // Extreme pull to cannons
-                        
-                                    firefighter_base_reward: 2000.0,
-                                    firefighter_distance_factor: 10.0,
-                        
-                                    baker_base_reward: 300.0, // CRITICAL: We need ammo
-                                    baker_distance_factor: 20.0,
-                        
-                                    healing_reward: 50.0,
-                                    sickbay_distance_factor: 10.0,
-                        
-                                    backtracking_penalty: 50.0,
-                        
-                                    solution_solver_reward: 200.0,
-                                    solution_distance_factor: 10.0,
-                        
-                                    ammo_stockpile_reward: 500.0, // Encourage dumping ammo in Cannons
-                                    loose_ammo_reward: 200.0, // Every nut on the map is hope
-                                    hazard_proximity_reward: 50.0,
-                                    situation_exposure_penalty: 1000.0,
-                                    system_disabled_penalty: 5000.0,
+            threat_system_penalty: 2000.0,
+            death_penalty: 50000.0,
+
+            // Roles
+            station_keeping_reward: 3000.0, // Critical: Must be in position to react
+            gunner_base_reward: 600.0,      // STAY AT THE CANNONS
+            gunner_per_ammo: 300.0,         // LOAD THE CANNONS
+            gunner_working_bonus: 50.0,
+            gunner_distance_factor: 500.0, // Extreme pull to cannons
+
+            firefighter_base_reward: 2000.0,
+            firefighter_distance_factor: 10.0,
+
+            baker_base_reward: 300.0, // CRITICAL: We need ammo
+            baker_distance_factor: 20.0,
+
+            healing_reward: 50.0,
+            sickbay_distance_factor: 10.0,
+
+            backtracking_penalty: 50.0,
+
+            solution_solver_reward: 1000.0,
+            solution_distance_factor: 100.0,
+
+            ammo_stockpile_reward: 2000.0, // Encourage dumping ammo in Cannons
+            loose_ammo_reward: 200.0,      // Every nut on the map is hope
+            hazard_proximity_reward: 50.0,
+            situation_exposure_penalty: 1000.0,
+            system_disabled_penalty: 5000.0,
+            shooting_reward: 1000.0,
+
+            scavenger_reward: 500.0,
+            repair_proximity_reward: 1000.0,
+
             boss_level_reward: 10000.0,
-            turn_penalty: 50.0,
+            turn_penalty: 100.0,
         }
     }
 }
-
 /// Calculates the minimum distance from start_room to any room in `targets`.
 /// Returns 999 if unreachable.
 fn min_distance(state: &GameState, start: RoomId, targets: &HashSet<RoomId>) -> u32 {
@@ -187,9 +195,13 @@ pub fn score_state(
     // -- System Disabled --
     for room in state.map.rooms.values() {
         if let Some(sys) = room.system {
-            if matches!(sys, SystemType::Engine | SystemType::Cannons | SystemType::Bridge) {
+            if matches!(
+                sys,
+                SystemType::Engine | SystemType::Cannons | SystemType::Bridge
+            ) {
                 if !room.hazards.is_empty() {
-                    let has_disabling_hazard = room.hazards.contains(&HazardType::Fire) || room.hazards.contains(&HazardType::Water);
+                    let has_disabling_hazard = room.hazards.contains(&HazardType::Fire)
+                        || room.hazards.contains(&HazardType::Water);
                     if has_disabling_hazard {
                         score -= weights.system_disabled_penalty;
                     }
@@ -219,7 +231,7 @@ pub fn score_state(
             }
         }
         if min_d < 20 {
-             score += (20.0 - min_d as f64) * weights.hazard_proximity_reward;
+            score += (20.0 - min_d as f64) * weights.hazard_proximity_reward;
         }
     }
 
@@ -236,11 +248,7 @@ pub fn score_state(
                 }
             }
             if let Some(eid) = engine_id {
-                let count = state
-                    .players
-                    .values()
-                    .filter(|p| p.room_id == eid)
-                    .count();
+                let count = state.players.values().filter(|p| p.room_id == eid).count();
                 score -= count as f64 * weights.situation_exposure_penalty;
             }
         }
@@ -255,7 +263,7 @@ pub fn score_state(
             .values()
             .filter(|p| p.room_id == attack.target_room)
             .count();
-        
+
         let targets_system = attack.target_system.is_some();
         let is_severe = players_in_target > 0 || targets_system;
 
@@ -285,7 +293,7 @@ pub fn score_state(
     } else {
         // No attack coming, but shields up? Wasted AP mostly, but small safety bonus
         if protected {
-            score -= 100.0; 
+            score -= 100.0;
         }
     }
 
@@ -339,13 +347,19 @@ pub fn score_state(
         // P4: Engine (Room 4)
         // P5, P6: Cannons (Room 6)
         // P2: Hallway/Roaming (Room 0) - No strict station
-        let assigned_room = match p.id.as_str() {
+
+        let mut assigned_room = match p.id.as_str() {
             "P1" => Some(5),
             "P3" => Some(7),
             "P4" => Some(4),
             "P5" | "P6" => Some(6),
             _ => None,
         };
+
+        // Dynamic Role Override: Firefighter roams free
+        if has_extinguisher {
+            assigned_room = None;
+        }
 
         if let Some(target) = assigned_room {
             if p.room_id == target {
@@ -370,14 +384,17 @@ pub fn score_state(
         if peppernuts > 0 {
             let mut gunner_score = 0.0;
             let dist = min_distance(state, p.room_id, &cannon_rooms);
-            
+
             // Distance heuristic: Pull players with ammo to cannons
             // Note: Not multiplied by peppernuts to prevent hoarding abuse
-            gunner_score += (20.0 - dist as f64).max(0.0) * weights.gunner_distance_factor * (1.0 + 0.2 * peppernuts as f64);
+            gunner_score += (20.0 - dist as f64).max(0.0)
+                * weights.gunner_distance_factor
+                * (1.0 + 0.2 * peppernuts as f64);
 
             if dist == 0 {
                 // At cannons: Reward quantity heavily to encourage stocking/shooting
-                gunner_score += weights.gunner_per_ammo * peppernuts as f64 + weights.gunner_base_reward;
+                gunner_score +=
+                    weights.gunner_per_ammo * peppernuts as f64 + weights.gunner_base_reward;
                 // Bonus if Cannons system is working
                 for &rid in &cannon_rooms {
                     if let Some(r) = state.map.rooms.get(&rid) {
@@ -390,7 +407,7 @@ pub fn score_state(
                 // En route: Small reward per nut to encourage picking up, but not hoarding
                 gunner_score += weights.gunner_per_ammo * 0.1 * peppernuts as f64;
             }
-            
+
             if has_wheelbarrow && peppernuts < 5 {
                 gunner_score *= 0.1;
             }
@@ -434,7 +451,7 @@ pub fn score_state(
         }
     }
 
-    // --- 7. Situation Solving ---
+    // --- 7. Situation Solving (Precise) ---
     for card in &state.active_situations {
         if let Some(sol) = &card.solution {
             if let Some(sys) = sol.target_system {
@@ -449,18 +466,102 @@ pub fn score_state(
                     let mut min_d = 999;
                     for p in state.players.values() {
                         if p.hp > 0 {
+                            // Check Item Requirement
+                            let meets_req = match &sol.item_cost {
+                                Some(item) => p.inventory.contains(item),
+                                None => true,
+                            };
+
+                            if meets_req {
+                                let mut t_set = HashSet::new();
+                                t_set.insert(tid);
+                                let d = min_distance(state, p.room_id, &t_set);
+                                if d < min_d {
+                                    min_d = d;
+                                }
+                            }
+                        }
+                    }
+                    if min_d == 0 {
+                        score += weights.solution_solver_reward;
+                    } else if min_d != 999 {
+                        score += (20.0 - min_d as f64).max(0.0) * weights.solution_distance_factor;
+                    }
+                }
+            }
+        }
+    }
+
+    // --- 9. Advanced Logistics (Scavenging & Repair) ---
+
+    // A. Smart Scavenging: Players with space should seek ammo
+    for p in state.players.values() {
+        if p.hp <= 0 {
+            continue;
+        }
+
+        let has_wheelbarrow = p.inventory.contains(&ItemType::Wheelbarrow);
+        let nut_count = p
+            .inventory
+            .iter()
+            .filter(|i| **i == ItemType::Peppernut)
+            .count();
+        let capacity = if has_wheelbarrow { 5 } else { 1 };
+
+        if nut_count < capacity {
+            // Find nearest ammo source (Floor nuts or Kitchen)
+            let mut ammo_sources = nut_locations.clone();
+            if !kitchen_rooms.is_empty() {
+                // Only consider kitchen if safe? No, desperation is valid.
+                for &k in &kitchen_rooms {
+                    ammo_sources.insert(k);
+                }
+            }
+
+            if !ammo_sources.is_empty() {
+                let d = min_distance(state, p.room_id, &ammo_sources);
+                score += (20.0 - d as f64).max(0.0) * weights.scavenger_reward;
+            }
+        }
+    }
+
+    // B. Targeted Repair: Critical Systems Priority
+    for room in state.map.rooms.values() {
+        if let Some(sys) = room.system {
+            if matches!(
+                sys,
+                SystemType::Engine | SystemType::Cannons | SystemType::Bridge
+            ) {
+                if !room.hazards.is_empty() {
+                    // Find best repairman
+                    let mut min_d = 999;
+
+                    let needs_extinguisher = room.hazards.contains(&HazardType::Fire);
+
+                    for p in state.players.values() {
+                        if p.hp > 0 {
+                            // If fire, prefer extinguisher. If no fire (water), anyone.
+                            // But anyone CAN fight fire, just slower.
+                            // Let's bias: If fire, ONLY count extinguisher holder for the big reward,
+                            // or give huge bonus to extinguisher holder.
+
+                            let has_ext = p.inventory.contains(&ItemType::Extinguisher);
+
+                            if needs_extinguisher && !has_ext {
+                                continue; // Specialized job
+                            }
+
                             let mut t_set = HashSet::new();
-                            t_set.insert(tid);
+                            t_set.insert(room.id);
                             let d = min_distance(state, p.room_id, &t_set);
                             if d < min_d {
                                 min_d = d;
                             }
                         }
                     }
-                    if min_d == 0 {
-                        score += weights.solution_solver_reward;
-                    } else {
-                        score += (20.0 - min_d as f64).max(0.0) * weights.solution_distance_factor;
+
+                    if min_d != 999 {
+                        score += (20.0 - min_d as f64).max(0.0) * weights.repair_proximity_reward;
                     }
                 }
             }
@@ -474,7 +575,7 @@ pub fn score_state(
             .iter()
             .filter(|i| **i == ItemType::Peppernut)
             .count();
-        
+
         // General loose ammo reward
         score += nuts as f64 * weights.loose_ammo_reward;
 
@@ -488,6 +589,10 @@ pub fn score_state(
     // (Kept same as before)
     let mut player_moves: HashMap<PlayerId, Vec<(usize, u32)>> = HashMap::new();
     for (idx, (pid, act)) in history.iter().enumerate() {
+        if matches!(act, GameAction::Shoot) {
+            score += weights.shooting_reward;
+        }
+
         if let GameAction::Move { to_room } = act {
             player_moves
                 .entry(pid.clone())
