@@ -19,12 +19,12 @@ impl CardBehavior for FallingGiftCard {
     }
 
     fn on_activate(&self, state: &mut GameState) {
-        if let Some(cargo_id) = find_room_with_system(state, SystemType::Cargo) {
-            if let Some(room) = state.map.rooms.get_mut(&cargo_id) {
-                room.hazards.push(HazardType::Water);
-                room.items.push(ItemType::Peppernut);
-                room.items.push(ItemType::Peppernut);
-            }
+        if let Some(cargo_id) = find_room_with_system(state, SystemType::Cargo)
+            && let Some(room) = state.map.rooms.get_mut(&cargo_id)
+        {
+            room.hazards.push(HazardType::Water);
+            room.items.push(ItemType::Peppernut);
+            room.items.push(ItemType::Peppernut);
         }
     }
 }

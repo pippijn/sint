@@ -1,8 +1,8 @@
 use crate::scoring::beam::BeamScoringWeights;
 use crate::scoring::rhea::RheaScoringWeights;
-use crate::search::beam::{beam_search, BeamSearchConfig};
-use crate::search::rhea::{rhea_search, RHEAConfig};
 use crate::search::SearchProgress;
+use crate::search::beam::{BeamSearchConfig, beam_search};
+use crate::search::rhea::{RHEAConfig, rhea_search};
 use rand::prelude::*;
 use rayon::prelude::*;
 use sint_core::types::GamePhase;
@@ -10,7 +10,7 @@ use std::sync::mpsc::Sender;
 
 #[derive(Clone, Debug)]
 pub enum OptimizerMessage {
-    GenerationDone(OptimizationStatus),
+    GenerationDone(Box<OptimizationStatus>),
     IndividualDone {
         generation: usize,
         index: usize,
@@ -27,7 +27,7 @@ pub enum OptimizerMessage {
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum Strategy {
     GA,
-    SPSA,
+    Spsa,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
@@ -274,7 +274,7 @@ fn get_param_count(target: Target) -> usize {
     }
 }
 
-fn mutate(rng: &mut impl Rng, genome: &mut Vec<f64>) {
+fn mutate(rng: &mut impl Rng, genome: &mut [f64]) {
     let idx = rng.random_range(0..genome.len());
     // Mutate by +/- 20% or random small noise
     if rng.random_bool(0.5) {
@@ -418,7 +418,7 @@ pub fn run_ga(config: &OptimizerConfig, tx: Sender<OptimizerMessage>) {
         })
         .collect();
 
-    for gen in 0..config.generations {
+    for generation in 0..config.generations {
         // Evaluate
         let mut scored_pop: Vec<(EvaluationMetrics, Vec<f64>)> = population
             .par_iter()
@@ -427,13 +427,13 @@ pub fn run_ga(config: &OptimizerConfig, tx: Sender<OptimizerMessage>) {
                 let current_tx = tx.clone();
                 let metrics = evaluate(config, genome, move |p: SearchProgress| {
                     let _ = current_tx.send(OptimizerMessage::IndividualUpdate {
-                        generation: gen,
+                        generation,
                         index: i,
                         progress: p,
                     });
                 });
                 let _ = tx.send(OptimizerMessage::IndividualDone {
-                    generation: gen,
+                    generation,
                     index: i,
                     score: metrics.score,
                     metrics: metrics.clone(),
@@ -468,21 +468,23 @@ pub fn run_ga(config: &OptimizerConfig, tx: Sender<OptimizerMessage>) {
             None
         };
 
-        let _ = tx.send(OptimizerMessage::GenerationDone(OptimizationStatus {
-            generation: gen,
-            best_score,
-            avg_score,
-            best_metrics,
-            best_genome: best_genome.clone(),
-            current_weights_beam: weights_beam,
-            current_weights_rhea: weights_rhea,
-        }));
+        let _ = tx.send(OptimizerMessage::GenerationDone(Box::new(
+            OptimizationStatus {
+                generation,
+                best_score,
+                avg_score,
+                best_metrics,
+                best_genome: best_genome.clone(),
+                current_weights_beam: weights_beam,
+                current_weights_rhea: weights_rhea,
+            },
+        )));
 
         // Elitism: Keep top 20%
         let elite_count = (config.population as f64 * 0.2).ceil() as usize;
         let mut new_pop = Vec::new();
-        for i in 0..elite_count {
-            new_pop.push(scored_pop[i].1.clone());
+        for item in scored_pop.iter().take(elite_count) {
+            new_pop.push(item.1.clone());
         }
 
         // Offspring
@@ -605,14 +607,16 @@ pub fn run_spsa(config: &OptimizerConfig, tx: Sender<OptimizerMessage>) {
             None
         };
 
-        let _ = tx.send(OptimizerMessage::GenerationDone(OptimizationStatus {
-            generation: k,
-            best_score: best_metrics.score,
-            avg_score: current_metrics.score,
-            best_metrics: best_metrics.clone(),
-            best_genome: best_theta.clone(),
-            current_weights_beam: weights_beam,
-            current_weights_rhea: weights_rhea,
-        }));
+        let _ = tx.send(OptimizerMessage::GenerationDone(Box::new(
+            OptimizationStatus {
+                generation: k,
+                best_score: best_metrics.score,
+                avg_score: current_metrics.score,
+                best_metrics: best_metrics.clone(),
+                best_genome: best_theta.clone(),
+                current_weights_beam: weights_beam,
+                current_weights_rhea: weights_rhea,
+            },
+        )));
     }
 }

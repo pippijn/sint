@@ -115,15 +115,15 @@ pub fn format_trajectory(
                             .unwrap();
                     } else {
                         // Might be in MorningReport if something weird happened, but usually Driver stabilizes to Planning.
-                        if driver.state.phase == GamePhase::MorningReport {
-                            if let Some(card) = &driver.state.latest_event {
-                                writeln!(
-                                    current_buffer,
-                                    "[EVENT] {} - {}",
-                                    card.title, card.description
-                                )
-                                .unwrap();
-                            }
+                        if driver.state.phase == GamePhase::MorningReport
+                            && let Some(card) = &driver.state.latest_event
+                        {
+                            writeln!(
+                                current_buffer,
+                                "[EVENT] {} - {}",
+                                card.title, card.description
+                            )
+                            .unwrap();
                         }
                     }
                 } else if driver.state.phase != prev_phase {

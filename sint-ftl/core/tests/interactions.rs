@@ -1,5 +1,5 @@
 use sint_core::{
-    logic::{apply_action, cards::get_behavior, GameLogic},
+    logic::{GameLogic, apply_action, cards::get_behavior},
     types::{Action, Card, CardId, CardType, GameAction, GamePhase, ItemType},
 };
 

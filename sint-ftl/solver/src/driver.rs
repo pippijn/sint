@@ -18,7 +18,7 @@ impl GameDriver {
     /// "Stable" means:
     /// 1. We are in `TacticalPlanning` phase.
     /// 2. At least one player has AP > 0 and is not ready.
-    /// OR
+    ///    OR
     /// 3. The game is over (Victory/GameOver).
     fn stabilize(&mut self) {
         let mut loop_safety = 0;

@@ -2,7 +2,7 @@ use crate::{
     logic::cards::behavior::CardBehavior,
     types::{Card, CardId, CardType, GameState},
 };
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{Rng, SeedableRng, rngs::StdRng};
 
 pub struct HighPressureCard;
 
@@ -26,16 +26,16 @@ impl CardBehavior for HighPressureCard {
 
         for pid in player_ids {
             let current_room_id = state.players[&pid].room_id;
-            if let Some(room) = state.map.rooms.get(&current_room_id) {
-                if !room.neighbors.is_empty() {
-                    let mut rng = StdRng::seed_from_u64(state.rng_seed);
-                    let idx = rng.random_range(0..room.neighbors.len());
-                    let next_room = room.neighbors[idx];
-                    state.rng_seed = rng.random();
+            if let Some(room) = state.map.rooms.get(&current_room_id)
+                && !room.neighbors.is_empty()
+            {
+                let mut rng = StdRng::seed_from_u64(state.rng_seed);
+                let idx = rng.random_range(0..room.neighbors.len());
+                let next_room = room.neighbors[idx];
+                state.rng_seed = rng.random();
 
-                    if let Some(p) = state.players.get_mut(&pid) {
-                        p.room_id = next_room;
-                    }
+                if let Some(p) = state.players.get_mut(&pid) {
+                    p.room_id = next_room;
                 }
             }
         }

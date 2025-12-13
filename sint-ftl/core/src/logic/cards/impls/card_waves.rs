@@ -27,12 +27,12 @@ impl CardBehavior for HighWavesCard {
                 let current_room = state.players.get(&pid).unwrap().room_id;
 
                 // Calculate path to Engine
-                if let Some(path) = find_path(&state.map, current_room, engine_id) {
-                    if let Some(&next_step) = path.first() {
-                        // Update player position
-                        if let Some(p) = state.players.get_mut(&pid) {
-                            p.room_id = next_step;
-                        }
+                if let Some(path) = find_path(&state.map, current_room, engine_id)
+                    && let Some(&next_step) = path.first()
+                {
+                    // Update player position
+                    if let Some(p) = state.players.get_mut(&pid) {
+                        p.room_id = next_step;
                     }
                 }
             }

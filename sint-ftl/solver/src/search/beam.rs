@@ -1,6 +1,6 @@
 use crate::driver::GameDriver;
-use crate::scoring::beam::{calculate_score, BeamScoringWeights};
-use crate::search::{get_state_signature, SearchNode, SearchProgress};
+use crate::scoring::beam::{BeamScoringWeights, calculate_score};
+use crate::search::{SearchNode, SearchProgress, get_state_signature};
 use rayon::prelude::*;
 use sint_core::logic::GameLogic;
 use sint_core::types::{Action, GameAction, GamePhase};
@@ -30,6 +30,12 @@ pub struct ExpansionLog {
 
 pub struct DebugContext {
     pub logs: Mutex<VecDeque<ExpansionLog>>,
+}
+
+impl Default for DebugContext {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl DebugContext {
@@ -158,25 +164,24 @@ where
         if let Some(win) = beam
             .iter()
             .find(|n| n.state.phase == GamePhase::Victory || n.state.phase == GamePhase::GameOver)
+            && win.state.phase == GamePhase::Victory
         {
-            if win.state.phase == GamePhase::Victory {
-                if config.verbose {
-                    println!("🏆 VICTORY FOUND at step {}!", step);
-                }
-                final_solution = Some(win.clone());
-                // Report final success
-                if let Some(cb) = &progress_callback {
-                    cb(SearchProgress {
-                        step,
-                        best_score: win.score,
-                        hull: win.state.hull_integrity,
-                        boss_hp: win.state.enemy.hp,
-                        is_done: true,
-                        current_best_node: Some(win.clone()),
-                    });
-                }
-                break;
+            if config.verbose {
+                println!("🏆 VICTORY FOUND at step {}!", step);
             }
+            final_solution = Some(win.clone());
+            // Report final success
+            if let Some(cb) = &progress_callback {
+                cb(SearchProgress {
+                    step,
+                    best_score: win.score,
+                    hull: win.state.hull_integrity,
+                    boss_hp: win.state.enemy.hp,
+                    is_done: true,
+                    current_best_node: Some(win.clone()),
+                });
+            }
+            break;
         }
 
         let debug_clone = debug_ctx.clone();
@@ -213,33 +218,35 @@ where
                 .then_with(|| a.signature.cmp(&b.signature))
         });
 
-        if sorted_nodes.is_empty() && !beam.is_empty() {
-            if config.verbose {
-                let best = &beam[0];
-                let round_num = if step > 0 { step - 1 } else { 0 };
-                println!(
-                    "Step {} (Last Valid): Best Score {:.1} | Round {} | Hull {} | Boss {} | Beam {}",
-                    round_num,
-                    best.score,
-                    best.state.turn_count,
-                    best.state.hull_integrity,
-                    best.state.enemy.hp,
-                    beam.len()
-                );
+        if sorted_nodes.is_empty() && !beam.is_empty() && config.verbose {
+            let best = &beam[0];
+            let round_num = if step > 0 { step - 1 } else { 0 };
+            println!(
+                "Step {} (Last Valid): Best Score {:.1} | Round {} | Hull {} | Boss {} | Beam {}",
+                round_num,
+                best.score,
+                best.state.turn_count,
+                best.state.hull_integrity,
+                best.state.enemy.hp,
+                beam.len()
+            );
 
-                let kept_nodes = sorted_nodes.len(); // 0 in this block
+            let kept_nodes = sorted_nodes.len(); // 0 in this block
 
+            println!(
+                "💀 Beam died! Generated {} nodes, kept {} (filtered by visited).",
+                total_generated, kept_nodes
+            );
+            if total_generated == 0 {
                 println!(
-                    "💀 Beam died! Generated {} nodes, kept {} (filtered by visited).",
-                    total_generated, kept_nodes
+                    "   Possible reasons: No legal actions, or all actions filtered (Undo/Chat/etc), or apply_action failed."
                 );
-                if total_generated == 0 {
-                    println!("   Possible reasons: No legal actions, or all actions filtered (Undo/Chat/etc), or apply_action failed.");
-                    debug_ctx.dump();
-                } else {
-                    println!("   Reason: All generated states were already visited with better/equal cost.");
-                    // Print collision info if useful
-                }
+                debug_ctx.dump();
+            } else {
+                println!(
+                    "   Reason: All generated states were already visited with better/equal cost."
+                );
+                // Print collision info if useful
             }
         }
 
@@ -248,19 +255,17 @@ where
         }
         beam = sorted_nodes;
 
-        if config.verbose && !beam.is_empty() {
-            if step % 10 == 0 || step == config.steps - 1 {
-                let best = &beam[0];
-                println!(
-                    "Step {}: Best Score {:.1} | Round {} | Hull {} | Boss {} | Beam {}",
-                    step,
-                    best.score,
-                    best.state.turn_count,
-                    best.state.hull_integrity,
-                    best.state.enemy.hp,
-                    beam.len()
-                );
-            }
+        if config.verbose && !beam.is_empty() && (step % 10 == 0 || step == config.steps - 1) {
+            let best = &beam[0];
+            println!(
+                "Step {}: Best Score {:.1} | Round {} | Hull {} | Boss {} | Beam {}",
+                step,
+                best.score,
+                best.state.turn_count,
+                best.state.hull_integrity,
+                best.state.enemy.hp,
+                beam.len()
+            );
         }
     }
 
@@ -294,7 +299,7 @@ fn expand_node(
     // Prepare log entry
     let mut log_entry = ExpansionLog {
         step,
-        phase: state.phase.clone(),
+        phase: state.phase,
         active_player: active_player.map(|p| p.id.clone()),
         ap: active_player.map(|p| p.ap).unwrap_or(0),
         actions_generated: Vec::new(),

@@ -1,7 +1,7 @@
 use sint_core::{
+    GameError,
     logic::GameLogic,
     types::{Action, Card, CardId, CardSolution, CardType, GameAction, GamePhase, SystemType},
-    GameError,
 };
 
 #[test]

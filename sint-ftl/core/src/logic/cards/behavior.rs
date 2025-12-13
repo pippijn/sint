@@ -1,6 +1,6 @@
 use crate::{
-    types::{Card, CardId, CardSentiment, CardType, GameAction, GameState},
     GameError,
+    types::{Card, CardId, CardSentiment, CardType, GameAction, GameState},
 };
 
 pub trait CardBehavior: Send + Sync {

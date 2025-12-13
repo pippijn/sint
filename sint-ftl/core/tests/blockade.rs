@@ -1,4 +1,4 @@
-use sint_core::logic::{actions::get_valid_actions, cards::get_behavior, GameLogic};
+use sint_core::logic::{GameLogic, actions::get_valid_actions, cards::get_behavior};
 use sint_core::types::{Action, CardId, GameAction, GamePhase, MapLayout, SystemType};
 
 #[test]

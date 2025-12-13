@@ -1,6 +1,6 @@
 use sint_core::{
-    types::{Action, GameAction, GamePhase, ItemType},
     GameLogic,
+    types::{Action, GameAction, GamePhase, ItemType},
 };
 
 #[test]

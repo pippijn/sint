@@ -19,10 +19,10 @@ impl CardBehavior for ShortCircuitCard {
     }
 
     fn on_activate(&self, state: &mut GameState) {
-        if let Some(engine_id) = find_room_with_system(state, SystemType::Engine) {
-            if let Some(room) = state.map.rooms.get_mut(&engine_id) {
-                room.hazards.push(HazardType::Fire);
-            }
+        if let Some(engine_id) = find_room_with_system(state, SystemType::Engine)
+            && let Some(room) = state.map.rooms.get_mut(&engine_id)
+        {
+            room.hazards.push(HazardType::Fire);
         }
     }
 }

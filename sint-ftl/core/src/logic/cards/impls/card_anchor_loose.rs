@@ -2,7 +2,7 @@ use crate::{
     logic::cards::behavior::CardBehavior,
     types::{Card, CardId, CardSolution, CardType, GameState, HazardType},
 };
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{Rng, SeedableRng, rngs::StdRng};
 
 pub struct AnchorLooseCard;
 

@@ -2,7 +2,7 @@ use super::{actions::action_cost, cards::get_behavior};
 use crate::logic::handlers::get_handler;
 use crate::types::*;
 use log::{debug, info};
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{Rng, SeedableRng, rngs::StdRng};
 
 pub fn resolve_enemy_attack(state: &mut GameState) {
     // 1. Handle Fog Bank (Hidden Attack) or Normal Attack via Hooks
@@ -111,35 +111,34 @@ pub fn resolve_hazards(state: &mut GameState) {
     let player_ids: Vec<String> = state.players.keys().cloned().collect();
 
     for pid in &player_ids {
-        if let Some(p) = state.players.get_mut(pid) {
-            if let Some(room) = state.map.rooms.get(&p.room_id) {
-                if room.hazards.contains(&HazardType::Fire) {
-                    p.hp -= 1;
-                    if p.hp <= 0 {
-                        p.status.push(PlayerStatus::Fainted);
-                    }
-                }
+        if let Some(p) = state.players.get_mut(pid)
+            && let Some(room) = state.map.rooms.get(&p.room_id)
+            && room.hazards.contains(&HazardType::Fire)
+        {
+            p.hp -= 1;
+            if p.hp <= 0 {
+                p.status.push(PlayerStatus::Fainted);
             }
         }
     }
 
     // 2. Apply Spreads
     for room_id in fire_spreads {
-        if let Some(room) = state.map.rooms.get_mut(&room_id) {
-            if !room.hazards.contains(&HazardType::Fire) {
-                room.hazards.push(HazardType::Fire);
-            }
+        if let Some(room) = state.map.rooms.get_mut(&room_id)
+            && !room.hazards.contains(&HazardType::Fire)
+        {
+            room.hazards.push(HazardType::Fire);
         }
     }
 
     // 3. Water destroys items (Except in Storage)
     for room_id in &room_ids {
-        if let Some(room) = state.map.rooms.get_mut(room_id) {
-            if room.hazards.contains(&HazardType::Water) && room.system != Some(SystemType::Storage)
-            {
-                // Only destroy Peppernuts. Special items survive.
-                room.items.retain(|i| *i != ItemType::Peppernut);
-            }
+        if let Some(room) = state.map.rooms.get_mut(room_id)
+            && room.hazards.contains(&HazardType::Water)
+            && room.system != Some(SystemType::Storage)
+        {
+            // Only destroy Peppernuts. Special items survive.
+            room.items.retain(|i| *i != ItemType::Peppernut);
         }
     }
 

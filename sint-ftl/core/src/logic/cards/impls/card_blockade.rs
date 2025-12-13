@@ -1,7 +1,7 @@
 use crate::{
+    GameError,
     logic::{cards::behavior::CardBehavior, find_room_with_system},
     types::{Card, CardId, CardSolution, CardType, GameAction, GameState, SystemType},
-    GameError,
 };
 
 pub struct BlockadeCard;
@@ -30,20 +30,20 @@ impl CardBehavior for BlockadeCard {
         player_id: &str,
         action: &GameAction,
     ) -> Result<(), GameError> {
-        if let Some(cannons_id) = find_room_with_system(state, SystemType::Cannons) {
-            if let GameAction::Move { to_room } = action {
-                if *to_room == cannons_id {
-                    return Err(GameError::InvalidAction(
-                        "Blockade! Cannot enter Cannons.".to_owned(),
-                    ));
-                }
-                if let Some(p) = state.players.get(player_id) {
-                    if p.room_id == cannons_id {
-                        return Err(GameError::InvalidAction(
-                            "Blockade! Cannot exit Cannons.".to_owned(),
-                        ));
-                    }
-                }
+        if let Some(cannons_id) = find_room_with_system(state, SystemType::Cannons)
+            && let GameAction::Move { to_room } = action
+        {
+            if *to_room == cannons_id {
+                return Err(GameError::InvalidAction(
+                    "Blockade! Cannot enter Cannons.".to_owned(),
+                ));
+            }
+            if let Some(p) = state.players.get(player_id)
+                && p.room_id == cannons_id
+            {
+                return Err(GameError::InvalidAction(
+                    "Blockade! Cannot exit Cannons.".to_owned(),
+                ));
             }
         }
         Ok(())

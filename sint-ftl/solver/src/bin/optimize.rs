@@ -2,20 +2,20 @@ use clap::{Parser, ValueEnum};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use ratatui::{
+    Frame, Terminal,
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     symbols,
     text::Span,
     widgets::{Axis, BarChart, Block, Borders, Chart, Dataset, GraphType, Paragraph, Row, Table},
-    Frame, Terminal,
 };
 use sint_solver::optimization::{
-    run_ga, run_spsa, EvaluationMetrics, OptimizationStatus, OptimizerConfig, OptimizerMessage,
-    Strategy, Target,
+    EvaluationMetrics, OptimizationStatus, OptimizerConfig, OptimizerMessage, Strategy, Target,
+    run_ga, run_spsa,
 };
 use sint_solver::scoring::beam::BeamScoringWeights;
 use sint_solver::scoring::rhea::RheaScoringWeights;
@@ -71,7 +71,7 @@ struct Args {
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
 enum ArgStrategy {
     GA,
-    SPSA,
+    Spsa,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
@@ -84,7 +84,7 @@ impl From<ArgStrategy> for Strategy {
     fn from(s: ArgStrategy) -> Self {
         match s {
             ArgStrategy::GA => Strategy::GA,
-            ArgStrategy::SPSA => Strategy::SPSA,
+            ArgStrategy::Spsa => Strategy::Spsa,
         }
     }
 }
@@ -130,7 +130,7 @@ fn run_cli(config: OptimizerConfig) {
         "🧬 Starting Optimization ({} -> {}): Gens={}, Pop={}, Seeds={:?}",
         match config.strategy {
             Strategy::GA => "GA",
-            Strategy::SPSA => "SPSA",
+            Strategy::Spsa => "SPSA",
         },
         match config.target {
             Target::Beam => "Beam",
@@ -146,7 +146,7 @@ fn run_cli(config: OptimizerConfig) {
 
     thread::spawn(move || match thread_config.strategy {
         Strategy::GA => run_ga(&thread_config, tx),
-        Strategy::SPSA => run_spsa(&thread_config, tx),
+        Strategy::Spsa => run_spsa(&thread_config, tx),
     });
 
     while let Ok(msg) = rx.recv() {
@@ -230,7 +230,7 @@ fn run_tui(config: OptimizerConfig) -> Result<(), Box<dyn std::error::Error>> {
 
     thread::spawn(move || match thread_config.strategy {
         Strategy::GA => run_ga(&thread_config, tx),
-        Strategy::SPSA => run_spsa(&thread_config, tx),
+        Strategy::Spsa => run_spsa(&thread_config, tx),
     });
 
     // Run Loop
@@ -244,12 +244,11 @@ fn run_tui(config: OptimizerConfig) -> Result<(), Box<dyn std::error::Error>> {
             .checked_sub(last_tick.elapsed())
             .unwrap_or_else(|| Duration::from_secs(0));
 
-        if crossterm::event::poll(timeout)? {
-            if let Event::Key(key) = event::read()? {
-                if let KeyCode::Char('q') = key.code {
-                    break;
-                }
-            }
+        if crossterm::event::poll(timeout)?
+            && let Event::Key(key) = event::read()?
+            && let KeyCode::Char('q') = key.code
+        {
+            break;
         }
 
         if last_tick.elapsed() >= tick_rate {
@@ -276,7 +275,7 @@ fn run_tui(config: OptimizerConfig) -> Result<(), Box<dyn std::error::Error>> {
                     if status.generation == app.config.generations - 1 {
                         app.done = true;
                     }
-                    app.history.push(status);
+                    app.history.push(*status);
                     // Reset progress for next gen
                     for p in &mut app.current_gen_progress {
                         *p = None;
@@ -316,7 +315,7 @@ fn ui(f: &mut Frame, app: &App) {
     // Header
     let strategy_str = match app.config.strategy {
         Strategy::GA => "Genetic Algorithm",
-        Strategy::SPSA => "SPSA",
+        Strategy::Spsa => "SPSA",
     };
     let target_str = match app.config.target {
         Target::Beam => "Beam Search",

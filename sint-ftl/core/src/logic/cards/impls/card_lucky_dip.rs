@@ -54,10 +54,10 @@ impl CardBehavior for LuckyDipCard {
 
         for (i, pid) in player_ids.iter().enumerate() {
             let source_idx = if i == 0 { len - 1 } else { i - 1 };
-            if let Some(item) = &extracted_items[source_idx] {
-                if let Some(p) = state.players.get_mut(pid) {
-                    p.inventory.push(item.clone());
-                }
+            if let Some(item) = &extracted_items[source_idx]
+                && let Some(p) = state.players.get_mut(pid)
+            {
+                p.inventory.push(item.clone());
             }
         }
     }

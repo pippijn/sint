@@ -1,8 +1,8 @@
 use crate::scoring::beam::ScoreAccumulator;
 use serde::{Deserialize, Serialize};
+use sint_core::GameError;
 use sint_core::logic::GameLogic;
 use sint_core::types::{Action, GameAction, GamePhase, GameState, ItemType};
-use sint_core::GameError;
 
 fn get_hazard_emoji(h: &sint_core::types::HazardType) -> &'static str {
     match h {
@@ -30,6 +30,9 @@ pub struct VerificationResult {
     pub failed_action: Option<(String, GameAction)>,
     pub score: f64,
 }
+
+pub type RoundActions = Vec<(String, GameAction)>;
+pub type ParsedSolution = (Vec<RoundActions>, Option<u64>, Option<usize>);
 
 impl VerificationResult {
     pub fn failure_summary(&self) -> Option<String> {
@@ -123,9 +126,7 @@ impl VerificationResult {
     }
 }
 
-pub fn parse_solution_text(
-    text: &str,
-) -> (Vec<Vec<(String, GameAction)>>, Option<u64>, Option<usize>) {
+pub fn parse_solution_text(text: &str) -> ParsedSolution {
     let mut rounds = Vec::new();
     let mut current_round = Vec::new();
     let mut seed = None;
@@ -138,27 +139,25 @@ pub fn parse_solution_text(
         }
 
         if line.starts_with('#') {
-            if line.to_lowercase().contains("round") {
-                if !current_round.is_empty() {
-                    rounds.push(current_round);
-                    current_round = Vec::new();
-                }
+            if line.to_lowercase().contains("round") && !current_round.is_empty() {
+                rounds.push(current_round);
+                current_round = Vec::new();
             }
             continue;
         }
 
         // Check for Meta Commands: "SEED 12345" or "PLAYERS 2"
-        if line.starts_with("SEED ") {
-            if let Ok(val) = line.replace("SEED ", "").trim().parse::<u64>() {
-                seed = Some(val);
-                continue;
-            }
+        if line.starts_with("SEED ")
+            && let Ok(val) = line.replace("SEED ", "").trim().parse::<u64>()
+        {
+            seed = Some(val);
+            continue;
         }
-        if line.starts_with("PLAYERS ") {
-            if let Ok(val) = line.replace("PLAYERS ", "").trim().parse::<usize>() {
-                players = Some(val);
-                continue;
-            }
+        if line.starts_with("PLAYERS ")
+            && let Ok(val) = line.replace("PLAYERS ", "").trim().parse::<usize>()
+        {
+            players = Some(val);
+            continue;
         }
 
         let parts: Vec<&str> = line.splitn(2, ':').collect();
@@ -238,14 +237,14 @@ pub fn parse_solution_text(
 
 pub fn run_verification(
     initial_state: GameState,
-    user_rounds: Vec<Vec<(String, GameAction)>>,
+    user_rounds: Vec<RoundActions>,
 ) -> VerificationResult {
     let mut state = initial_state;
     let mut full_history = Vec::new();
     let mut scorer = ScoreAccumulator::new();
     let mut last_round = state.turn_count;
 
-    for (_round_idx, round_actions) in user_rounds.into_iter().enumerate() {
+    for round_actions in user_rounds.into_iter() {
         if state.phase == GamePhase::GameOver || state.phase == GamePhase::Victory {
             break;
         }

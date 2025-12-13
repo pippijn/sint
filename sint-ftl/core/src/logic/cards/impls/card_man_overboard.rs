@@ -2,7 +2,7 @@ use crate::{
     logic::cards::behavior::CardBehavior,
     types::{Card, CardId, CardSolution, CardType, GameState, SystemType},
 };
-use rand::{prelude::IndexedRandom, rngs::StdRng, Rng, SeedableRng};
+use rand::{Rng, SeedableRng, prelude::IndexedRandom, rngs::StdRng};
 
 pub struct ManOverboardCard;
 
@@ -32,14 +32,13 @@ impl CardBehavior for ManOverboardCard {
         let mut triggered = false;
 
         for card in state.active_situations.iter_mut() {
-            if card.id == CardId::ManOverboard {
-                if let CardType::Timebomb { rounds_left } = &mut card.card_type {
-                    if *rounds_left > 0 {
-                        *rounds_left -= 1;
-                        if *rounds_left == 0 {
-                            triggered = true;
-                        }
-                    }
+            if card.id == CardId::ManOverboard
+                && let CardType::Timebomb { rounds_left } = &mut card.card_type
+                && *rounds_left > 0
+            {
+                *rounds_left -= 1;
+                if *rounds_left == 0 {
+                    triggered = true;
                 }
             }
         }

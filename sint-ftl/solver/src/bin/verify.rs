@@ -41,10 +41,10 @@ fn main() {
 
     let result = run_verification(initial_state, file_actions);
 
-    if !result.success {
-        if let Some(summary) = result.failure_summary() {
-            println!("{}", summary);
-        }
+    if !result.success
+        && let Some(summary) = result.failure_summary()
+    {
+        println!("{}", summary);
     }
 
     // Replay for visualization

@@ -1,11 +1,11 @@
 use axum::{
+    Router,
     extract::{
-        ws::{Message, WebSocket, WebSocketUpgrade},
         State,
+        ws::{Message, WebSocket, WebSocketUpgrade},
     },
     response::{IntoResponse, Json},
     routing::get,
-    Router,
 };
 use dashmap::DashMap;
 use futures::{sink::SinkExt, stream::StreamExt};
@@ -119,24 +119,22 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
 
                             Ok(ClientMessage::Event { sequence_id, data }) => {
                                 // Relay to Room
-                                if let Some(room_id) = &my_room_id {
-                                    if let Some(tx) = state.rooms.get(room_id) {
+                                if let Some(room_id) = &my_room_id
+                                    && let Some(tx) = state.rooms.get(room_id) {
                                         // Re-wrap as Server Message
                                         let relay_msg = serde_json::to_string(&ServerMessage::Event { sequence_id, data }).unwrap();
                                         // We send raw string to broadcast
                                         let _ = tx.send(relay_msg);
                                     }
-                                }
                             }
 
                             Ok(ClientMessage::SyncRequest { requestor_id }) => {
                                 // Broadcast SyncRequest to peers
-                                if let Some(room_id) = &my_room_id {
-                                    if let Some(tx) = state.rooms.get(room_id) {
+                                if let Some(room_id) = &my_room_id
+                                    && let Some(tx) = state.rooms.get(room_id) {
                                         let relay_msg = serde_json::to_string(&ServerMessage::SyncRequest { requestor_id }).unwrap();
                                         let _ = tx.send(relay_msg);
                                     }
-                                }
                             }
 
                             Err(e) => {

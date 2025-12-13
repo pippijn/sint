@@ -1,6 +1,6 @@
 use super::ActionHandler;
-use crate::types::{GameState, ItemType};
 use crate::GameError;
+use crate::types::{GameState, ItemType};
 
 // --- PICK UP ---
 pub struct PickUpHandler {
@@ -62,13 +62,13 @@ impl ActionHandler for PickUpHandler {
         let room_id = p.room_id;
 
         // Remove from room
-        if let Some(room) = state.map.rooms.get_mut(&room_id) {
-            if let Some(pos) = room.items.iter().position(|x| *x == self.item_type) {
-                let item = room.items.remove(pos);
-                // Add to inventory (re-borrow player)
-                if let Some(p) = state.players.get_mut(player_id) {
-                    p.inventory.push(item);
-                }
+        if let Some(room) = state.map.rooms.get_mut(&room_id)
+            && let Some(pos) = room.items.iter().position(|x| *x == self.item_type)
+        {
+            let item = room.items.remove(pos);
+            // Add to inventory (re-borrow player)
+            if let Some(p) = state.players.get_mut(player_id) {
+                p.inventory.push(item);
             }
         }
         Ok(())
@@ -122,10 +122,10 @@ impl ActionHandler for DropHandler {
             item = Some(p.inventory.remove(self.item_index));
         }
 
-        if let Some(it) = item {
-            if let Some(room) = state.map.rooms.get_mut(&room_id) {
-                room.items.push(it);
-            }
+        if let Some(it) = item
+            && let Some(room) = state.map.rooms.get_mut(&room_id)
+        {
+            room.items.push(it);
         }
         Ok(())
     }
@@ -204,10 +204,10 @@ impl ActionHandler for ThrowHandler {
             item = Some(p.inventory.remove(self.item_index));
         }
 
-        if let Some(it) = item {
-            if let Some(target) = state.players.get_mut(&self.target_player) {
-                target.inventory.push(it);
-            }
+        if let Some(it) = item
+            && let Some(target) = state.players.get_mut(&self.target_player)
+        {
+            target.inventory.push(it);
         }
         Ok(())
     }

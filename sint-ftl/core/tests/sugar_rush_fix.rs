@@ -1,6 +1,6 @@
 use sint_core::{
-    types::{CardId, GamePhase},
     GameLogic,
+    types::{CardId, GamePhase},
 };
 
 fn new_test_game(players: Vec<String>) -> sint_core::types::GameState {

@@ -1,6 +1,6 @@
 use sint_core::{
-    types::{Action, GameAction, GamePhase, ItemType},
     GameLogic,
+    types::{Action, GameAction, GamePhase, ItemType},
 };
 
 #[test]
@@ -68,9 +68,11 @@ fn test_scenario_fire_in_kitchen() {
     assert!(state.map.rooms[&kitchen].hazards.is_empty());
     // P1 baked -> 3 nuts.
     // P1 picked up? No, items stay in room.
-    assert!(state.map.rooms[&kitchen]
-        .items
-        .contains(&ItemType::Peppernut));
+    assert!(
+        state.map.rooms[&kitchen]
+            .items
+            .contains(&ItemType::Peppernut)
+    );
 }
 
 #[test]

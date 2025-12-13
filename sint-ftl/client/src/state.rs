@@ -1,7 +1,7 @@
 use crate::ws::{ClientMessage, ServerMessage};
 use futures::channel::mpsc;
 use futures::{SinkExt, StreamExt};
-use gloo_net::websocket::{futures::WebSocket, Message};
+use gloo_net::websocket::{Message, futures::WebSocket};
 use leptos::prelude::*;
 use sint_core::{Action, GameLogic, GameState, MetaAction, PlayerEvent};
 use std::collections::VecDeque;
@@ -144,11 +144,10 @@ pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
                                                 guard.verified_state = new_state;
 
                                                 // 2. Prune Pending (Match UUID)
-                                                if let Some(front) = guard.pending_events.front() {
-                                                    if front.id == event.id {
+                                                if let Some(front) = guard.pending_events.front()
+                                                    && front.id == event.id {
                                                         guard.pending_events.pop_front();
                                                     }
-                                                }
 
                                                 // 3. Replay Pending
                                                 let mut predicted = guard.verified_state.clone();

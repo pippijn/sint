@@ -1,6 +1,6 @@
 use sint_core::{
-    types::{CardId, CardType, GameAction, GamePhase},
     GameLogic,
+    types::{CardId, CardType, GameAction, GamePhase},
 };
 
 fn new_test_game(players: Vec<String>) -> sint_core::types::GameState {
@@ -81,8 +81,10 @@ fn test_listing_card_lifecycle() {
     behavior.on_round_end(&mut state);
 
     // Should be gone
-    assert!(state
-        .active_situations
-        .iter()
-        .all(|c| c.id != CardId::Listing));
+    assert!(
+        state
+            .active_situations
+            .iter()
+            .all(|c| c.id != CardId::Listing)
+    );
 }

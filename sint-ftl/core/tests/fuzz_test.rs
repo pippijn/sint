@@ -1,5 +1,5 @@
 use rand::{prelude::IndexedRandom, rng};
-use sint_core::{logic::actions::get_valid_actions, GameLogic, GamePhase};
+use sint_core::{GameLogic, GamePhase, logic::actions::get_valid_actions};
 
 #[test]
 fn test_fuzz_random_walk() {

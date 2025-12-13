@@ -1,5 +1,5 @@
-use crate::types::{GameAction, GameState};
 use crate::GameError;
+use crate::types::{GameAction, GameState};
 
 pub trait ActionHandler {
     fn validate(&self, state: &GameState, player_id: &str) -> Result<(), GameError>;

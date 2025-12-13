@@ -1,5 +1,5 @@
 use sint_core::{
-    logic::{apply_action, GameLogic},
+    logic::{GameLogic, apply_action},
     types::{Action, GameAction, GamePhase},
 };
 

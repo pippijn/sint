@@ -1,8 +1,8 @@
 use super::ActionHandler;
-use crate::types::{ChatMessage, EnemyState, GameState, ItemType, SystemType};
 use crate::GameError;
+use crate::types::{ChatMessage, EnemyState, GameState, ItemType, SystemType};
 use log::info;
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{Rng, SeedableRng, rngs::StdRng};
 
 // --- BAKE ---
 pub struct BakeHandler;
@@ -363,10 +363,10 @@ impl ActionHandler for FirstAidHandler {
         _simulation: bool,
     ) -> Result<(), GameError> {
         self.validate(state, player_id)?;
-        if let Some(target) = state.players.get_mut(&self.target_player) {
-            if target.hp < 3 {
-                target.hp += 1;
-            }
+        if let Some(target) = state.players.get_mut(&self.target_player)
+            && target.hp < 3
+        {
+            target.hp += 1;
         }
         Ok(())
     }

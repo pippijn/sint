@@ -24,19 +24,19 @@ impl CardBehavior for MicePlagueCard {
     }
 
     fn on_round_end(&self, state: &mut GameState) {
-        if let Some(storage_id) = find_room_with_system(state, SystemType::Storage) {
-            if let Some(room) = state.map.rooms.get_mut(&storage_id) {
-                // Remove up to 2 peppernuts
-                let mut removed = 0;
-                room.items.retain(|item| {
-                    if *item == ItemType::Peppernut && removed < 2 {
-                        removed += 1;
-                        false // Drop
-                    } else {
-                        true // Keep
-                    }
-                });
-            }
+        if let Some(storage_id) = find_room_with_system(state, SystemType::Storage)
+            && let Some(room) = state.map.rooms.get_mut(&storage_id)
+        {
+            // Remove up to 2 peppernuts
+            let mut removed = 0;
+            room.items.retain(|item| {
+                if *item == ItemType::Peppernut && removed < 2 {
+                    removed += 1;
+                    false // Drop
+                } else {
+                    true // Keep
+                }
+            });
         }
     }
 }

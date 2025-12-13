@@ -25,12 +25,11 @@ impl CardBehavior for AmerigoCard {
 
     fn on_round_end(&self, state: &mut GameState) {
         // Eats 1 peppernut from Storage room items
-        if let Some(room_id) = find_room_with_system(state, SystemType::Storage) {
-            if let Some(room) = state.map.rooms.get_mut(&room_id) {
-                if let Some(idx) = room.items.iter().position(|i| *i == ItemType::Peppernut) {
-                    room.items.remove(idx);
-                }
-            }
+        if let Some(room_id) = find_room_with_system(state, SystemType::Storage)
+            && let Some(room) = state.map.rooms.get_mut(&room_id)
+            && let Some(idx) = room.items.iter().position(|i| *i == ItemType::Peppernut)
+        {
+            room.items.remove(idx);
         }
     }
 }

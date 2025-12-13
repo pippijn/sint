@@ -1,7 +1,7 @@
 use sint_core::{
-    logic::{cards::get_behavior, resolution, GameLogic},
-    types::*,
     GameError,
+    logic::{GameLogic, cards::get_behavior, resolution},
+    types::*,
 };
 
 fn create_test_state() -> GameState {

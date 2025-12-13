@@ -26,10 +26,8 @@ impl CardBehavior for OverheatingCard {
     fn on_round_start(&self, state: &mut GameState) {
         if let Some(engine_id) = find_room_with_system(state, SystemType::Engine) {
             for p in state.players.values_mut() {
-                if p.room_id == engine_id {
-                    if p.ap > 0 {
-                        p.ap -= 1;
-                    }
+                if p.room_id == engine_id && p.ap > 0 {
+                    p.ap -= 1;
                 }
             }
         }

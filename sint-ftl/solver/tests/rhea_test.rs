@@ -1,6 +1,6 @@
 use sint_solver::scoring::rhea::RheaScoringWeights;
-use sint_solver::search::rhea::{rhea_search, RHEAConfig};
 use sint_solver::search::SearchProgress;
+use sint_solver::search::rhea::{RHEAConfig, rhea_search};
 use std::time::Instant;
 
 #[test]

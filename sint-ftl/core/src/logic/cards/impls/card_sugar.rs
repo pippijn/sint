@@ -1,9 +1,9 @@
 use crate::{
+    GameError,
     logic::cards::behavior::CardBehavior,
     types::{
         Card, CardId, CardSentiment, CardSolution, CardType, GameAction, GameState, SystemType,
     },
-    GameError,
 };
 
 pub struct SugarRushCard;
@@ -34,14 +34,13 @@ impl CardBehavior for SugarRushCard {
     fn on_round_end(&self, state: &mut GameState) {
         let mut expired = false;
         for card in state.active_situations.iter_mut() {
-            if card.id == CardId::SugarRush {
-                if let CardType::Timebomb { rounds_left } = &mut card.card_type {
-                    if *rounds_left > 0 {
-                        *rounds_left -= 1;
-                        if *rounds_left == 0 {
-                            expired = true;
-                        }
-                    }
+            if card.id == CardId::SugarRush
+                && let CardType::Timebomb { rounds_left } = &mut card.card_type
+                && *rounds_left > 0
+            {
+                *rounds_left -= 1;
+                if *rounds_left == 0 {
+                    expired = true;
                 }
             }
         }
@@ -81,11 +80,7 @@ impl CardBehavior for SugarRushCard {
                 .filter(|p| p.player_id == player_id && matches!(p.action, GameAction::Move { .. }))
                 .count();
 
-            if moves_queued < 5 {
-                0
-            } else {
-                base_cost
-            }
+            if moves_queued < 5 { 0 } else { base_cost }
         } else {
             base_cost
         }

@@ -1,6 +1,6 @@
 use crate::driver::GameDriver;
-use crate::scoring::rhea::{score_rhea, RheaScoringWeights};
-use crate::search::{get_legal_actions, get_state_signature, SearchNode, SearchProgress};
+use crate::scoring::rhea::{RheaScoringWeights, score_rhea};
+use crate::search::{SearchNode, SearchProgress, get_legal_actions, get_state_signature};
 use rand::prelude::*;
 use rand::rngs::StdRng;
 use rayon::prelude::*;
@@ -70,17 +70,17 @@ where
         // Game Loop
         if current_state.phase == GamePhase::GameOver || current_state.phase == GamePhase::Victory {
             // Report final success/failure
-            if let Some(cb) = &progress_callback {
-                if let Some(last_node) = &search_node_chain {
-                    cb(SearchProgress {
-                        step: steps_taken,
-                        best_score: last_node.score,
-                        hull: current_state.hull_integrity,
-                        boss_hp: current_state.enemy.hp,
-                        is_done: true,
-                        current_best_node: Some(last_node.clone()),
-                    });
-                }
+            if let Some(cb) = &progress_callback
+                && let Some(last_node) = &search_node_chain
+            {
+                cb(SearchProgress {
+                    step: steps_taken,
+                    best_score: last_node.score,
+                    hull: current_state.hull_integrity,
+                    boss_hp: current_state.enemy.hp,
+                    is_done: true,
+                    current_best_node: Some(last_node.clone()),
+                });
             }
             break;
         }
@@ -112,7 +112,7 @@ where
         }
 
         // 2. Evolve
-        for gen in 0..config.generations {
+        for generation in 0..config.generations {
             if start_time.elapsed() > time_limit {
                 break;
             }
@@ -124,8 +124,7 @@ where
             population.par_iter_mut().enumerate().for_each(|(i, ind)| {
                 if ind.score == 0.0 {
                     let mut rng = StdRng::seed_from_u64(config.seed + eval_seed_base + i as u64);
-                    ind.score =
-                        evaluate_individual(ind, &current_state, config, &weights, &mut rng);
+                    ind.score = evaluate_individual(ind, &current_state, config, weights, &mut rng);
                 }
             });
 
@@ -134,7 +133,7 @@ where
 
             // OPTIMIZATION: If this is the last generation or time is up,
             // do NOT produce offspring, as they won't be evaluated or used.
-            if gen == config.generations - 1 || start_time.elapsed() > time_limit {
+            if generation == config.generations - 1 || start_time.elapsed() > time_limit {
                 break;
             }
 
@@ -174,17 +173,17 @@ where
         let best_ind = &population[0];
 
         // Report Progress
-        if let Some(cb) = &progress_callback {
-            if let Some(last_node) = &search_node_chain {
-                cb(SearchProgress {
-                    step: steps_taken,
-                    best_score: best_ind.score,
-                    hull: current_state.hull_integrity,
-                    boss_hp: current_state.enemy.hp,
-                    is_done: false,
-                    current_best_node: Some(last_node.clone()), // This is technically the node *before* the action we are about to pick, but good enough for context.
-                });
-            }
+        if let Some(cb) = &progress_callback
+            && let Some(last_node) = &search_node_chain
+        {
+            cb(SearchProgress {
+                step: steps_taken,
+                best_score: best_ind.score,
+                hull: current_state.hull_integrity,
+                boss_hp: current_state.enemy.hp,
+                is_done: false,
+                current_best_node: Some(last_node.clone()), // This is technically the node *before* the action we are about to pick, but good enough for context.
+            });
         }
 
         if config.verbose && (steps_taken % 10 == 0 || steps_taken == config.max_steps) {
@@ -347,10 +346,8 @@ fn evaluate_individual(
         // Check validity
         let is_valid = legal.iter().any(|(p, a)| *p == *pid && *a == *act);
 
-        if is_valid {
-            if driver.apply(pid, act.clone()).is_ok() {
-                success = true;
-            }
+        if is_valid && driver.apply(pid, act.clone()).is_ok() {
+            success = true;
         }
 
         if !success {

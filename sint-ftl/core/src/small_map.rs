@@ -73,7 +73,7 @@ where
         if idx >= self.data.len() {
             self.data.resize_with(idx + 1, || None);
         }
-        std::mem::replace(&mut self.data[idx], Some(value))
+        self.data[idx].replace(value)
     }
 
     pub fn get(&self, key: &K) -> Option<&V> {

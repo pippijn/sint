@@ -1,6 +1,6 @@
 use sint_core::{
-    types::{Action, CardId, CardSolution, CardType, GameAction, GamePhase, ItemType},
     GameLogic,
+    types::{Action, CardId, CardSolution, CardType, GameAction, GamePhase, ItemType},
 };
 
 fn new_test_game(players: Vec<String>) -> sint_core::types::GameState {
@@ -522,10 +522,12 @@ fn test_shoe_setting_skip_turn() {
     behavior.on_round_start(&mut state);
 
     assert_eq!(state.players["P1"].ap, 0);
-    assert!(state
-        .active_situations
-        .iter()
-        .all(|c| c.id != CardId::ShoeSetting));
+    assert!(
+        state
+            .active_situations
+            .iter()
+            .all(|c| c.id != CardId::ShoeSetting)
+    );
 }
 
 #[test]

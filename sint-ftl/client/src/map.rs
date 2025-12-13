@@ -2,8 +2,8 @@ use crate::state::GameContext;
 use leptos::either::Either;
 use leptos::prelude::*;
 use sint_core::{
-    logic::pathfinding::find_path, types::MapLayout, Action, AttackEffect, GameAction, GamePhase,
-    HazardType, ItemType, Player, Room,
+    Action, AttackEffect, GameAction, GamePhase, HazardType, ItemType, Player, Room,
+    logic::pathfinding::find_path, types::MapLayout,
 };
 
 #[derive(Clone, Copy, PartialEq)]
@@ -279,10 +279,10 @@ fn RoomCard(room: Room, ctx: GameContext, door_dir: Option<DoorDirection>) -> im
             // The proposal queue moves are already paid for in p.ap (logic.rs),
             // but we need to track position.
             for prop in &s.proposal_queue {
-                if prop.player_id == *my_pid {
-                    if let GameAction::Move { to_room } = prop.action {
-                        predicted_room_id = to_room;
-                    }
+                if prop.player_id == *my_pid
+                    && let GameAction::Move { to_room } = prop.action
+                {
+                    predicted_room_id = to_room;
                 }
             }
         }
@@ -294,21 +294,20 @@ fn RoomCard(room: Room, ctx: GameContext, door_dir: Option<DoorDirection>) -> im
         if s.phase == GamePhase::TacticalPlanning
             && predicted_room_id != 0
             && predicted_room_id != room.id
+            && let Some(p) = find_path(&s.map, predicted_room_id, room.id)
         {
-            if let Some(p) = find_path(&s.map, predicted_room_id, room.id) {
-                let mut cost = 0;
-                for step in &p {
-                    cost += sint_core::logic::actions::action_cost(
-                        &s,
-                        my_pid,
-                        &GameAction::Move { to_room: *step },
-                    );
-                }
+            let mut cost = 0;
+            for step in &p {
+                cost += sint_core::logic::actions::action_cost(
+                    &s,
+                    my_pid,
+                    &GameAction::Move { to_room: *step },
+                );
+            }
 
-                if cost <= predicted_ap {
-                    can_move = true;
-                    path = Some(p);
-                }
+            if cost <= predicted_ap {
+                can_move = true;
+                path = Some(p);
             }
         }
 
@@ -326,10 +325,10 @@ fn RoomCard(room: Room, ctx: GameContext, door_dir: Option<DoorDirection>) -> im
             .proposal_queue
             .iter()
             .filter_map(|prop| {
-                if let GameAction::Move { to_room } = prop.action {
-                    if to_room == room.id {
-                        return Some(prop.player_id.clone());
-                    }
+                if let GameAction::Move { to_room } = prop.action
+                    && to_room == room.id
+                {
+                    return Some(prop.player_id.clone());
                 }
                 None
             })
@@ -401,13 +400,11 @@ fn RoomCard(room: Room, ctx: GameContext, door_dir: Option<DoorDirection>) -> im
                         hover_style,
                     )
                     on:click=move |_| {
-                        if can_move {
-                            if let Some(steps) = path.clone() {
-                                for step in steps {
-                                    ctx_click_inner
-                                        .perform_action
-                                        .call(Action::Game(GameAction::Move { to_room: step }));
-                                }
+                        if can_move && let Some(steps) = path.clone() {
+                            for step in steps {
+                                ctx_click_inner
+                                    .perform_action
+                                    .call(Action::Game(GameAction::Move { to_room: step }));
                             }
                         }
                     }
@@ -458,7 +455,7 @@ fn RoomCard(room: Room, ctx: GameContext, door_dir: Option<DoorDirection>) -> im
                                     },
                                 )
                             }
-                            _ => Either::Right(view! {}),
+                            _ => Either::Right(()),
                         }
                     }
 
@@ -472,7 +469,7 @@ fn RoomCard(room: Room, ctx: GameContext, door_dir: Option<DoorDirection>) -> im
                             },
                         )
                     } else {
-                        Either::Right(view! {})
+                        Either::Right(())
                     }}
 
                     // Header

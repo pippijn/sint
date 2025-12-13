@@ -1,7 +1,7 @@
 use super::ActionHandler;
-use crate::logic::cards::get_behavior;
-use crate::types::{GameState, HazardType, ItemType, PlayerStatus, MAX_HULL};
 use crate::GameError;
+use crate::logic::cards::get_behavior;
+use crate::types::{GameState, HazardType, ItemType, MAX_HULL, PlayerStatus};
 
 // --- EXTINGUISH ---
 pub struct ExtinguishHandler;
@@ -106,10 +106,10 @@ impl ActionHandler for RepairHandler {
         if let Some(room) = state.map.rooms.get_mut(&room_id) {
             if let Some(idx) = room.hazards.iter().position(|&h| h == HazardType::Water) {
                 room.hazards.remove(idx);
-            } else if room.system == Some(crate::types::SystemType::Cargo) {
-                if state.hull_integrity < MAX_HULL {
-                    state.hull_integrity += 1;
-                }
+            } else if room.system == Some(crate::types::SystemType::Cargo)
+                && state.hull_integrity < MAX_HULL
+            {
+                state.hull_integrity += 1;
             }
         }
         Ok(())
@@ -217,14 +217,12 @@ impl ActionHandler for InteractHandler {
             get_behavior(card_id).on_solved(state);
 
             // Pay Cost
-            if let Some(sol) = &state.active_situations[idx].solution {
-                if let Some(req_item) = &sol.item_cost {
-                    if let Some(p) = state.players.get_mut(player_id) {
-                        if let Some(pos) = p.inventory.iter().position(|x| x == req_item) {
-                            p.inventory.remove(pos);
-                        }
-                    }
-                }
+            if let Some(sol) = &state.active_situations[idx].solution
+                && let Some(req_item) = &sol.item_cost
+                && let Some(p) = state.players.get_mut(player_id)
+                && let Some(pos) = p.inventory.iter().position(|x| x == req_item)
+            {
+                p.inventory.remove(pos);
             }
             // Remove Card
             state.active_situations.remove(idx);

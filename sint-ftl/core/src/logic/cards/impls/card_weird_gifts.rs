@@ -26,30 +26,29 @@ impl CardBehavior for WeirdGiftsCard {
     fn on_round_end(&self, state: &mut GameState) {
         let mut triggered = false;
         for card in state.active_situations.iter_mut() {
-            if card.id == CardId::WeirdGifts {
-                if let CardType::Timebomb { rounds_left } = &mut card.card_type {
-                    if *rounds_left > 0 {
-                        *rounds_left -= 1;
-                        if *rounds_left == 0 {
-                            triggered = true;
-                        }
-                    }
+            if card.id == CardId::WeirdGifts
+                && let CardType::Timebomb { rounds_left } = &mut card.card_type
+                && *rounds_left > 0
+            {
+                *rounds_left -= 1;
+                if *rounds_left == 0 {
+                    triggered = true;
                 }
             }
         }
 
         if triggered {
-            if let Some(cargo_id) = find_room_with_system(state, SystemType::Cargo) {
-                if let Some(room) = state.map.rooms.get_mut(&cargo_id) {
-                    for _ in 0..3 {
-                        room.hazards.push(HazardType::Fire);
-                    }
-                }
-            }
-            if let Some(sickbay_id) = find_room_with_system(state, SystemType::Sickbay) {
-                if let Some(room) = state.map.rooms.get_mut(&sickbay_id) {
+            if let Some(cargo_id) = find_room_with_system(state, SystemType::Cargo)
+                && let Some(room) = state.map.rooms.get_mut(&cargo_id)
+            {
+                for _ in 0..3 {
                     room.hazards.push(HazardType::Fire);
                 }
+            }
+            if let Some(sickbay_id) = find_room_with_system(state, SystemType::Sickbay)
+                && let Some(room) = state.map.rooms.get_mut(&sickbay_id)
+            {
+                room.hazards.push(HazardType::Fire);
             }
             state
                 .active_situations

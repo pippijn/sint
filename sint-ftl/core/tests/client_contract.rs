@@ -1,5 +1,5 @@
 use sint_core::{
-    logic::{actions::get_valid_actions, find_room_with_system_in_map, GameLogic},
+    logic::{GameLogic, actions::get_valid_actions, find_room_with_system_in_map},
     types::{
         Card, CardId, CardSolution, CardType, GameAction, GamePhase, HazardType, ItemType,
         PlayerStatus, SystemType,

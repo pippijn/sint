@@ -1,6 +1,6 @@
 use super::ActionHandler;
-use crate::types::GameState;
 use crate::GameError;
+use crate::types::GameState;
 
 pub struct MoveHandler {
     pub to_room: u32,

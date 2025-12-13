@@ -30,12 +30,11 @@ impl CardBehavior for StickyFloorCard {
         action: &GameAction,
         current_cost: i32,
     ) -> i32 {
-        if let GameAction::Move { to_room } = action {
-            if let Some(kitchen_id) = find_room_with_system(state, SystemType::Kitchen) {
-                if *to_room == kitchen_id {
-                    return current_cost + 1;
-                }
-            }
+        if let GameAction::Move { to_room } = action
+            && let Some(kitchen_id) = find_room_with_system(state, SystemType::Kitchen)
+            && *to_room == kitchen_id
+        {
+            return current_cost + 1;
         }
         current_cost
     }

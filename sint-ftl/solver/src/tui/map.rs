@@ -274,7 +274,7 @@ impl<'a> Widget for RoomWidget<'a> {
                 i_spans.push(Span::raw(format!("{}x{} ", count, symbol)));
             } else {
                 for _ in 0..count {
-                    i_spans.push(Span::raw(format!("{}", symbol)));
+                    i_spans.push(Span::raw(symbol.to_string()));
                 }
                 i_spans.push(Span::raw(" "));
             }
@@ -348,7 +348,7 @@ fn render_torus(state: &GameState, area: Rect, buf: &mut Buffer) {
     pos_map.insert(11, (1, 0));
 
     for (rid, (r, c)) in &pos_map {
-        let rid = *rid as u32;
+        let rid = *rid;
         let room = match state.map.rooms.get(&rid) {
             Some(r) => r,
             None => continue,

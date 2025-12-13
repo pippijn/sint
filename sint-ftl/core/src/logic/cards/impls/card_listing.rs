@@ -34,14 +34,13 @@ impl CardBehavior for ListingCard {
     fn on_round_end(&self, state: &mut GameState) {
         let mut expired = false;
         for card in state.active_situations.iter_mut() {
-            if card.id == CardId::Listing {
-                if let CardType::Timebomb { rounds_left } = &mut card.card_type {
-                    if *rounds_left > 0 {
-                        *rounds_left -= 1;
-                        if *rounds_left == 0 {
-                            expired = true;
-                        }
-                    }
+            if card.id == CardId::Listing
+                && let CardType::Timebomb { rounds_left } = &mut card.card_type
+                && *rounds_left > 0
+            {
+                *rounds_left -= 1;
+                if *rounds_left == 0 {
+                    expired = true;
                 }
             }
         }

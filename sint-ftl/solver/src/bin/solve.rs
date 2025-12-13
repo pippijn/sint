@@ -2,19 +2,19 @@ use clap::{Parser, ValueEnum};
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use ratatui::{
+    Frame, Terminal,
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
-    Frame, Terminal,
 };
 use sint_core::logic::GameLogic;
 use sint_solver::replay;
 use sint_solver::scoring::beam::BeamScoringWeights;
 use sint_solver::scoring::rhea::RheaScoringWeights;
-use sint_solver::search::beam::{beam_search, BeamSearchConfig};
-use sint_solver::search::rhea::{rhea_search, RHEAConfig};
+use sint_solver::search::beam::{BeamSearchConfig, beam_search};
+use sint_solver::search::rhea::{RHEAConfig, rhea_search};
 use sint_solver::search::{SearchNode, SearchProgress};
 use sint_solver::tui::{
     log::LogWidget, map::MapWidget, players::PlayersWidget, situations::SituationsWidget,
@@ -41,7 +41,7 @@ struct Args {
     strategy: Strategy,
 
     /// Beam Width (Number of states to keep per step)
-    #[arg(short, long, default_value_t = 200)]
+    #[arg(short, long, default_value_t = 300)]
     beam_width: usize,
 
     /// RHEA Horizon
@@ -252,12 +252,11 @@ fn run_tui(args: Args) -> Result<(), Box<dyn std::error::Error>> {
             .unwrap_or(Duration::from_secs(0));
 
         while time_remaining > Duration::from_secs(0) {
-            if crossterm::event::poll(time_remaining)? {
-                if let Event::Key(key) = crossterm::event::read()? {
-                    if let KeyCode::Char('q') = key.code {
-                        break 'mainloop;
-                    }
-                }
+            if crossterm::event::poll(time_remaining)?
+                && let Event::Key(key) = crossterm::event::read()?
+                && let KeyCode::Char('q') = key.code
+            {
+                break 'mainloop;
             }
             time_remaining = tick_rate
                 .checked_sub(last_update.elapsed())

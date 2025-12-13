@@ -1,5 +1,5 @@
 use sint_core::{
-    logic::{cards::get_behavior, find_room_with_system, GameLogic},
+    logic::{GameLogic, cards::get_behavior, find_room_with_system},
     types::{CardId, ItemType, SystemType},
 };
 

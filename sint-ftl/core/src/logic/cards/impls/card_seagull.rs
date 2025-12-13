@@ -1,7 +1,7 @@
 use crate::{
+    GameError,
     logic::cards::behavior::CardBehavior,
     types::{Card, CardId, CardSolution, CardType, GameAction, GameState, ItemType, SystemType},
-    GameError,
 };
 
 pub struct SeagullAttackCard;
@@ -30,14 +30,13 @@ impl CardBehavior for SeagullAttackCard {
         player_id: &str,
         action: &GameAction,
     ) -> Result<(), GameError> {
-        if let GameAction::Move { .. } = action {
-            if let Some(player) = state.players.get(player_id) {
-                if player.inventory.contains(&ItemType::Peppernut) {
-                    return Err(GameError::InvalidAction(
-                        "Cannot move while holding Peppernuts (Seagull Attack)".to_owned(),
-                    ));
-                }
-            }
+        if let GameAction::Move { .. } = action
+            && let Some(player) = state.players.get(player_id)
+            && player.inventory.contains(&ItemType::Peppernut)
+        {
+            return Err(GameError::InvalidAction(
+                "Cannot move while holding Peppernuts (Seagull Attack)".to_owned(),
+            ));
         }
         Ok(())
     }

@@ -1,6 +1,6 @@
 use sint_solver::scoring::beam::BeamScoringWeights;
-use sint_solver::search::beam::{beam_search, BeamSearchConfig};
 use sint_solver::search::SearchProgress;
+use sint_solver::search::beam::{BeamSearchConfig, beam_search};
 use std::time::Instant;
 
 #[test]

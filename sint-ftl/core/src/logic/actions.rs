@@ -5,7 +5,7 @@ use super::{
 };
 use crate::logic::handlers::get_handler;
 use crate::{logic::GameError, types::*};
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{Rng, SeedableRng, rngs::StdRng};
 use uuid::Uuid;
 
 fn deterministic_uuid(state: &mut GameState) -> Uuid {
@@ -151,7 +151,7 @@ fn apply_game_action(
                 return Err(GameError::InvalidAction(format!(
                     "Cannot act during {:?}",
                     state.phase
-                )))
+                )));
             }
         }
     }
@@ -589,58 +589,55 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
         let room_functional =
             !room.hazards.contains(&HazardType::Fire) && !room.hazards.contains(&HazardType::Water);
 
-        if room_functional {
-            if let Some(sys) = room.system {
-                let action = match sys {
-                    SystemType::Kitchen => Some(GameAction::Bake),
-                    SystemType::Cannons => {
-                        if p.inventory.contains(&ItemType::Peppernut) {
-                            Some(GameAction::Shoot)
-                        } else {
-                            None
-                        }
-                    }
-                    SystemType::Engine => Some(GameAction::RaiseShields),
-                    SystemType::Bridge => Some(GameAction::EvasiveManeuvers),
-                    SystemType::Bow => Some(GameAction::Lookout),
-                    _ => None,
-                };
-
-                if let Some(act) = action {
-                    if p.ap >= action_cost(&projected_state, player_id, &act) {
-                        actions.push(Action::Game(act));
+        if room_functional && let Some(sys) = room.system {
+            let action = match sys {
+                SystemType::Kitchen => Some(GameAction::Bake),
+                SystemType::Cannons => {
+                    if p.inventory.contains(&ItemType::Peppernut) {
+                        Some(GameAction::Shoot)
+                    } else {
+                        None
                     }
                 }
+                SystemType::Engine => Some(GameAction::RaiseShields),
+                SystemType::Bridge => Some(GameAction::EvasiveManeuvers),
+                SystemType::Bow => Some(GameAction::Lookout),
+                _ => None,
+            };
 
-                // Sickbay (Targeted Action)
-                if sys == SystemType::Sickbay
-                    && p.ap
-                        >= action_cost(
-                            &projected_state,
-                            player_id,
-                            &GameAction::FirstAid {
-                                target_player: "".to_owned(),
-                            },
-                        )
-                {
-                    // Target Self
-                    actions.push(Action::Game(GameAction::FirstAid {
-                        target_player: player_id.to_owned(),
-                    }));
+            if let Some(act) = action
+                && p.ap >= action_cost(&projected_state, player_id, &act)
+            {
+                actions.push(Action::Game(act));
+            }
 
-                    // Target Neighbors
-                    for other_p in projected_state.players.values() {
-                        if other_p.id == *player_id {
-                            continue;
-                        }
+            // Sickbay (Targeted Action)
+            if sys == SystemType::Sickbay
+                && p.ap
+                    >= action_cost(
+                        &projected_state,
+                        player_id,
+                        &GameAction::FirstAid {
+                            target_player: "".to_owned(),
+                        },
+                    )
+            {
+                // Target Self
+                actions.push(Action::Game(GameAction::FirstAid {
+                    target_player: player_id.to_owned(),
+                }));
 
-                        // Check if in neighbor or same room
-                        if room.neighbors.contains(&other_p.room_id) || other_p.room_id == p.room_id
-                        {
-                            actions.push(Action::Game(GameAction::FirstAid {
-                                target_player: other_p.id.clone(),
-                            }));
-                        }
+                // Target Neighbors
+                for other_p in projected_state.players.values() {
+                    if other_p.id == *player_id {
+                        continue;
+                    }
+
+                    // Check if in neighbor or same room
+                    if room.neighbors.contains(&other_p.room_id) || other_p.room_id == p.room_id {
+                        actions.push(Action::Game(GameAction::FirstAid {
+                            target_player: other_p.id.clone(),
+                        }));
                     }
                 }
             }
@@ -737,9 +734,7 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
     // Undo (Always valid if actions exist in original state queue)
     for prop in &state.proposal_queue {
         if prop.player_id == player_id {
-            actions.push(Action::Game(GameAction::Undo {
-                action_id: prop.id.clone(),
-            }));
+            actions.push(Action::Game(GameAction::Undo { action_id: prop.id }));
         }
     }
 
@@ -749,8 +744,9 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
         if let Action::Game(game_action) = action {
             // 1. Check Card Constraints
             for card in &projected_state.active_situations {
-                if let Err(_) =
-                    get_behavior(card.id).validate_action(&projected_state, player_id, game_action)
+                if get_behavior(card.id)
+                    .validate_action(&projected_state, player_id, game_action)
+                    .is_err()
                 {
                     return false;
                 }

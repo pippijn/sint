@@ -42,14 +42,13 @@ impl CardBehavior for TurboModeCard {
     fn on_round_end(&self, state: &mut GameState) {
         let mut triggered = false;
         for card in state.active_situations.iter_mut() {
-            if card.id == CardId::TurboMode {
-                if let CardType::Timebomb { rounds_left } = &mut card.card_type {
-                    if *rounds_left > 0 {
-                        *rounds_left -= 1;
-                        if *rounds_left == 0 {
-                            triggered = true;
-                        }
-                    }
+            if card.id == CardId::TurboMode
+                && let CardType::Timebomb { rounds_left } = &mut card.card_type
+                && *rounds_left > 0
+            {
+                *rounds_left -= 1;
+                if *rounds_left == 0 {
+                    triggered = true;
                 }
             }
         }
@@ -83,10 +82,10 @@ impl CardBehavior for TurboModeCard {
                     room.hazards.push(HazardType::Fire);
                     room.hazards.push(HazardType::Fire);
                 }
-                if let Some(tid) = target_neighbor {
-                    if let Some(room) = state.map.rooms.get_mut(&tid) {
-                        room.hazards.push(HazardType::Fire);
-                    }
+                if let Some(tid) = target_neighbor
+                    && let Some(room) = state.map.rooms.get_mut(&tid)
+                {
+                    room.hazards.push(HazardType::Fire);
                 }
             }
 

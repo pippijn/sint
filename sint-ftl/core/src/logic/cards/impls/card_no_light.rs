@@ -1,7 +1,7 @@
 use crate::{
+    GameError,
     logic::cards::behavior::CardBehavior,
     types::{Card, CardId, CardSolution, CardType, GameAction, GameState, SystemType},
-    GameError,
 };
 
 pub struct NoLightCard;

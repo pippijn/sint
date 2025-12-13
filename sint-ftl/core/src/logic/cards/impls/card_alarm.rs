@@ -1,7 +1,7 @@
 use crate::{
+    GameError,
     logic::cards::behavior::CardBehavior,
     types::{Card, CardId, CardSolution, CardType, GameAction, GameState},
-    GameError,
 };
 
 pub struct WailingAlarmCard;
@@ -42,10 +42,10 @@ impl CardBehavior for WailingAlarmCard {
     }
 
     fn can_solve(&self, state: &GameState, player_id: &str) -> bool {
-        if let Some(player) = state.players.get(player_id) {
-            if let Some(room) = state.map.rooms.get(&player.room_id) {
-                return room.system.is_none();
-            }
+        if let Some(player) = state.players.get(player_id)
+            && let Some(room) = state.map.rooms.get(&player.room_id)
+        {
+            return room.system.is_none();
         }
         false
     }

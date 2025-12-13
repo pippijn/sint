@@ -1,9 +1,9 @@
 use crate::chat::ChatView;
 use crate::map::MapView;
-use crate::state::{provide_game_context, GameContext};
+use crate::state::{GameContext, provide_game_context};
 use leptos::either::Either;
 use leptos::prelude::*;
-use sint_core::{types::MapLayout, Action, GameAction, GamePhase, MetaAction};
+use sint_core::{Action, GameAction, GamePhase, MetaAction, types::MapLayout};
 
 #[component]
 fn PhaseTracker(phase: GamePhase) -> impl IntoView {
@@ -152,7 +152,7 @@ pub fn GameView(room_id: String, player_id: String) -> impl IntoView {
                                 ),
                             )
                         } else {
-                            Either::Right(Either::Right(view! {}))
+                            Either::Right(Either::Right(()))
                         }
                     }}
                 </div>
@@ -209,7 +209,7 @@ fn ProposalQueueView(ctx: GameContext) -> impl IntoView {
                                 let is_mine = p.player_id == pid;
                                 let action_desc = format!("{:?}", p.action);
                                 let c_undo = ctx_undo.clone();
-                                let action_id = p.id.clone();
+                                let action_id = p.id;
                                 let p_id_disp = p.player_id.clone();
 
                                 view! {
@@ -226,11 +226,7 @@ fn ProposalQueueView(ctx: GameContext) -> impl IntoView {
                                                             on:click=move |_| {
                                                                 c_undo
                                                                     .perform_action
-                                                                    .call(
-                                                                        Action::Game(GameAction::Undo {
-                                                                            action_id: action_id.clone(),
-                                                                        }),
-                                                                    )
+                                                                    .call(Action::Game(GameAction::Undo { action_id }))
                                                             }
                                                         >
                                                             "UNDO"
@@ -238,7 +234,7 @@ fn ProposalQueueView(ctx: GameContext) -> impl IntoView {
                                                     },
                                                 )
                                             } else {
-                                                Either::Right(view! {})
+                                                Either::Right(())
                                             }}
                                         </div>
                                         <div style="color: #ccc; margin-top: 2px;">
@@ -354,7 +350,7 @@ fn MorningReportView(ctx: GameContext) -> impl IntoView {
                                     },
                                 )
                             } else {
-                                Either::Right(view! {})
+                                Either::Right(())
                             }}
 
                             // Active Situations
@@ -386,7 +382,7 @@ fn MorningReportView(ctx: GameContext) -> impl IntoView {
                                                                         },
                                                                     )
                                                                 } else {
-                                                                    Either::Right(view! {})
+                                                                    Either::Right(())
                                                                 }}
                                                             </div>
                                                         }
@@ -397,13 +393,13 @@ fn MorningReportView(ctx: GameContext) -> impl IntoView {
                                     },
                                 )
                             } else {
-                                Either::Right(view! {})
+                                Either::Right(())
                             }}
                         </div>
                     },
                 )
             } else {
-                Either::Right(view! {})
+                Either::Right(())
             }
         }}
     }
@@ -425,10 +421,8 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                 if let Some(real_p) = s.players.get(&pid) {
                     let mut p = real_p.clone();
                     for prop in &s.proposal_queue {
-                        if prop.player_id == pid {
-                            if let GameAction::Move { to_room } = prop.action {
-                                p.room_id = to_room;
-                            }
+                        if prop.player_id == pid && let GameAction::Move { to_room } = prop.action {
+                            p.room_id = to_room;
                         }
                     }
                     let room_name = s
@@ -684,6 +678,8 @@ fn Actions(ctx: GameContext) -> impl IntoView {
             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                 {move || {
                     let s = state.get();
+                    let ctx_iter = ctx_action.clone();
+                    let pid_iter = pid.clone();
                     if s.phase != GamePhase::TacticalPlanning {
                         return vec![
                             Either::Left(
@@ -709,7 +705,7 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                     }
                     valid_actions
                         .into_iter()
-                        .filter_map(|a| {
+                        .filter_map(move |a| {
                             if let Action::Game(ga) = a {
                                 match ga {
                                     GameAction::Chat { .. }
@@ -718,7 +714,7 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                     _ => {
                                         Some(
                                             Either::Right(
-                                                render_action_button(ctx_action.clone(), &s, &pid, ga),
+                                                render_action_button(ctx_iter.clone(), &s, &pid_iter, ga),
                                             ),
                                         )
                                     }
@@ -739,7 +735,7 @@ fn render_action_button(
     state: &sint_core::GameState,
     pid: &str,
     action: GameAction,
-) -> impl IntoView {
+) -> impl IntoView + use<> {
     // Calculate cost using Core logic
     let cost = sint_core::logic::actions::action_cost(state, pid, &action);
 
@@ -769,18 +765,18 @@ fn render_action_button(
         GameAction::Interact => {
             // Dynamic Label for Interact
             let mut lbl = "Interact".to_owned();
-            if let Some(p) = state.players.get(pid) {
-                if let Some(room) = state.map.rooms.get(&p.room_id) {
-                    for card in &state.active_situations {
-                        if let Some(sol) = &card.solution {
-                            let matches = match sol.target_system {
-                                Some(sys) => room.system == Some(sys),
-                                None => true,
-                            };
-                            if matches {
-                                lbl = format!("SOLVE: {}", card.title);
-                                break;
-                            }
+            if let Some(p) = state.players.get(pid)
+                && let Some(room) = state.map.rooms.get(&p.room_id)
+            {
+                for card in &state.active_situations {
+                    if let Some(sol) = &card.solution {
+                        let matches = match sol.target_system {
+                            Some(sys) => room.system == Some(sys),
+                            None => true,
+                        };
+                        if matches {
+                            lbl = format!("SOLVE: {}", card.title);
+                            break;
                         }
                     }
                 }

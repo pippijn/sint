@@ -34,14 +34,13 @@ impl CardBehavior for SlipperyDeckCard {
     fn on_round_end(&self, state: &mut GameState) {
         let mut expired = false;
         for card in state.active_situations.iter_mut() {
-            if card.id == CardId::SlipperyDeck {
-                if let CardType::Timebomb { rounds_left } = &mut card.card_type {
-                    if *rounds_left > 0 {
-                        *rounds_left -= 1;
-                        if *rounds_left == 0 {
-                            expired = true;
-                        }
-                    }
+            if card.id == CardId::SlipperyDeck
+                && let CardType::Timebomb { rounds_left } = &mut card.card_type
+                && *rounds_left > 0
+            {
+                *rounds_left -= 1;
+                if *rounds_left == 0 {
+                    expired = true;
                 }
             }
         }
@@ -62,10 +61,10 @@ impl CardBehavior for SlipperyDeckCard {
         match action {
             // Moving into a Hallway (Room with no system) is free
             GameAction::Move { to_room } => {
-                if let Some(room) = state.map.rooms.get(to_room) {
-                    if room.system.is_none() {
-                        return 0;
-                    }
+                if let Some(room) = state.map.rooms.get(to_room)
+                    && room.system.is_none()
+                {
+                    return 0;
                 }
                 base_cost
             }

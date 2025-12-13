@@ -31,11 +31,7 @@ impl CardBehavior for LightsOutCard {
         base_cost: i32,
     ) -> i32 {
         if let GameAction::Move { .. } = action {
-            if base_cost > 0 {
-                base_cost * 2
-            } else {
-                0
-            }
+            if base_cost > 0 { base_cost * 2 } else { 0 }
         } else {
             base_cost
         }

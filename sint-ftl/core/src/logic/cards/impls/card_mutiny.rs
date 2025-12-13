@@ -27,14 +27,13 @@ impl CardBehavior for MutinyCard {
         let mut triggered_damage = false;
 
         for card in state.active_situations.iter_mut() {
-            if card.id == CardId::Mutiny {
-                if let CardType::Timebomb { rounds_left } = &mut card.card_type {
-                    if *rounds_left > 0 {
-                        *rounds_left -= 1;
-                        if *rounds_left == 0 {
-                            triggered_damage = true;
-                        }
-                    }
+            if card.id == CardId::Mutiny
+                && let CardType::Timebomb { rounds_left } = &mut card.card_type
+                && *rounds_left > 0
+            {
+                *rounds_left -= 1;
+                if *rounds_left == 0 {
+                    triggered_damage = true;
                 }
             }
         }

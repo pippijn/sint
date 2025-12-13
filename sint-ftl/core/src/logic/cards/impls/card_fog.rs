@@ -4,7 +4,7 @@ use crate::{
         AttackEffect, Card, CardId, CardSolution, CardType, EnemyAttack, GameState, SystemType,
     },
 };
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{Rng, SeedableRng, rngs::StdRng};
 
 pub struct FogBankCard;
 

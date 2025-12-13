@@ -1,4 +1,4 @@
-use sint_core::logic::{apply_action, GameLogic};
+use sint_core::logic::{GameLogic, apply_action};
 use sint_core::types::{Action, MetaAction, SystemType};
 
 #[test]
