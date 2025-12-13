@@ -100,13 +100,13 @@ impl Default for BeamScoringWeights {
     fn default() -> Self {
         Self {
             hull_integrity: 8000.0, // Critical: Hull is Life (Increased to prioritize survival)
-            hull_delta_penalty: 20000.0, // Immediate penalty for taking damage in a step
+            hull_delta_penalty: 2000.0, // Reduced from 20000.0 to prevent paralysis
             enemy_hp: 15000.0,      // High priority: KILL THE BOSS
             player_hp: 200.0,
             ap_balance: 50.0, // High value on AP = Don't waste turns
 
             // Hazards - significantly increased penalties
-            fire_penalty_base: 8000.0, // Burn, baby, burn (but don't)
+            fire_penalty_base: 12000.0, // Burn, baby, burn (but don't)
             water_penalty: 1000.0,
 
             // Situations & Threats
@@ -122,25 +122,25 @@ impl Default for BeamScoringWeights {
             gunner_working_bonus: 50.0,
             gunner_distance_factor: 500.0, // Extreme pull to cannons
 
-            firefighter_base_reward: 2000.0,
-            firefighter_distance_factor: 10.0,
+            firefighter_base_reward: 5000.0, // Increased from 2000.0
+            firefighter_distance_factor: 50.0, // Increased from 10.0
 
-            healing_reward: 500.0, // Increased to prioritize survival (was 50)
+            healing_reward: 2000.0, // Increased to prioritize survival (was 500)
             sickbay_distance_factor: 50.0,
 
             backtracking_penalty: 200.0, // WAS 50.0. Prevent infinite loops (Slippery Deck).
 
-            solution_solver_reward: 40000.0, // WAS 60000.0. Reduced to ensure solving > holding.
+            solution_solver_reward: 60000.0, // WAS 40000.0. Solving problems is key.
             solution_distance_factor: 100.0,
-            situation_logistics_reward: 5000.0,
+            situation_logistics_reward: 25000.0, // WAS 5000.0. GO GET THE ITEM.
             situation_resolved_reward: 30000.0, // New: Big payout for finishing the job
 
             ammo_stockpile_reward: 5000.0, // Encourage dumping ammo in Cannons (Huge)
             loose_ammo_reward: 200.0,      // Every nut on the map is hope
             hazard_proximity_reward: 50.0,
             situation_exposure_penalty: 1000.0,
-            system_disabled_penalty: 25000.0,
-            shooting_reward: 250.0, // SHOOT! (Reduced to favor actual damage)
+            system_disabled_penalty: 50000.0, // WAS 25000.0. Broken guns = Death.
+            shooting_reward: 6500.0, // Increased from 250.0 to offset ammo cost (5000+1000)
 
             scavenger_reward: 500.0,
             repair_proximity_reward: 1000.0,
@@ -151,17 +151,17 @@ impl Default for BeamScoringWeights {
             step_penalty: 20.0,   // WAS 5.0. Prevent free-action loops.
 
             checkmate_threshold: 15.0,
-            checkmate_multiplier: 2.5,
+            checkmate_multiplier: 5.0,
 
             // Critical State
-            critical_hull_threshold: 5.0,
+            critical_hull_threshold: 12.0,
             critical_hull_penalty_base: 100_000.0,
             critical_hull_penalty_per_hp: 50_000.0,
-            critical_fire_threshold: 3,
+            critical_fire_threshold: 2,
             critical_fire_penalty_per_token: 25_000.0,
 
             // Exponents
-            hull_exponent: 1.5,
+            hull_exponent: 2.0,
             fire_exponent: 2.0,
             cargo_repair_exponent: 1.5,
             hull_risk_exponent: 1.1,
@@ -248,17 +248,15 @@ pub fn score_static(
     }
 
     // --- Critical State Heuristic ---
-    // Override everything if we are about to die, UNLESS we are winning (Checkmate).
-    // Scale panic by enemy health: If enemy is near death, panic less.
-    let enemy_health_factor = (state.enemy.hp as f64 / 20.0).min(1.0);
+    // Override everything if we are about to die.
+    // Survival is absolute. Do not reduce panic based on enemy health.
 
     if (state.hull_integrity as f64) <= weights.critical_hull_threshold {
         let mut panic_score = -weights.critical_hull_penalty_base;
         panic_score -= (weights.critical_hull_threshold + 1.0 - state.hull_integrity as f64)
             * weights.critical_hull_penalty_per_hp;
 
-        // Apply factor: If enemy is low, reduce panic impact to allow risk
-        score += panic_score * enemy_health_factor;
+        score += panic_score;
     }
 
     // Count fires for critical check
@@ -320,13 +318,13 @@ pub fn score_static(
     }
 
     // Cubic Fire Penalty: Make firefighting > repairing
-    let hull_risk_factor = 1.0
-        + (MAX_HULL as f64 - state.hull_integrity as f64)
-            .max(0.0)
-            .powf(weights.hull_risk_exponent);
+    // Non-Linear Fire Penalty based on Hull Risk (Inverse Power Function)
+    let hull_percent = (state.hull_integrity as f64 / MAX_HULL as f64).max(0.1); // Avoid div/0
+    let hull_risk_mult = 1.0 / hull_percent.powf(2.0);
+
     score -= (fire_rooms.len() as f64).powf(weights.fire_exponent)
         * weights.fire_penalty_base
-        * hull_risk_factor;
+        * hull_risk_mult;
     score -= water_count as f64 * weights.water_penalty;
 
     // -- System Disabled --
@@ -435,6 +433,11 @@ pub fn score_static(
                 score += weights.threat_severe_reward * hull_urgency_mult; // High value for mitigating a real threat
             } else {
                 score += weights.threat_mitigated_reward; // Small value for safety
+            }
+
+            // Defensive Posture Heuristic: Reward safety when critical
+            if state.hull_integrity < 15 {
+                score += 10000.0;
             }
         } else {
             // Not protected - Apply penalties

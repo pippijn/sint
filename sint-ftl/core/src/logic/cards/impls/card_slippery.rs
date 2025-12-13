@@ -17,7 +17,7 @@ impl CardBehavior for SlipperyDeckCard {
             id: CardId::SlipperyDeck,
             title: "Slippery Deck".to_owned(),
             description:
-                "Soap everywhere. Move costs 0 AP, but Actions cost +1 AP. Lasts 3 rounds."
+                "Soap everywhere. Moving into Hallways costs 0 AP. Other actions cost +1 AP. Lasts 3 rounds."
                     .to_owned(),
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
@@ -54,13 +54,21 @@ impl CardBehavior for SlipperyDeckCard {
 
     fn modify_action_cost(
         &self,
-        _state: &GameState,
+        state: &GameState,
         _player_id: &str,
         action: &GameAction,
         base_cost: i32,
     ) -> i32 {
         match action {
-            GameAction::Move { .. } => 0,
+            // Moving into a Hallway (Room with no system) is free
+            GameAction::Move { to_room } => {
+                if let Some(room) = state.map.rooms.get(to_room) {
+                    if room.system.is_none() {
+                        return 0;
+                    }
+                }
+                base_cost
+            }
             _ => {
                 if base_cost > 0 {
                     base_cost + 1

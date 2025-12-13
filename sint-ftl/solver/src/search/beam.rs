@@ -230,11 +230,10 @@ where
                 let best = &beam[0];
                 let round_num = if step > 0 { step - 1 } else { 0 };
                 println!(
-                    "Step {} (Last Valid): Best Score {:.1} | Round {} | Phase {:?} | Hull {} | Boss {} | Beam {}",
+                    "Step {} (Last Valid): Best Score {:.1} | Round {} | Hull {} | Boss {} | Beam {}",
                     round_num,
                     best.score,
                     best.state.turn_count,
-                    best.state.phase,
                     best.state.hull_integrity,
                     best.state.enemy.hp,
                     beam.len()
@@ -265,11 +264,10 @@ where
             if step % 10 == 0 || step == config.steps - 1 {
                 let best = &beam[0];
                 println!(
-                    "Step {}: Best Score {:.1} | Round {} | Phase {:?} | Hull {} | Boss {} | Beam {}",
+                    "Step {}: Best Score {:.1} | Round {} | Hull {} | Boss {} | Beam {}",
                     step,
                     best.score,
                     best.state.turn_count,
-                    best.state.phase,
                     best.state.hull_integrity,
                     best.state.enemy.hp,
                     beam.len()

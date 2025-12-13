@@ -7,7 +7,7 @@ To act as a forensic analyst and strategy coach for the solver. The investigator
 
 ## Context Requirements
 When invoking the `codebase_investigator`, ensure the following are included in the analysis scope:
-1.  **The Trajectory File:** `solve_output.txt` - The evidence.
+1.  **The Trajectory File:** `solve_{seed}.txt` (e.g., `solve_12345.txt`) - The evidence.
 2.  **The Rules:** `docs/rules.md` - The high-level laws.
 3.  **The Code:** `core/src/logic/` (recursively) - The absolute truth of the game physics.
 4.  **The Scoring:** `solver/src/scoring/beam.rs` - The "brain" of the AI.

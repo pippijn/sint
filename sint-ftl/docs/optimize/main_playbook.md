@@ -14,10 +14,17 @@ This playbook outlines the workflow for the main agent to iteratively optimize t
 ## Workflow Loop
 
 ### 1. Generate Data
-Run the solver with sufficient steps and a dedicated output file. **Overwrite the same file each time.**
+Run the solver with sufficient steps. **Always invoke the script directly, do not use python3.**
 
+**Single Seed:**
 ```bash
-scripts/run_solve.sh --steps 3000 --output solve_output.txt
+scripts/run_solve.py --steps 3000 --seeds 12345
+```
+
+**Multiple Seeds (Parallel):**
+This verifies robustness across different RNG states.
+```bash
+scripts/run_solve.py --steps 3000 --seeds 12345,54321,99999 --parallel
 ```
 
 *   *Check:* Did it finish? Did it win? If it won, can we optimize for speed (fewer rounds)?
@@ -26,7 +33,7 @@ scripts/run_solve.sh --steps 3000 --output solve_output.txt
 If the result is unsatisfactory (or if optimizing for speed), invoke the `codebase_investigator`.
 
 *   **Tool:** `codebase_investigator`
-*   **Prompt:** Use the "Standard Prompt Template" from `docs/optimize/investigator_playbook.md`, replacing `{TRAJECTORY_FILE}` with `solve_output.txt`.
+*   **Prompt:** Use the "Standard Prompt Template" from `docs/optimize/investigator_playbook.md`, replacing `{TRAJECTORY_FILE}` with the actual filename (e.g., `solve_12345.txt`).
 
 ### 3. Interpret & Implement
 Read the investigator's report. Look for:
