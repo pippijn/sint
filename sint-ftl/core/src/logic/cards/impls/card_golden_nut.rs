@@ -1,6 +1,9 @@
 use crate::{
     logic::cards::behavior::CardBehavior,
-    types::{Card, CardId, CardSentiment, CardSolution, CardType, GameState, SystemType},
+    types::{
+        Card, CardId, CardSentiment, CardSolution, CardType, ChatMessage, EnemyState, GamePhase,
+        GameState, SystemType,
+    },
 };
 
 pub struct GoldenNutCard;
@@ -29,7 +32,7 @@ impl CardBehavior for GoldenNutCard {
 
     fn on_solved(&self, state: &mut GameState) {
         state.enemy.hp -= 1;
-        state.chat_log.push(crate::types::ChatMessage {
+        state.chat_log.push(ChatMessage {
             sender: "SYSTEM".to_owned(),
             text: "Golden Nut used! 1 Damage dealt to the Enemy.".to_owned(),
             timestamp: 0,
@@ -38,16 +41,16 @@ impl CardBehavior for GoldenNutCard {
         // Check for Boss Death
         if state.enemy.hp <= 0 {
             if state.boss_level >= crate::logic::MAX_BOSS_LEVEL - 1 {
-                state.phase = crate::types::GamePhase::Victory;
-                state.chat_log.push(crate::types::ChatMessage {
+                state.phase = GamePhase::Victory;
+                state.chat_log.push(ChatMessage {
                     sender: "SYSTEM".to_owned(),
                     text: "VICTORY! All bosses defeated!".to_owned(),
                     timestamp: 0,
                 });
             } else {
                 // Mark defeated to trigger rest round in advance_phase
-                state.enemy.state = crate::types::EnemyState::Defeated;
-                state.chat_log.push(crate::types::ChatMessage {
+                state.enemy.state = EnemyState::Defeated;
+                state.chat_log.push(ChatMessage {
                     sender: "SYSTEM".to_owned(),
                     text: format!("{} Defeated! Taking a breather...", state.enemy.name),
                     timestamp: 0,

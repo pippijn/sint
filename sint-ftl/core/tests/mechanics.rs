@@ -1,6 +1,7 @@
 use sint_core::{
     GameLogic,
-    types::{Action, GameAction, GamePhase, HazardType, ItemType, MetaAction, PlayerStatus},
+    logic::{find_room_with_system_in_map, resolution},
+    types::*,
 };
 
 #[test]
@@ -8,11 +9,7 @@ fn test_cannon_hit() {
     let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
-    let cannons = sint_core::logic::find_room_with_system_in_map(
-        &state.map,
-        sint_core::types::SystemType::Cannons,
-    )
-    .unwrap();
+    let cannons = find_room_with_system_in_map(&state.map, SystemType::Cannons).unwrap();
 
     // Setup: P1 in Cannons, Has Nut. Enemy HP 5.
     if let Some(p) = state.players.get_mut("P1") {
@@ -47,16 +44,8 @@ fn test_shields_block_damage() {
     let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
-    let bridge = sint_core::logic::find_room_with_system_in_map(
-        &state.map,
-        sint_core::types::SystemType::Bridge,
-    )
-    .unwrap();
-    let kitchen = sint_core::logic::find_room_with_system_in_map(
-        &state.map,
-        sint_core::types::SystemType::Kitchen,
-    )
-    .unwrap();
+    let bridge = find_room_with_system_in_map(&state.map, SystemType::Bridge).unwrap();
+    let kitchen = find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap();
 
     // P1 in Bridge
     if let Some(p) = state.players.get_mut("P1") {
@@ -87,13 +76,13 @@ fn test_shields_block_damage() {
     // Simulate Enemy Attack
     state.phase = GamePhase::EnemyAction;
     // Set up attack
-    state.enemy.next_attack = Some(sint_core::types::EnemyAttack {
+    state.enemy.next_attack = Some(EnemyAttack {
         target_room: kitchen,
-        target_system: Some(sint_core::types::SystemType::Kitchen),
-        effect: sint_core::types::AttackEffect::Fireball,
+        target_system: Some(SystemType::Kitchen),
+        effect: AttackEffect::Fireball,
     });
 
-    sint_core::logic::resolution::resolve_enemy_attack(&mut state);
+    resolution::resolve_enemy_attack(&mut state);
 
     // Should block damage -> Hull remains 20 (or whatever it was)
     assert_eq!(state.hull_integrity, 20);
@@ -106,16 +95,8 @@ fn test_evasion_blocks_hit() {
     let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
-    let engine = sint_core::logic::find_room_with_system_in_map(
-        &state.map,
-        sint_core::types::SystemType::Engine,
-    )
-    .unwrap();
-    let kitchen = sint_core::logic::find_room_with_system_in_map(
-        &state.map,
-        sint_core::types::SystemType::Kitchen,
-    )
-    .unwrap();
+    let engine = find_room_with_system_in_map(&state.map, SystemType::Engine).unwrap();
+    let kitchen = find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap();
 
     // P1 in Engine
     if let Some(p) = state.players.get_mut("P1") {
@@ -144,13 +125,13 @@ fn test_evasion_blocks_hit() {
 
     // Attack
     state.phase = GamePhase::EnemyAction;
-    state.enemy.next_attack = Some(sint_core::types::EnemyAttack {
+    state.enemy.next_attack = Some(EnemyAttack {
         target_room: kitchen,
-        target_system: Some(sint_core::types::SystemType::Kitchen),
-        effect: sint_core::types::AttackEffect::Fireball,
+        target_system: Some(SystemType::Kitchen),
+        effect: AttackEffect::Fireball,
     });
 
-    sint_core::logic::resolution::resolve_enemy_attack(&mut state);
+    resolution::resolve_enemy_attack(&mut state);
 
     assert_eq!(state.hull_integrity, 20);
     assert!(state.map.rooms[&kitchen].hazards.is_empty());
@@ -161,11 +142,7 @@ fn test_boss_progression() {
     let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
-    let cannons = sint_core::logic::find_room_with_system_in_map(
-        &state.map,
-        sint_core::types::SystemType::Cannons,
-    )
-    .unwrap();
+    let cannons = find_room_with_system_in_map(&state.map, SystemType::Cannons).unwrap();
 
     // Set Boss HP to 1
     state.enemy.hp = 1;
@@ -207,7 +184,7 @@ fn test_boss_progression() {
     // Then returns. So state.phase should be EnemyAction.
     assert_eq!(state.phase, GamePhase::EnemyAction);
     assert_eq!(state.boss_level, 0); // Still 0
-    assert_eq!(state.enemy.state, sint_core::types::EnemyState::Defeated);
+    assert_eq!(state.enemy.state, EnemyState::Defeated);
 
     // 2. EnemyAction -> MorningReport (Rest Start)
     state.players.get_mut("P1").unwrap().is_ready = false;
@@ -289,18 +266,14 @@ fn test_game_over_hull() {
     state.hull_integrity = 1;
     state.phase = GamePhase::EnemyAction;
 
-    let kitchen = sint_core::logic::find_room_with_system_in_map(
-        &state.map,
-        sint_core::types::SystemType::Kitchen,
-    )
-    .unwrap();
+    let kitchen = find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap();
 
     // Trigger hazard damage
     if let Some(r) = state.map.rooms.get_mut(&kitchen) {
         r.hazards.push(HazardType::Fire);
     }
 
-    sint_core::logic::resolution::resolve_hazards(&mut state);
+    resolution::resolve_hazards(&mut state);
     // Logic: Hull 1 -> 0.
     // resolve_hazards DOES NOT check Game Over. `advance_phase` does.
     // Wait, `advance_phase` handles Execution -> EnemyAction.

@@ -1,8 +1,4 @@
-use sint_core::{
-    GameError,
-    logic::GameLogic,
-    types::{Action, GameAction, GamePhase, ItemType},
-};
+use sint_core::{GameError, GameLogic, types::*};
 
 #[test]
 fn test_bake_wrong_room_msg() {

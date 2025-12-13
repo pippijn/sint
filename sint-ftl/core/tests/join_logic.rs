@@ -1,5 +1,5 @@
 use sint_core::logic::{GameLogic, apply_action};
-use sint_core::types::{Action, MetaAction, SystemType};
+use sint_core::types::*;
 
 #[test]
 fn test_join_action_spawns_in_dormitory() {

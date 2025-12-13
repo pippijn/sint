@@ -1,6 +1,7 @@
 use sint_core::{
     GameLogic,
-    types::{Action, GameAction, GamePhase, HazardType, SystemType},
+    logic::{find_room_with_system_in_map, resolution},
+    types::*,
 };
 
 #[test]
@@ -8,8 +9,7 @@ fn test_fire_disables_system() {
     let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
-    let kitchen =
-        sint_core::logic::find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap();
+    let kitchen = find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap();
 
     // Place P1 in Kitchen
     if let Some(p) = state.players.get_mut("P1") {
@@ -31,8 +31,7 @@ fn test_water_disables_system() {
     let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
-    let bridge =
-        sint_core::logic::find_room_with_system_in_map(&state.map, SystemType::Bridge).unwrap();
+    let bridge = find_room_with_system_in_map(&state.map, SystemType::Bridge).unwrap();
 
     // Place P1 in Bridge
     if let Some(p) = state.players.get_mut("P1") {
@@ -59,8 +58,7 @@ fn test_hazard_coexistence() {
     // This tests if Fire and Water can exist in the same room without instantly canceling out
     // (unless resolution logic specifically handles it, which usually happens in EnemyAction phase)
     let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
-    let kitchen =
-        sint_core::logic::find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap();
+    let kitchen = find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap();
 
     if let Some(r) = state.map.rooms.get_mut(&kitchen) {
         r.hazards.push(HazardType::Fire);
@@ -74,7 +72,7 @@ fn test_hazard_coexistence() {
 
     // Run resolution (EnemyAction phase)
     state.phase = GamePhase::EnemyAction;
-    sint_core::logic::resolution::resolve_hazards(&mut state);
+    resolution::resolve_hazards(&mut state);
 
     // Current logic: Hazards resolve damage/spread.
     // They generally don't extinguish each other in `resolve_hazards` unless explicitly coded.

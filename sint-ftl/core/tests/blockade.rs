@@ -1,5 +1,5 @@
 use sint_core::logic::{GameLogic, actions::get_valid_actions, cards::get_behavior};
-use sint_core::types::{Action, CardId, GameAction, GamePhase, MapLayout, SystemType};
+use sint_core::types::*;
 
 #[test]
 fn test_blockade_prevents_move_to_cannons_in_valid_actions() {

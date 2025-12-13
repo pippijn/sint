@@ -1,6 +1,6 @@
 use sint_core::{
     logic::{GameLogic, cards::get_behavior, find_room_with_system},
-    types::{CardId, ItemType, SystemType},
+    types::*,
 };
 
 #[test]

@@ -1,9 +1,6 @@
-use sint_core::{
-    logic::{GameLogic, apply_action},
-    types::{Action, GameAction, GamePhase},
-};
+use sint_core::{GameLogic, logic::apply_action, types::*};
 
-fn get_player_ids(state: &sint_core::types::GameState) -> Vec<String> {
+fn get_player_ids(state: &GameState) -> Vec<String> {
     state.players.keys().cloned().collect()
 }
 
@@ -158,11 +155,11 @@ fn test_game_over_after_mutiny() {
     state.phase = GamePhase::EnemyAction; // Transition to MorningReport will trigger on_round_end
     state.hull_integrity = 10; // Mutiny deals 10 damage
 
-    let card = sint_core::types::Card {
-        id: sint_core::types::CardId::Mutiny,
+    let card = Card {
+        id: CardId::Mutiny,
         title: "Mutiny".to_owned(),
         description: "-10 Hull".to_owned(),
-        card_type: sint_core::types::CardType::Timebomb { rounds_left: 1 },
+        card_type: CardType::Timebomb { rounds_left: 1 },
         options: vec![],
         solution: None,
         affected_player: None,

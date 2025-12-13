@@ -1,9 +1,9 @@
 use sint_core::{
-    logic::{GameLogic, apply_action, cards::get_behavior},
-    types::{Action, Card, CardId, CardType, GameAction, GamePhase, ItemType},
+    logic::{GameError, GameLogic, apply_action, cards::get_behavior, find_room_with_system},
+    types::*,
 };
 
-fn get_player_ids(state: &sint_core::types::GameState) -> Vec<String> {
+fn get_player_ids(state: &GameState) -> Vec<String> {
     state.players.keys().cloned().collect()
 }
 
@@ -38,13 +38,7 @@ fn test_multiple_situation_cards_stack_effects() {
     let player_id = get_player_ids(&state)[0].clone();
 
     // Manually place the player in the Engine room to trigger Overheating
-    let engine_room_id = state
-        .map
-        .rooms
-        .values()
-        .find(|r| r.system == Some(sint_core::types::SystemType::Engine))
-        .unwrap()
-        .id;
+    let engine_room_id = find_room_with_system(&state, SystemType::Engine).unwrap();
     let p = state.players.get_mut(&player_id).unwrap();
     p.room_id = engine_room_id;
     p.ap = 2; // Start with normal AP
@@ -72,7 +66,7 @@ fn test_multiple_situation_cards_stack_effects() {
     assert!(result.is_err(), "Move action should fail with 0 AP.");
     let error = result.unwrap_err();
     assert!(
-        matches!(error, sint_core::logic::GameError::NotEnoughAP),
+        matches!(error, GameError::NotEnoughAP),
         "Expected NotEnoughAP, got {:?}",
         error
     );
@@ -117,7 +111,7 @@ fn test_hazard_blocks_card_effect() {
     );
     let error = result.unwrap_err();
     assert!(
-        matches!(error, sint_core::logic::GameError::InvalidAction(_)),
+        matches!(error, GameError::InvalidAction(_)),
         "Expected InvalidAction due to blockade, got {:?}",
         error
     );

@@ -1,7 +1,7 @@
-use sint_core::logic::cards::get_behavior;
+use sint_core::logic::{cards::get_behavior, find_room_with_system};
 use sint_core::types::{
-    CardSentiment, GameAction, GamePhase, GameState, HazardType, ItemType, MAX_HULL, PlayerId,
-    RoomId, SystemType,
+    CardId, CardSentiment, GameAction, GamePhase, GameState, HazardType, ItemType, MAX_HULL,
+    PlayerId, RoomId, SystemType,
 };
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -501,7 +501,7 @@ pub fn score_static(
     score -= (negative_situations as f64).powf(1.5) * weights.active_situation_penalty;
 
     for card in &state.active_situations {
-        if card.id == sint_core::types::CardId::Overheating {
+        if card.id == CardId::Overheating {
             let mut engine_id = None;
             for r in state.map.rooms.values() {
                 if r.system == Some(SystemType::Engine) {
@@ -618,10 +618,10 @@ pub fn score_static(
 
         // --- NEW: Station Keeping (Assigned Roles) ---
         let mut assigned_room = match p.id.as_str() {
-            "P1" => sint_core::logic::find_room_with_system(state, SystemType::Kitchen),
-            "P3" => sint_core::logic::find_room_with_system(state, SystemType::Bridge),
-            "P4" => sint_core::logic::find_room_with_system(state, SystemType::Engine),
-            "P5" | "P6" => sint_core::logic::find_room_with_system(state, SystemType::Cannons),
+            "P1" => find_room_with_system(state, SystemType::Kitchen),
+            "P3" => find_room_with_system(state, SystemType::Bridge),
+            "P4" => find_room_with_system(state, SystemType::Engine),
+            "P5" | "P6" => find_room_with_system(state, SystemType::Cannons),
             _ => None,
         };
 
@@ -637,7 +637,7 @@ pub fn score_static(
             if matches!(p.id.as_str(), "P5" | "P6") {
                 // Gunners only leave if it's really bad or fire is IN the cannons
                 if fire_count_total >= weights.critical_fire_threshold
-                    || sint_core::logic::find_room_with_system(state, SystemType::Cannons)
+                    || find_room_with_system(state, SystemType::Cannons)
                         .and_then(|id| state.map.rooms.get(&id))
                         .is_some_and(|r| r.hazards.contains(&HazardType::Fire))
                 {

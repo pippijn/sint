@@ -1,7 +1,4 @@
-use sint_core::{
-    logic::GameLogic,
-    types::{Action, GameAction, GamePhase},
-};
+use sint_core::{GameLogic, types::*};
 
 #[test]
 fn test_enemy_targeting_logic_consistency() {
@@ -73,7 +70,7 @@ fn test_enemy_targeting_logic_consistency() {
             // Case B: No System targeted (Miss).
             // In v2 logic, dice rolls 11-12 result in target_system=None and effect=Miss.
             assert!(
-                matches!(attack.effect, sint_core::types::AttackEffect::Miss),
+                matches!(attack.effect, AttackEffect::Miss),
                 "If target_system is None, expected AttackEffect::Miss, but got {:?}",
                 attack.effect
             );

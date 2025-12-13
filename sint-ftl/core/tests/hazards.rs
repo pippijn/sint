@@ -1,6 +1,7 @@
 use sint_core::{
     GameLogic,
-    types::{Action, GameAction, GamePhase, HazardType, SystemType},
+    logic::{find_room_with_system_in_map, resolution},
+    types::*,
 };
 
 #[test]
@@ -9,8 +10,7 @@ fn test_fire_spread() {
     let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::EnemyAction;
 
-    let kitchen =
-        sint_core::logic::find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap();
+    let kitchen = find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap();
     let hallway = 0; // Default Hub
 
     // Kitchen has 2 Fires. Spreads to Hallway with 50% chance.
@@ -19,7 +19,7 @@ fn test_fire_spread() {
         r.hazards.push(HazardType::Fire);
     }
 
-    sint_core::logic::resolution::resolve_hazards(&mut state);
+    resolution::resolve_hazards(&mut state);
 
     // Check if spread to Hallway (Hub is neighbor of Kitchen)
     if let Some(r) = state.map.rooms.get(&hallway) {

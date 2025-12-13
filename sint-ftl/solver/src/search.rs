@@ -1,7 +1,10 @@
 pub mod beam;
 pub mod rhea;
 
-use sint_core::types::{Action, GameAction, GameState, PlayerId};
+use sint_core::{
+    logic::actions::get_valid_actions,
+    types::{Action, GameAction, GameState, PlayerId},
+};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
@@ -9,7 +12,7 @@ pub fn get_legal_actions(state: &GameState) -> Vec<(PlayerId, GameAction)> {
     let players: Vec<_> = state.players.values().collect();
     // Deterministic active player selection
     if let Some(p) = players.into_iter().find(|p| !p.is_ready && p.ap > 0) {
-        let legal_wrappers = sint_core::logic::actions::get_valid_actions(state, &p.id);
+        let legal_wrappers = get_valid_actions(state, &p.id);
         let mut valid = Vec::new();
         for w in legal_wrappers {
             if let Action::Game(act) = w {

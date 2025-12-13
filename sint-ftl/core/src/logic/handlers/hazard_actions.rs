@@ -1,7 +1,7 @@
 use super::ActionHandler;
 use crate::GameError;
 use crate::logic::cards::get_behavior;
-use crate::types::{GameState, HazardType, ItemType, MAX_HULL, PlayerStatus};
+use crate::types::{CardId, GameState, HazardType, ItemType, MAX_HULL, PlayerStatus, SystemType};
 
 // --- EXTINGUISH ---
 pub struct ExtinguishHandler;
@@ -73,7 +73,7 @@ impl ActionHandler for RepairHandler {
 
         if !room.hazards.contains(&HazardType::Water) {
             // Special: Cargo allows Hull Repair
-            if room.system == Some(crate::types::SystemType::Cargo) {
+            if room.system == Some(SystemType::Cargo) {
                 if state.hull_integrity >= MAX_HULL {
                     return Err(GameError::InvalidAction(
                         "Hull is already at maximum integrity".to_owned(),
@@ -106,9 +106,7 @@ impl ActionHandler for RepairHandler {
         if let Some(room) = state.map.rooms.get_mut(&room_id) {
             if let Some(idx) = room.hazards.iter().position(|&h| h == HazardType::Water) {
                 room.hazards.remove(idx);
-            } else if room.system == Some(crate::types::SystemType::Cargo)
-                && state.hull_integrity < MAX_HULL
-            {
+            } else if room.system == Some(SystemType::Cargo) && state.hull_integrity < MAX_HULL {
                 state.hull_integrity += 1;
             }
         }
@@ -171,7 +169,7 @@ impl ActionHandler for InteractHandler {
         for card in &state.active_situations {
             let solvable = get_behavior(card.id).can_solve(state, player_id);
             // DEBUG
-            if card.id == crate::types::CardId::AfternoonNap {
+            if card.id == CardId::AfternoonNap {
                 // println!("DEBUG: Checking Nap for {}. Solvable: {}", player_id, solvable);
             }
             if solvable {

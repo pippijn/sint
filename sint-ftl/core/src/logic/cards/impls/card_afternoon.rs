@@ -1,7 +1,7 @@
 use crate::{
     GameError,
     logic::cards::behavior::CardBehavior,
-    types::{Card, CardId, CardSolution, CardType, GameAction, GameState},
+    types::{Card, CardId, CardSolution, CardType, ChatMessage, GameAction, GameState},
 };
 
 pub struct AfternoonNapCard;
@@ -43,7 +43,7 @@ impl CardBehavior for AfternoonNapCard {
             card.affected_player = Some(reader_id.clone());
         }
 
-        state.chat_log.push(crate::types::ChatMessage {
+        state.chat_log.push(ChatMessage {
             sender: "SYSTEM".to_owned(),
             text: format!("{} is the Reader and falls asleep!", reader_id),
             timestamp: 0,

@@ -2,7 +2,7 @@ use crate::driver::GameDriver;
 use crate::scoring::beam::{BeamScoringWeights, calculate_score};
 use crate::search::{SearchNode, SearchProgress, get_state_signature};
 use rayon::prelude::*;
-use sint_core::logic::GameLogic;
+use sint_core::logic::{GameLogic, actions::get_valid_actions};
 use sint_core::types::{Action, GameAction, GamePhase};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
@@ -308,7 +308,7 @@ fn expand_node(
 
     match active_player {
         Some(p) => {
-            let legal_actions = sint_core::logic::actions::get_valid_actions(state, &p.id);
+            let legal_actions = get_valid_actions(state, &p.id);
             log_entry.actions_generated = legal_actions.clone();
 
             let mut results = Vec::new();

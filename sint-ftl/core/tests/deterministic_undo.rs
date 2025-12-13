@@ -1,7 +1,4 @@
-use sint_core::{
-    GameLogic, GamePhase,
-    types::{Action, GameAction},
-};
+use sint_core::{GameLogic, logic::find_room_with_system_in_map, types::*};
 
 #[test]
 fn test_deterministic_action_ids() {
@@ -56,11 +53,7 @@ fn test_deterministic_action_ids() {
     );
 
     // Action 2: Subsequent Move
-    let kitchen_id = sint_core::logic::find_room_with_system_in_map(
-        &state1_prime.map,
-        sint_core::types::SystemType::Kitchen,
-    )
-    .unwrap();
+    let kitchen_id = find_room_with_system_in_map(&state1_prime.map, SystemType::Kitchen).unwrap();
     let action3 = Action::Game(GameAction::Move {
         to_room: kitchen_id,
     });

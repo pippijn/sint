@@ -65,12 +65,10 @@ impl CardBehavior for SeasickCard {
                     "Seasick! Cannot Walk if you already performed Actions.".to_owned(),
                 ));
             }
-        } else {
-            if has_moves {
-                return Err(GameError::InvalidAction(
-                    "Seasick! Cannot perform Actions if you already Walked.".to_owned(),
-                ));
-            }
+        } else if has_moves {
+            return Err(GameError::InvalidAction(
+                "Seasick! Cannot perform Actions if you already Walked.".to_owned(),
+            ));
         }
 
         Ok(())

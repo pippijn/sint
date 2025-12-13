@@ -1,7 +1,7 @@
 use sint_core::{
-    GameError, GameLogic, GamePhase, ItemType,
-    logic::actions::get_valid_actions,
-    types::{Action, GameAction},
+    GameError, GameLogic,
+    logic::{actions::get_valid_actions, find_room_with_system_in_map},
+    types::*,
 };
 
 #[test]
@@ -11,11 +11,7 @@ fn test_cannot_evade_from_dormitory() {
 
     // P1 starts in Dormitory
     let p1 = state.players.get("P1").unwrap();
-    let dorm_id = sint_core::logic::find_room_with_system_in_map(
-        &state.map,
-        sint_core::types::SystemType::Dormitory,
-    )
-    .unwrap();
+    let dorm_id = find_room_with_system_in_map(&state.map, SystemType::Dormitory).unwrap();
     assert_eq!(p1.room_id, dorm_id);
 
     // Attempt Evasive Maneuvers (Requires Engine)
@@ -39,11 +35,7 @@ fn test_can_evade_from_engine() {
 
     // Teleport P1 to Engine
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = sint_core::logic::find_room_with_system_in_map(
-            &state.map,
-            sint_core::types::SystemType::Engine,
-        )
-        .unwrap();
+        p.room_id = find_room_with_system_in_map(&state.map, SystemType::Engine).unwrap();
     }
 
     let res = GameLogic::apply_action(
@@ -89,11 +81,7 @@ fn test_move_then_evade_valid() {
         state.clone(),
         "P1",
         Action::Game(GameAction::Move {
-            to_room: sint_core::logic::find_room_with_system_in_map(
-                &state.map,
-                sint_core::types::SystemType::Engine,
-            )
-            .unwrap(),
+            to_room: find_room_with_system_in_map(&state.map, SystemType::Engine).unwrap(),
         }),
         None,
     )
@@ -121,11 +109,7 @@ fn test_move_in_lobby() {
     let player = state.players.get("Player1").unwrap();
     assert_eq!(
         player.room_id,
-        sint_core::logic::find_room_with_system_in_map(
-            &state.map,
-            sint_core::types::SystemType::Dormitory
-        )
-        .unwrap()
+        find_room_with_system_in_map(&state.map, SystemType::Dormitory).unwrap()
     );
     assert_eq!(player.ap, 2);
 
@@ -155,11 +139,7 @@ fn test_lookout_action() {
 
     // Move P1 to Bow (2)
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = sint_core::logic::find_room_with_system_in_map(
-            &state.map,
-            sint_core::types::SystemType::Bow,
-        )
-        .unwrap(); // Bow
+        p.room_id = find_room_with_system_in_map(&state.map, SystemType::Bow).unwrap(); // Bow
         p.ap = 2;
     }
 
@@ -190,11 +170,7 @@ fn test_first_aid_action() {
 
     // Setup: P1 in Sickbay (10), P2 in Hallway (7) [Neighbor]. P2 injured.
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = sint_core::logic::find_room_with_system_in_map(
-            &state.map,
-            sint_core::types::SystemType::Sickbay,
-        )
-        .unwrap();
+        p.room_id = find_room_with_system_in_map(&state.map, SystemType::Sickbay).unwrap();
         p.ap = 2;
     }
     if let Some(p) = state.players.get_mut("P2") {
@@ -241,19 +217,11 @@ fn test_first_aid_invalid_range() {
 
     // Setup: P1 in Sickbay (10), P2 in Kitchen (6) [Not Neighbor]
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = sint_core::logic::find_room_with_system_in_map(
-            &state.map,
-            sint_core::types::SystemType::Sickbay,
-        )
-        .unwrap();
+        p.room_id = find_room_with_system_in_map(&state.map, SystemType::Sickbay).unwrap();
         p.ap = 2;
     }
     if let Some(p) = state.players.get_mut("P2") {
-        p.room_id = sint_core::logic::find_room_with_system_in_map(
-            &state.map,
-            sint_core::types::SystemType::Kitchen,
-        )
-        .unwrap();
+        p.room_id = find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap();
         p.hp = 1;
     }
 
@@ -419,11 +387,7 @@ fn test_planning_loop() {
         state.clone(),
         "P1",
         Action::Game(GameAction::Move {
-            to_room: sint_core::logic::find_room_with_system_in_map(
-                &state.map,
-                sint_core::types::SystemType::Kitchen,
-            )
-            .unwrap(),
+            to_room: find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap(),
         }),
         None,
     )
@@ -531,7 +495,7 @@ fn test_projected_location_validation() {
     let has_move_6 = actions.iter().any(|a| {
         matches!(
             a,
-            Action::Game(GameAction::Move { to_room }) if *to_room == sint_core::logic::find_room_with_system_in_map(&state.map, sint_core::types::SystemType::Kitchen).unwrap()
+            Action::Game(GameAction::Move { to_room }) if *to_room == find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap()
         )
     });
     assert!(has_move_6, "Should be able to move to Room 6 (Kitchen)");
@@ -558,11 +522,7 @@ fn test_projected_system_availability() {
         state.clone(),
         "P1",
         Action::Game(GameAction::Move {
-            to_room: sint_core::logic::find_room_with_system_in_map(
-                &state.map,
-                sint_core::types::SystemType::Kitchen,
-            )
-            .unwrap(),
+            to_room: find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap(),
         }),
         None,
     )
@@ -604,11 +564,7 @@ fn test_projected_ap_exhaustion() {
         state.clone(),
         "P1",
         Action::Game(GameAction::Move {
-            to_room: sint_core::logic::find_room_with_system_in_map(
-                &state.map,
-                sint_core::types::SystemType::Kitchen,
-            )
-            .unwrap(),
+            to_room: find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap(),
         }),
         None,
     )
@@ -640,13 +596,11 @@ fn test_projected_item_pickup() {
 
     // Setup: P1 in Room 3. Room 3 has items? Default setup Room 3 has NO items.
     // Let's add an item to Room 3.
-    if let Some(r) = state.map.rooms.get_mut(
-        &sint_core::logic::find_room_with_system_in_map(
-            &state.map,
-            sint_core::types::SystemType::Dormitory,
-        )
-        .unwrap(),
-    ) {
+    if let Some(r) = state
+        .map
+        .rooms
+        .get_mut(&find_room_with_system_in_map(&state.map, SystemType::Dormitory).unwrap())
+    {
         r.items.push(ItemType::Peppernut);
     }
 
@@ -708,11 +662,7 @@ fn test_undo_middle_of_chain() {
         state.clone(),
         "P1",
         Action::Game(GameAction::Move {
-            to_room: sint_core::logic::find_room_with_system_in_map(
-                &state.map,
-                sint_core::types::SystemType::Bridge,
-            )
-            .unwrap(),
+            to_room: find_room_with_system_in_map(&state.map, SystemType::Bridge).unwrap(),
         }),
         None,
     )
@@ -738,11 +688,7 @@ fn test_undo_middle_of_chain() {
     if let GameAction::Move { to_room } = &state.proposal_queue[0].action {
         assert_eq!(
             *to_room,
-            sint_core::logic::find_room_with_system_in_map(
-                &state.map,
-                sint_core::types::SystemType::Bridge
-            )
-            .unwrap()
+            find_room_with_system_in_map(&state.map, SystemType::Bridge).unwrap()
         );
     } else {
         panic!("Remaining action should be Move to 9");
@@ -767,11 +713,7 @@ fn test_undo_middle_of_chain() {
     // Check Room
     assert_eq!(
         state.players["P1"].room_id,
-        sint_core::logic::find_room_with_system_in_map(
-            &state.map,
-            sint_core::types::SystemType::Dormitory
-        )
-        .unwrap()
+        find_room_with_system_in_map(&state.map, SystemType::Dormitory).unwrap()
     );
 
     // 5. Acknowledge Execution (Transition Execution -> TacticalPlanning)

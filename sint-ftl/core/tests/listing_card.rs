@@ -1,9 +1,10 @@
 use sint_core::{
     GameLogic,
-    types::{CardId, CardType, GameAction, GamePhase},
+    logic::{actions::action_cost, cards::get_behavior, find_room_with_system_in_map},
+    types::*,
 };
 
-fn new_test_game(players: Vec<String>) -> sint_core::types::GameState {
+fn new_test_game(players: Vec<String>) -> GameState {
     let mut state = GameLogic::new_game(players, 12345);
     state.deck.clear(); // Remove RNG events
     state
@@ -14,7 +15,6 @@ fn test_listing_card_lifecycle() {
     let mut state = new_test_game(vec!["P1".to_owned()]);
     state.phase = GamePhase::MorningReport;
 
-    use sint_core::logic::cards::get_behavior;
     let behavior = get_behavior(CardId::Listing);
     let card = behavior.get_struct();
 
@@ -34,20 +34,15 @@ fn test_listing_card_lifecycle() {
     assert_eq!(state.players["P1"].ap, 7);
 
     // Verify costs
-    let cost_move =
-        sint_core::logic::actions::action_cost(&state, "P1", &GameAction::Move { to_room: 0 });
+    let cost_move = action_cost(&state, "P1", &GameAction::Move { to_room: 0 });
     assert_eq!(cost_move, 1);
 
     // Other actions (e.g. Bake) usually 1, should be 2.
     // Need to put player in Kitchen first
-    let kitchen = sint_core::logic::find_room_with_system_in_map(
-        &state.map,
-        sint_core::types::SystemType::Kitchen,
-    )
-    .unwrap();
+    let kitchen = find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap();
     state.players.get_mut("P1").unwrap().room_id = kitchen;
 
-    let cost_bake = sint_core::logic::actions::action_cost(&state, "P1", &GameAction::Bake);
+    let cost_bake = action_cost(&state, "P1", &GameAction::Bake);
     assert_eq!(cost_bake, 2);
 
     // Advance 3 rounds to check expiry

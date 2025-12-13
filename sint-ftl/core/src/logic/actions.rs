@@ -1,5 +1,6 @@
 use super::{
     cards::{self, get_behavior},
+    find_room_with_system_in_map,
     pathfinding::find_path,
     resolution,
 };
@@ -31,8 +32,6 @@ pub fn apply_action(
         Action::Game(game_action) => apply_game_action(state, player_id, game_action),
     }
 }
-
-use crate::logic::find_room_with_system_in_map;
 
 fn apply_meta_action(
     mut state: GameState,

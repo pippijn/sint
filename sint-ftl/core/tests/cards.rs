@@ -1,9 +1,10 @@
 use sint_core::{
-    GameLogic,
-    types::{Action, CardId, CardSolution, CardType, GameAction, GamePhase, ItemType},
+    GameError, GameLogic,
+    logic::{actions::action_cost, cards::get_behavior, find_room_with_system_in_map},
+    types::*,
 };
 
-fn new_test_game(players: Vec<String>) -> sint_core::types::GameState {
+fn new_test_game(players: Vec<String>) -> GameState {
     let mut state = GameLogic::new_game(players, 12345);
     state.deck.clear(); // Remove RNG events for deterministic unit tests
     state
@@ -25,7 +26,6 @@ fn test_costume_party() {
         p.room_id = 8;
     } // Cannons
 
-    use sint_core::logic::cards::get_behavior;
     let behavior = get_behavior(CardId::CostumeParty);
     behavior.on_activate(&mut state);
 
@@ -39,11 +39,7 @@ fn test_amerigo_eats_peppernuts() {
     let mut state = new_test_game(vec!["P1".to_owned()]);
     state.phase = GamePhase::MorningReport;
 
-    let storage_id = sint_core::logic::find_room_with_system_in_map(
-        &state.map,
-        sint_core::types::SystemType::Storage,
-    )
-    .unwrap();
+    let storage_id = find_room_with_system_in_map(&state.map, SystemType::Storage).unwrap();
 
     // Place Peppernuts in Storage
     if let Some(r) = state.map.rooms.get_mut(&storage_id) {
@@ -51,7 +47,6 @@ fn test_amerigo_eats_peppernuts() {
         r.items.push(ItemType::Peppernut);
     }
 
-    use sint_core::logic::cards::get_behavior;
     let behavior = get_behavior(CardId::Amerigo);
     behavior.on_round_end(&mut state);
 
@@ -65,22 +60,18 @@ fn test_afternoon_nap_blocks_actions() {
     let mut state = new_test_game(vec!["P1".to_owned(), "P2".to_owned()]);
     state.phase = GamePhase::TacticalPlanning;
 
-    let card = sint_core::types::Card {
+    let card = Card {
         id: CardId::AfternoonNap,
         title: "Nap".to_owned(),
         description: "Reader sleeps".to_owned(),
-        card_type: sint_core::types::CardType::Situation,
+        card_type: CardType::Situation,
         options: vec![],
         solution: None,
         affected_player: Some("P1".to_owned()),
     };
     state.active_situations.push(card);
 
-    let kitchen = sint_core::logic::find_room_with_system_in_map(
-        &state.map,
-        sint_core::types::SystemType::Kitchen,
-    )
-    .unwrap();
+    let kitchen = find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap();
 
     if let Some(p) = state.players.get_mut("P1") {
         p.room_id = kitchen;
@@ -101,11 +92,11 @@ fn test_wailing_alarm_blocks_bonus_actions() {
     let mut state = new_test_game(vec!["P1".to_owned()]);
     state.phase = GamePhase::TacticalPlanning;
 
-    let card = sint_core::types::Card {
+    let card = Card {
         id: CardId::WailingAlarm,
         title: "Alarm".to_owned(),
         description: "No Shields".to_owned(),
-        card_type: sint_core::types::CardType::Situation,
+        card_type: CardType::Situation,
         options: vec![],
         solution: None,
         affected_player: None,
@@ -131,11 +122,11 @@ fn test_monster_dough_trigger() {
     let mut state = new_test_game(vec!["P1".to_owned()]);
     state.phase = GamePhase::MorningReport;
 
-    let card = sint_core::types::Card {
+    let card = Card {
         id: CardId::MonsterDough,
         title: "Dough".to_owned(),
         description: "Boom 3 turns".to_owned(),
-        card_type: sint_core::types::CardType::Timebomb { rounds_left: 1 },
+        card_type: CardType::Timebomb { rounds_left: 1 },
         options: vec![],
         solution: None,
         affected_player: None,
@@ -186,7 +177,7 @@ fn test_monster_dough_trigger() {
         .iter()
         .find(|c| c.id == CardId::MonsterDough)
         .unwrap();
-    if let sint_core::types::CardType::Timebomb { rounds_left } = card.card_type {
+    if let CardType::Timebomb { rounds_left } = card.card_type {
         assert_eq!(rounds_left, 0);
     }
 
@@ -204,11 +195,11 @@ fn test_flu_wave_ap_reduction() {
     let mut state = new_test_game(vec!["P1".to_owned()]);
     state.phase = GamePhase::MorningReport;
 
-    let card = sint_core::types::Card {
+    let card = Card {
         id: CardId::FluWave,
         title: "Flu".to_owned(),
         description: "AP -1".to_owned(),
-        card_type: sint_core::types::CardType::Timebomb { rounds_left: 1 },
+        card_type: CardType::Timebomb { rounds_left: 1 },
         options: vec![],
         solution: None,
         affected_player: None,
@@ -272,7 +263,6 @@ fn test_lucky_dip_swap() {
         p.inventory.push(ItemType::Wheelbarrow);
     }
 
-    use sint_core::logic::cards::get_behavior;
     let behavior = get_behavior(CardId::LuckyDip);
     behavior.on_activate(&mut state);
 
@@ -285,11 +275,11 @@ fn test_man_overboard_death() {
     let mut state = new_test_game(vec!["P1".to_owned()]);
     state.phase = GamePhase::MorningReport;
 
-    let card = sint_core::types::Card {
+    let card = Card {
         id: CardId::ManOverboard,
         title: "Man Overboard".to_owned(),
         description: "Die".to_owned(),
-        card_type: sint_core::types::CardType::Timebomb { rounds_left: 1 },
+        card_type: CardType::Timebomb { rounds_left: 1 },
         options: vec![],
         solution: None,
         affected_player: None,
@@ -344,22 +334,18 @@ fn test_mice_plague_eats_nuts() {
     let mut state = new_test_game(vec!["P1".to_owned()]);
     state.phase = GamePhase::MorningReport;
 
-    let card = sint_core::types::Card {
+    let card = Card {
         id: CardId::MicePlague,
         title: "Mice".to_owned(),
         description: "Eat nuts".to_owned(),
-        card_type: sint_core::types::CardType::Situation,
+        card_type: CardType::Situation,
         options: vec![],
         solution: None,
         affected_player: None,
     };
     state.active_situations.push(card);
 
-    let storage = sint_core::logic::find_room_with_system_in_map(
-        &state.map,
-        sint_core::types::SystemType::Storage,
-    )
-    .unwrap();
+    let storage = find_room_with_system_in_map(&state.map, SystemType::Storage).unwrap();
 
     if let Some(r) = state.map.rooms.get_mut(&storage) {
         r.items.clear();
@@ -368,7 +354,6 @@ fn test_mice_plague_eats_nuts() {
         r.items.push(ItemType::Peppernut);
     }
 
-    use sint_core::logic::cards::get_behavior;
     let behavior = get_behavior(CardId::MicePlague);
     behavior.on_round_end(&mut state);
 
@@ -380,22 +365,18 @@ fn test_overheating_ap_loss() {
     let mut state = new_test_game(vec!["P1".to_owned()]);
     state.phase = GamePhase::MorningReport;
 
-    let card = sint_core::types::Card {
+    let card = Card {
         id: CardId::Overheating,
         title: "Heat".to_owned(),
         description: "AP -1 if in Engine".to_owned(),
-        card_type: sint_core::types::CardType::Situation,
+        card_type: CardType::Situation,
         options: vec![],
         solution: None,
         affected_player: None,
     };
     state.active_situations.push(card);
 
-    let engine = sint_core::logic::find_room_with_system_in_map(
-        &state.map,
-        sint_core::types::SystemType::Engine,
-    )
-    .unwrap();
+    let engine = find_room_with_system_in_map(&state.map, SystemType::Engine).unwrap();
 
     if let Some(p) = state.players.get_mut("P1") {
         p.room_id = engine;
@@ -405,7 +386,6 @@ fn test_overheating_ap_loss() {
         p.ap = 2; // Reset
     }
 
-    use sint_core::logic::cards::get_behavior;
     let behavior = get_behavior(CardId::Overheating);
     behavior.on_round_start(&mut state);
 
@@ -415,22 +395,13 @@ fn test_overheating_ap_loss() {
 #[test]
 fn test_panic_move() {
     let mut state = new_test_game(vec!["P1".to_owned()]);
-    let bridge = sint_core::logic::find_room_with_system_in_map(
-        &state.map,
-        sint_core::types::SystemType::Bridge,
-    )
-    .unwrap();
-    let dorm = sint_core::logic::find_room_with_system_in_map(
-        &state.map,
-        sint_core::types::SystemType::Dormitory,
-    )
-    .unwrap();
+    let bridge = find_room_with_system_in_map(&state.map, SystemType::Bridge).unwrap();
+    let dorm = find_room_with_system_in_map(&state.map, SystemType::Dormitory).unwrap();
 
     if let Some(p) = state.players.get_mut("P1") {
         p.room_id = bridge;
     }
 
-    use sint_core::logic::cards::get_behavior;
     let behavior = get_behavior(CardId::Panic);
     behavior.on_activate(&mut state);
 
@@ -440,18 +411,17 @@ fn test_panic_move() {
 #[test]
 fn test_rudderless_damage() {
     let mut state = new_test_game(vec!["P1".to_owned()]);
-    let card = sint_core::types::Card {
+    let card = Card {
         id: CardId::Rudderless,
         title: "Rudderless".to_owned(),
         description: "+1 Dmg".to_owned(),
-        card_type: sint_core::types::CardType::Situation,
+        card_type: CardType::Situation,
         options: vec![],
         solution: None,
         affected_player: None,
     };
     state.active_situations.push(card);
 
-    use sint_core::logic::cards::get_behavior;
     let behavior = get_behavior(CardId::Rudderless);
     assert_eq!(behavior.get_hazard_modifier(&state), 1);
 }
@@ -461,11 +431,11 @@ fn test_seagull_attack_block_move() {
     let mut state = new_test_game(vec!["P1".to_owned()]);
     state.phase = GamePhase::TacticalPlanning;
 
-    let card = sint_core::types::Card {
+    let card = Card {
         id: CardId::SeagullAttack,
         title: "Seagull".to_owned(),
         description: "No move with nut".to_owned(),
-        card_type: sint_core::types::CardType::Situation,
+        card_type: CardType::Situation,
         options: vec![],
         solution: None,
         affected_player: None,
@@ -500,7 +470,7 @@ fn test_seasick_restriction() {
     let mut state = new_test_game(vec!["P1".to_owned()]);
     state.phase = GamePhase::TacticalPlanning;
 
-    let card = sint_core::types::Card {
+    let card = Card {
         id: CardId::Seasick,
         title: "Seasick".to_owned(),
         description: "Either Walk or Act".to_owned(),
@@ -511,16 +481,8 @@ fn test_seasick_restriction() {
     };
     state.active_situations.push(card);
 
-    let kitchen = sint_core::logic::find_room_with_system_in_map(
-        &state.map,
-        sint_core::types::SystemType::Kitchen,
-    )
-    .unwrap();
-    let bow = sint_core::logic::find_room_with_system_in_map(
-        &state.map,
-        sint_core::types::SystemType::Bow,
-    )
-    .unwrap();
+    let kitchen = find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap();
+    let bow = find_room_with_system_in_map(&state.map, SystemType::Bow).unwrap();
 
     if let Some(p) = state.players.get_mut("P1") {
         p.ap = 2;
@@ -558,15 +520,10 @@ fn test_anchor_stuck_required_players() {
     let mut state = new_test_game(vec!["P1".to_owned(), "P2".to_owned(), "P3".to_owned()]);
     state.phase = GamePhase::TacticalPlanning;
 
-    use sint_core::logic::cards::get_behavior;
     let card = get_behavior(CardId::AnchorStuck).get_struct();
     state.active_situations.push(card);
 
-    let bow = sint_core::logic::find_room_with_system_in_map(
-        &state.map,
-        sint_core::types::SystemType::Bow,
-    )
-    .unwrap();
+    let bow = find_room_with_system_in_map(&state.map, SystemType::Bow).unwrap();
 
     // 1. Only P1 at Bow -> Should Fail
     if let Some(p) = state.players.get_mut("P1") {
@@ -626,18 +583,17 @@ fn test_anchor_stuck_required_players() {
 fn test_shoe_setting_skip_turn() {
     let mut state = new_test_game(vec!["P1".to_owned()]);
 
-    let card = sint_core::types::Card {
+    let card = Card {
         id: CardId::ShoeSetting,
         title: "Shoe".to_owned(),
         description: "Skip turn".to_owned(),
-        card_type: sint_core::types::CardType::Timebomb { rounds_left: 0 },
+        card_type: CardType::Timebomb { rounds_left: 0 },
         options: vec![],
         solution: None,
         affected_player: None,
     };
     state.active_situations.push(card);
 
-    use sint_core::logic::cards::get_behavior;
     let behavior = get_behavior(CardId::ShoeSetting);
 
     if let Some(p) = state.players.get_mut("P1") {
@@ -658,30 +614,24 @@ fn test_shoe_setting_skip_turn() {
 fn test_short_circuit() {
     let mut state = new_test_game(vec!["P1".to_owned()]);
 
-    use sint_core::logic::cards::get_behavior;
     let behavior = get_behavior(CardId::ShortCircuit);
     behavior.on_activate(&mut state);
 
-    let engine_id = sint_core::logic::find_room_with_system_in_map(
-        &state.map,
-        sint_core::types::SystemType::Engine,
-    )
-    .unwrap();
+    let engine_id = find_room_with_system_in_map(&state.map, SystemType::Engine).unwrap();
     let engine = state.map.rooms.get(&engine_id).unwrap();
-    assert!(engine.hazards.contains(&sint_core::types::HazardType::Fire));
+    assert!(engine.hazards.contains(&HazardType::Fire));
 }
 
 #[test]
 fn test_silent_force() {
     let mut state = new_test_game(vec!["P1".to_owned()]);
     if let Some(r) = state.map.rooms.get_mut(&5) {
-        r.hazards.push(sint_core::types::HazardType::Fire);
+        r.hazards.push(HazardType::Fire);
     }
     if let Some(r) = state.map.rooms.get_mut(&6) {
-        r.hazards.push(sint_core::types::HazardType::Water);
+        r.hazards.push(HazardType::Water);
     }
 
-    use sint_core::logic::cards::get_behavior;
     let behavior = get_behavior(CardId::SilentForce);
     behavior.on_activate(&mut state);
 
@@ -695,82 +645,67 @@ fn test_sing_a_song() {}
 #[test]
 fn test_slippery_deck() {
     let mut state = new_test_game(vec!["P1".to_owned()]);
-    let card = sint_core::types::Card {
+    let card = Card {
         id: CardId::SlipperyDeck,
         title: "Slippery".to_owned(),
         description: "Move 0, Act +1".to_owned(),
-        card_type: sint_core::types::CardType::Situation,
+        card_type: CardType::Situation,
         options: vec![],
         solution: None,
         affected_player: None,
     };
     state.active_situations.push(card);
 
-    let cost_move =
-        sint_core::logic::actions::action_cost(&state, "P1", &GameAction::Move { to_room: 0 });
+    let cost_move = action_cost(&state, "P1", &GameAction::Move { to_room: 0 });
     assert_eq!(cost_move, 0);
 
-    let cost_bake = sint_core::logic::actions::action_cost(&state, "P1", &GameAction::Bake);
+    let cost_bake = action_cost(&state, "P1", &GameAction::Bake);
     assert_eq!(cost_bake, 2);
 }
 
 #[test]
 fn test_sticky_floor() {
     let mut state = new_test_game(vec!["P1".to_owned()]);
-    let card = sint_core::types::Card {
+    let card = Card {
         id: CardId::StickyFloor,
         title: "Sticky".to_owned(),
         description: "Move to Kitchen +1".to_owned(),
-        card_type: sint_core::types::CardType::Situation,
+        card_type: CardType::Situation,
         options: vec![],
         solution: None,
         affected_player: None,
     };
     state.active_situations.push(card);
 
-    let kitchen = sint_core::logic::find_room_with_system_in_map(
-        &state.map,
-        sint_core::types::SystemType::Kitchen,
-    )
-    .unwrap();
-    let bridge = sint_core::logic::find_room_with_system_in_map(
-        &state.map,
-        sint_core::types::SystemType::Bridge,
-    )
-    .unwrap();
+    let kitchen = find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap();
+    let bridge = find_room_with_system_in_map(&state.map, SystemType::Bridge).unwrap();
 
-    let cost_kitchen = sint_core::logic::actions::action_cost(
-        &state,
-        "P1",
-        &GameAction::Move { to_room: kitchen },
-    );
+    let cost_kitchen = action_cost(&state, "P1", &GameAction::Move { to_room: kitchen });
     assert_eq!(cost_kitchen, 2);
 
-    let cost_other =
-        sint_core::logic::actions::action_cost(&state, "P1", &GameAction::Move { to_room: bridge });
+    let cost_other = action_cost(&state, "P1", &GameAction::Move { to_room: bridge });
     assert_eq!(cost_other, 1);
 }
 
 #[test]
 fn test_sugar_rush() {
     let mut state = new_test_game(vec!["P1".to_owned()]);
-    let card = sint_core::types::Card {
+    let card = Card {
         id: CardId::SugarRush,
         title: "Sugar".to_owned(),
         description: "Move 0, No Shoot".to_owned(),
-        card_type: sint_core::types::CardType::Situation,
+        card_type: CardType::Situation,
         options: vec![],
         solution: None,
         affected_player: None,
     };
     state.active_situations.push(card);
 
-    let cost_move =
-        sint_core::logic::actions::action_cost(&state, "P1", &GameAction::Move { to_room: 0 });
+    let cost_move = action_cost(&state, "P1", &GameAction::Move { to_room: 0 });
     assert_eq!(cost_move, 0);
 
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = 8;
+        p.room_id = find_room_with_system_in_map(&state.map, SystemType::Cannons).unwrap();
     }
     let res = GameLogic::apply_action(state, "P1", Action::Game(GameAction::Shoot), None);
     assert!(res.is_err());
@@ -782,7 +717,7 @@ fn test_can_solve_wailing_alarm_logic() {
     state.phase = GamePhase::TacticalPlanning;
 
     // Add Wailing Alarm
-    let card = sint_core::types::Card {
+    let card = Card {
         id: CardId::WailingAlarm,
         title: "Alarm".to_owned(),
         description: "Test".to_owned(),
@@ -799,11 +734,7 @@ fn test_can_solve_wailing_alarm_logic() {
     state.active_situations.push(card);
 
     // 1. P1 in Kitchen (System 6) -> Should Fail
-    let kitchen = sint_core::logic::find_room_with_system_in_map(
-        &state.map,
-        sint_core::types::SystemType::Kitchen,
-    )
-    .unwrap();
+    let kitchen = find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap();
     if let Some(p) = state.players.get_mut("P1") {
         p.room_id = kitchen;
         p.ap = 2;
@@ -839,7 +770,7 @@ fn test_default_can_solve_logic_amerigo() {
     state.phase = GamePhase::TacticalPlanning;
 
     // Add Amerigo (Requires Storage)
-    let card = sint_core::logic::cards::get_behavior(CardId::Amerigo).get_struct();
+    let card = get_behavior(CardId::Amerigo).get_struct();
     state.active_situations.push(card);
 
     // 1. P1 in Hallway -> Fail
@@ -856,11 +787,7 @@ fn test_default_can_solve_logic_amerigo() {
     assert!(res.is_err(), "Amerigo should fail in Hallway");
 
     // 2. P1 in Storage -> Succeed
-    let storage = sint_core::logic::find_room_with_system_in_map(
-        &state.map,
-        sint_core::types::SystemType::Storage,
-    )
-    .unwrap();
+    let storage = find_room_with_system_in_map(&state.map, SystemType::Storage).unwrap();
     if let Some(p) = state.players.get_mut("P1") {
         p.room_id = storage;
     }
@@ -876,7 +803,6 @@ fn test_default_can_solve_logic_amerigo() {
 #[test]
 fn test_afternoon_nap_rotation() {
     let mut state = new_test_game(vec!["P1".to_owned(), "P2".to_owned(), "P3".to_owned()]);
-    use sint_core::logic::cards::get_behavior;
     let behavior = get_behavior(CardId::AfternoonNap);
 
     // Turn 1 -> P1 (Index 0)
@@ -914,7 +840,6 @@ fn test_afternoon_nap_rotation() {
 fn test_afternoon_nap_persistence() {
     let mut state = new_test_game(vec!["P1".to_owned(), "P2".to_owned()]);
     state.phase = GamePhase::TacticalPlanning;
-    use sint_core::logic::cards::get_behavior;
     let behavior = get_behavior(CardId::AfternoonNap);
 
     // Activate on Turn 1 (Targets P1)
@@ -956,7 +881,6 @@ fn test_afternoon_nap_error_message() {
         p.room_id = 6;
     }
 
-    use sint_core::logic::cards::get_behavior;
     let behavior = get_behavior(CardId::AfternoonNap);
 
     // Activate
@@ -969,7 +893,7 @@ fn test_afternoon_nap_error_message() {
     let res = GameLogic::apply_action(state, "P1", Action::Game(GameAction::Bake), None);
 
     match res {
-        Err(sint_core::GameError::InvalidAction(msg)) => {
+        Err(GameError::InvalidAction(msg)) => {
             assert!(
                 msg.contains("The Reader (Captain)"),
                 "Error message should contain player name. Got: {}",
@@ -990,7 +914,6 @@ fn test_anchor_loose() {
         room.hazards.clear();
     }
 
-    use sint_core::logic::cards::get_behavior;
     let behavior = get_behavior(CardId::AnchorLoose);
     behavior.on_round_start(&mut state);
 
@@ -1002,7 +925,7 @@ fn test_anchor_loose() {
         .map(|r| {
             r.hazards
                 .iter()
-                .filter(|&&h| h == sint_core::types::HazardType::Water)
+                .filter(|&&h| h == HazardType::Water)
                 .count()
         })
         .sum();
@@ -1011,53 +934,80 @@ fn test_anchor_loose() {
 }
 
 #[test]
+
 fn test_afternoon_nap_multiple_players() {
     let mut state = new_test_game(vec!["P1".to_owned(), "P2".to_owned()]);
+
     state.phase = GamePhase::TacticalPlanning;
 
     // Card 1: P1 is asleep
-    let card1 = sint_core::types::Card {
+
+    let card1 = Card {
         id: CardId::AfternoonNap,
+
         title: "Nap 1".to_owned(),
+
         description: "P1 sleeps".to_owned(),
+
         card_type: CardType::Situation,
+
         options: vec![],
+
         solution: None,
+
         affected_player: Some("P1".to_owned()),
     };
+
     // Card 2: P2 is asleep
-    let card2 = sint_core::types::Card {
+
+    let card2 = Card {
         id: CardId::AfternoonNap,
+
         title: "Nap 2".to_owned(),
+
         description: "P2 sleeps".to_owned(),
+
         card_type: CardType::Situation,
+
         options: vec![],
+
         solution: None,
+
         affected_player: Some("P2".to_owned()),
     };
+
     state.active_situations.push(card1);
+
     state.active_situations.push(card2);
 
     let res1 = GameLogic::apply_action(state.clone(), "P1", Action::Game(GameAction::Bake), None);
+
     assert!(res1.is_err(), "P1 should be blocked by Card 1");
 
     let res2 = GameLogic::apply_action(state.clone(), "P2", Action::Game(GameAction::Bake), None);
+
     assert!(res2.is_err(), "P2 should be blocked by Card 2");
 }
 
 #[test]
+
 fn test_golden_nut_triggers_rest_round() {
     let mut state = new_test_game(vec!["P1".to_owned()]);
+
     state.phase = GamePhase::TacticalPlanning;
+
     state.enemy.hp = 1;
+
     state.boss_level = 0;
 
-    use sint_core::logic::cards::get_behavior;
     let behavior = get_behavior(CardId::GoldenNut);
+
     behavior.on_solved(&mut state);
 
     assert_eq!(state.enemy.hp, 0);
-    assert_eq!(state.enemy.state, sint_core::types::EnemyState::Defeated);
+
+    assert_eq!(state.enemy.state, EnemyState::Defeated);
+
     assert_eq!(
         state.boss_level, 0,
         "Boss level should not increase until rest round ends"
@@ -1069,15 +1019,10 @@ fn test_blockade_adjacency_requirement() {
     let mut state = new_test_game(vec!["P1".to_owned()]);
     state.phase = GamePhase::TacticalPlanning;
 
-    use sint_core::logic::cards::get_behavior;
     let card = get_behavior(CardId::Blockade).get_struct();
     state.active_situations.push(card);
 
-    let cannons_id = sint_core::logic::find_room_with_system_in_map(
-        &state.map,
-        sint_core::types::SystemType::Cannons,
-    )
-    .unwrap();
+    let cannons_id = find_room_with_system_in_map(&state.map, SystemType::Cannons).unwrap();
     let hallway = 0; // Adjacent to Cannons in Star layout
 
     // 1. P1 in Dormitory (Not adjacent) -> Fail
@@ -1102,6 +1047,7 @@ fn test_blockade_adjacency_requirement() {
     }
     // Verify hallway is indeed adjacent to cannons
     assert!(state.map.rooms[&hallway].neighbors.contains(&cannons_id));
+
     let res2 = GameLogic::apply_action(
         state.clone(),
         "P1",

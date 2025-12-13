@@ -1,7 +1,6 @@
-use sint_core::logic::GameLogic;
-use sint_core::types::{Action, EnemyState, GameAction, GamePhase, MAX_HULL};
+use sint_core::{logic::GameLogic, types::*};
 
-fn create_test_game() -> sint_core::types::GameState {
+fn create_test_game() -> GameState {
     let player_ids = vec!["P1".to_string(), "P2".to_string()];
     GameLogic::new_game(player_ids, 12345)
 }
@@ -17,7 +16,7 @@ fn test_boss_defeat_triggers_rest() {
     // Give P1 ammo and put in Cannons
     let p1 = state.players.get_mut("P1").unwrap();
     p1.room_id = 6; // Cannons
-    p1.inventory.push(sint_core::types::ItemType::Peppernut);
+    p1.inventory.push(ItemType::Peppernut);
 
     // Action: Shoot
     let action = Action::Game(GameAction::Shoot);

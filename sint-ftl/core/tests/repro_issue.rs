@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use sint_core::logic::GameLogic;
-    use sint_core::types::SystemType;
+    use sint_core::{GameLogic, types::*};
 
     #[test]
     fn test_player_spawn_location() {

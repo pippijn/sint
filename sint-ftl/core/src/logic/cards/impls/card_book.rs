@@ -1,6 +1,8 @@
 use crate::{
     logic::cards::behavior::CardBehavior,
-    types::{Card, CardId, CardSentiment, CardSolution, CardType, GameState, SystemType},
+    types::{
+        Card, CardId, CardSentiment, CardSolution, CardType, ChatMessage, GameState, SystemType,
+    },
 };
 
 pub struct TheBookCard;
@@ -29,7 +31,7 @@ impl CardBehavior for TheBookCard {
 
     fn on_solved(&self, state: &mut GameState) {
         state.enemy.next_attack = None;
-        state.chat_log.push(crate::types::ChatMessage {
+        state.chat_log.push(ChatMessage {
             sender: "SYSTEM".to_owned(),
             text: "The Book is recovered! The enemy is confused and skips their attack.".to_owned(),
             timestamp: 0,

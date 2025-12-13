@@ -1,22 +1,15 @@
-use sint_core::{
-    GameLogic,
-    types::{Action, GameAction, GamePhase, ItemType},
-};
+use sint_core::{GameLogic, logic::find_room_with_system_in_map, types::*};
 
 #[test]
 fn test_scenario_fire_in_kitchen() {
     let mut state = GameLogic::new_game(vec!["P1".to_owned(), "P2".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
-    let kitchen = sint_core::logic::find_room_with_system_in_map(
-        &state.map,
-        sint_core::types::SystemType::Kitchen,
-    )
-    .unwrap();
+    let kitchen = find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap();
     let hallway = 0; // Hub
 
     if let Some(r) = state.map.rooms.get_mut(&kitchen) {
-        r.hazards.push(sint_core::types::HazardType::Fire);
+        r.hazards.push(HazardType::Fire);
     }
     if let Some(p) = state.players.get_mut("P1") {
         p.room_id = hallway;
@@ -83,16 +76,8 @@ fn test_scenario_bucket_brigade() {
     );
     state.phase = GamePhase::TacticalPlanning;
 
-    let kitchen = sint_core::logic::find_room_with_system_in_map(
-        &state.map,
-        sint_core::types::SystemType::Kitchen,
-    )
-    .unwrap();
-    let cannons = sint_core::logic::find_room_with_system_in_map(
-        &state.map,
-        sint_core::types::SystemType::Cannons,
-    )
-    .unwrap();
+    let kitchen = find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap();
+    let cannons = find_room_with_system_in_map(&state.map, SystemType::Cannons).unwrap();
     let hallway = 0; // Hub
 
     if let Some(p) = state.players.get_mut("P1") {
