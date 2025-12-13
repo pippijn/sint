@@ -24,9 +24,8 @@ impl CardBehavior for AnchorLooseCard {
         }
     }
 
-    fn on_round_end(&self, state: &mut GameState) {
-        // Start of every round (handled here as end of previous round + 1).
-        // Place 1 Water token on random spot.
+    fn on_round_start(&self, state: &mut GameState) {
+        // Start of every round: Place 1 Water token on random spot.
         let mut rng = StdRng::seed_from_u64(state.rng_seed);
 
         let room_keys: Vec<u32> = state.map.rooms.keys().collect();

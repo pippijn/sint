@@ -855,3 +855,28 @@ fn test_afternoon_nap_error_message() {
         _ => panic!("Expected InvalidAction error"),
     }
 }
+
+#[test]
+fn test_anchor_loose() {
+    let mut state = new_test_game(vec!["P1".to_owned()]);
+    state.phase = GamePhase::MorningReport;
+
+    // Remove all hazards
+    for room in state.map.rooms.values_mut() {
+        room.hazards.clear();
+    }
+
+    use sint_core::logic::cards::get_behavior;
+    let behavior = get_behavior(CardId::AnchorLoose);
+    behavior.on_round_start(&mut state);
+
+    // One room should now have Water
+    let water_count: usize = state
+        .map
+        .rooms
+        .values()
+        .map(|r| r.hazards.iter().filter(|&&h| h == sint_core::types::HazardType::Water).count())
+        .sum();
+
+    assert_eq!(water_count, 1);
+}
