@@ -150,7 +150,7 @@ impl Default for BeamScoringWeights {
             hazard_proximity_reward: 50.0,
             situation_exposure_penalty: 1000.0,
             system_disabled_penalty: 50000.0, // WAS 25000.0. Broken guns = Death.
-            shooting_reward: 8000.0,          // Increased from 6500.0
+            shooting_reward: 15000.0,         // Increased from 8000.0
 
             scavenger_reward: 500.0,
             repair_proximity_reward: 1000.0,
@@ -158,11 +158,11 @@ impl Default for BeamScoringWeights {
             cargo_repair_proximity_reward: 1.0, // New
 
             boss_level_reward: 20000.0,
-            turn_penalty: 5000.0, // Increased from 2500.0 to prevent stalling
-            step_penalty: 20.0,   // WAS 5.0. Prevent free-action loops.
+            turn_penalty: 10000.0, // Increased from 5000.0 to prevent stalling
+            step_penalty: 20.0,    // WAS 5.0. Prevent free-action loops.
 
             checkmate_threshold: 15.0,
-            checkmate_multiplier: 5.0,
+            checkmate_multiplier: 10.0,
 
             // Critical State
             critical_hull_threshold: 12.0,
@@ -241,23 +241,27 @@ pub fn calculate_score(
     // Commitment Bonus: Reward moving towards hazards
     if let Some((last_pid, last_act)) = history.last() {
         if matches!(last_act, GameAction::Move { .. }) {
-            let old_room = parent.players.get(last_pid).unwrap().room_id;
-            let new_room = current.players.get(last_pid).unwrap().room_id;
+            if let (Some(old_p), Some(new_p)) =
+                (parent.players.get(last_pid), current.players.get(last_pid))
+            {
+                let old_room = old_p.room_id;
+                let new_room = new_p.room_id;
 
-            // Identify targets (Fires)
-            let mut target_rooms = HashSet::new();
-            for r in current.map.rooms.values() {
-                if r.hazards.contains(&HazardType::Fire) {
-                    target_rooms.insert(r.id);
+                // Identify targets (Fires)
+                let mut target_rooms = HashSet::new();
+                for r in current.map.rooms.values() {
+                    if r.hazards.contains(&HazardType::Fire) {
+                        target_rooms.insert(r.id);
+                    }
                 }
-            }
 
-            if !target_rooms.is_empty() {
-                let old_dist = min_distance(parent, old_room, &target_rooms);
-                let new_dist = min_distance(current, new_room, &target_rooms);
+                if !target_rooms.is_empty() {
+                    let old_dist = min_distance(parent, old_room, &target_rooms);
+                    let new_dist = min_distance(current, new_room, &target_rooms);
 
-                if new_dist < old_dist {
-                    score += weights.commitment_bonus;
+                    if new_dist < old_dist {
+                        score += weights.commitment_bonus;
+                    }
                 }
             }
         }
