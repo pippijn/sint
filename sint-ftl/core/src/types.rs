@@ -403,7 +403,6 @@ pub enum CardId {
     ManOverboard,
     MicePlague,
     MonsterDough,
-    Mutiny,
     NoLight,
     Overheating,
     Panic,

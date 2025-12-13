@@ -485,7 +485,7 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
                 // Trigger Card End-of-Round Effects & Timebombs
                 resolution::process_round_end(&mut state);
 
-                // Check for Game Over after card effects (e.g. Mutiny damage)
+                // Check for Game Over after card effects
                 if state.hull_integrity <= 0 {
                     state.phase = GamePhase::GameOver;
                     return Ok(state);

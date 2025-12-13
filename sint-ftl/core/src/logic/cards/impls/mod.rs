@@ -24,7 +24,6 @@ pub mod card_listing;
 pub mod card_lucky_dip;
 pub mod card_man_overboard;
 pub mod card_mice;
-pub mod card_mutiny;
 pub mod card_no_light;
 pub mod card_overheating;
 pub mod card_panic;
