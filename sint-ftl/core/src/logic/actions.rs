@@ -51,19 +51,16 @@ fn apply_meta_action(
             let start_room =
                 find_room_with_system_in_map(&state.map, SystemType::Dormitory).unwrap_or(0); // Fallback to 0 if not found
 
-            state.players.insert(
-                player_id.to_owned(),
-                Player {
-                    id: player_id.to_owned(),
-                    name,
-                    room_id: start_room,
-                    hp: 3,
-                    ap: 2,
-                    inventory: vec![].into(),
-                    status: vec![].into(),
-                    is_ready: false,
-                },
-            );
+            state.players.insert(Player {
+                id: player_id.to_owned(),
+                name,
+                room_id: start_room,
+                hp: 3,
+                ap: 2,
+                inventory: vec![].into(),
+                status: vec![].into(),
+                is_ready: false,
+            });
             state.sequence_id += 1;
             Ok(state)
         }

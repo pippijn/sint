@@ -286,8 +286,8 @@ fn EnemyView(ctx: GameContext) -> impl IntoView {
                                 .map
                                 .rooms
                                 .get(&attack.target_room)
-                                .map(|r| r.name.clone())
-                                .unwrap_or("Unknown".to_owned());
+                                .map(|r| r.name.as_str())
+                                .unwrap_or("Unknown");
                             let attack_debug = format!("{:?}", attack.effect);
                             Either::Left(
                                 view! {
@@ -429,8 +429,8 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                         .map
                         .rooms
                         .get(&p.room_id)
-                        .map(|r| r.name.clone())
-                        .unwrap_or("Unknown".to_owned());
+                        .map(|r| r.name.as_str())
+                        .unwrap_or("Unknown");
                     let is_ready = p.is_ready;
                     let c_ready = ctx_ready.clone();
                     let is_lobby = s.phase == GamePhase::Lobby;

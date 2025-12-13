@@ -218,7 +218,7 @@ impl<'a> Widget for RoomWidget<'a> {
         let inner_width = inner_area.width as usize;
         let max_name_len = inner_width.saturating_sub(7).max(1);
 
-        let safe_name: String = room.name.chars().take(max_name_len).collect();
+        let safe_name: String = room.name.as_str().chars().take(max_name_len).collect();
 
         let title_line = Line::from(vec![
             Span::styled(

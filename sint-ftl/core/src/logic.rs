@@ -10,7 +10,6 @@ pub use actions::apply_action;
 use crate::types::*;
 use rand::{Rng, SeedableRng, rngs::StdRng};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 use thiserror::Error;
 
 #[derive(Error, Debug, Serialize, Deserialize, Clone)]
@@ -52,21 +51,18 @@ impl GameLogic {
         // Determine Start Room (Dormitory)
         let start_room = find_room_with_system_in_map(&map, SystemType::Dormitory).unwrap_or(0);
 
-        let mut players = BTreeMap::new();
+        let mut players = crate::field_map::FieldMap::new();
         for (i, pid) in player_ids.into_iter().enumerate() {
-            players.insert(
-                pid.clone(),
-                Player {
-                    id: pid.clone(),
-                    name: format!("Player {}", i + 1),
-                    room_id: start_room,
-                    hp: 3,
-                    ap: 2,
-                    inventory: vec![].into(),
-                    status: vec![].into(),
-                    is_ready: false,
-                },
-            );
+            players.insert(Player {
+                id: pid.clone(),
+                name: format!("Player {}", i + 1),
+                room_id: start_room,
+                hp: 3,
+                ap: 2,
+                inventory: vec![].into(),
+                status: vec![].into(),
+                is_ready: false,
+            });
         }
 
         // Initialize RNG for shuffling

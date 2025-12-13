@@ -1,9 +1,9 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use std::collections::BTreeMap;
 use uuid::Uuid;
 
+use crate::field_map::{FieldMap, Identifiable};
 use crate::small_map::SmallMap;
 
 // --- ID Aliases ---
@@ -46,7 +46,7 @@ pub struct GameState {
     pub map: GameMap,
 
     /// The Players
-    pub players: BTreeMap<PlayerId, Player>,
+    pub players: FieldMap<Player>,
 
     /// The Enemy (Boss)
     pub enemy: Enemy,
@@ -101,7 +101,7 @@ pub struct GameMap {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct Room {
     pub id: RoomId,
-    pub name: String,
+    pub name: RoomName,
     pub system: Option<SystemType>,
     #[schemars(with = "Vec<HazardType>")]
     pub hazards: SmallVec<[HazardType; 4]>,
@@ -109,6 +109,49 @@ pub struct Room {
     pub items: SmallVec<[ItemType; 4]>,
     #[schemars(with = "Vec<RoomId>")]
     pub neighbors: SmallVec<[RoomId; 8]>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Hash)]
+pub enum RoomName {
+    CentralHallway,
+    Bow,
+    Dormitory,
+    Cargo,
+    Engine,
+    Kitchen,
+    Cannons,
+    Bridge,
+    Sickbay,
+    Storage,
+    CorridorA,
+    CorridorB,
+    CorridorC,
+}
+
+impl RoomName {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            RoomName::CentralHallway => "Central Hallway",
+            RoomName::Bow => "The Bow",
+            RoomName::Dormitory => "Dormitory",
+            RoomName::Cargo => "Cargo",
+            RoomName::Engine => "Engine",
+            RoomName::Kitchen => "Kitchen",
+            RoomName::Cannons => "Cannons",
+            RoomName::Bridge => "Bridge",
+            RoomName::Sickbay => "Sickbay",
+            RoomName::Storage => "Storage",
+            RoomName::CorridorA => "Corridor A",
+            RoomName::CorridorB => "Corridor B",
+            RoomName::CorridorC => "Corridor C",
+        }
+    }
+}
+
+impl std::fmt::Display for RoomName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Hash)]
@@ -187,6 +230,13 @@ pub struct Player {
     pub status: SmallVec<[PlayerStatus; 2]>,
     /// Has this player voted "Ready" for the current proposal batch?
     pub is_ready: bool,
+}
+
+impl Identifiable for Player {
+    type Id = PlayerId;
+    fn id(&self) -> &Self::Id {
+        &self.id
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Hash)]

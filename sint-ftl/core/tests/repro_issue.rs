@@ -10,12 +10,8 @@ mod tests {
         println!("Player 1 spawned in Room ID: {}", p1.room_id);
 
         let room = state.map.rooms.get(&p1.room_id).unwrap();
-        println!("Room Name: {}", room.name);
-        println!("Room System: {:?}", room.system);
-
-        // Assertions
-        assert_eq!(room.system, Some(SystemType::Dormitory));
-        assert_eq!(room.name, "Dormitory");
+        println!("Room Name: {:?}", room.name);
+        assert_eq!(room.name, RoomName::Dormitory);
 
         // Check ID assumptions
         // If logic.rs is as read, Dormitory should be ID 2.

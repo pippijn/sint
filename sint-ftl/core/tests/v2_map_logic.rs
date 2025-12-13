@@ -128,11 +128,11 @@ fn test_v2_start_location_and_mapping() {
     // 1. Verify specific room mappings (Room 2=Dormitory, Room 3=Cargo)
     // Note: These IDs rely on the order in ROOM_DEFINITIONS
     let room2 = state.map.rooms.get(&2).unwrap();
-    assert_eq!(room2.name, "Dormitory");
+    assert_eq!(room2.name, RoomName::Dormitory);
     assert_eq!(room2.system, Some(SystemType::Dormitory));
 
     let room3 = state.map.rooms.get(&3).unwrap();
-    assert_eq!(room3.name, "Cargo");
+    assert_eq!(room3.name, RoomName::Cargo);
     assert_eq!(room3.system, Some(SystemType::Cargo));
 
     // 2. Verify Helper Lookup

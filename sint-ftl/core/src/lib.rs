@@ -1,4 +1,5 @@
 mod bindings;
+pub mod field_map;
 pub mod logic;
 pub mod small_map;
 pub mod types;
