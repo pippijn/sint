@@ -59,7 +59,12 @@ fn main() {
         println!("Boss HP: {}", sol.state.enemy.hp);
 
         let initial_print = GameLogic::new_game(player_ids, args.seed);
-        let output_lines = replay::format_trajectory(initial_print, sol.history);
+        let history = sol
+            .get_history()
+            .into_iter()
+            .map(|(p, a)| (p.clone(), a.clone()))
+            .collect();
+        let output_lines = replay::format_trajectory(initial_print, history);
 
         if let Some(path) = args.output {
             let mut file = File::create(&path).expect("Unable to create output file");

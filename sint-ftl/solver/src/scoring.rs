@@ -42,6 +42,7 @@ pub struct ScoringWeights {
     // Situation Solving
     pub solution_solver_reward: f64,
     pub solution_distance_factor: f64,
+    pub situation_logistics_reward: f64, // New: Reward for getting items needed for situations
 
     // Logistics
     pub ammo_stockpile_reward: f64,
@@ -106,7 +107,7 @@ impl Default for ScoringWeights {
             water_penalty: 1000.0,
 
             // Situations & Threats
-            active_situation_penalty: 8000.0, // WAS 5000.0 - HUGE increase. Situations kill runs.
+            active_situation_penalty: 50000.0, // WAS 8000.0 - HUGE increase. Situations kill runs.
             threat_player_penalty: 100.0,     // Reduced to allow calculated risks
             threat_system_penalty: 2000.0,
             death_penalty: 50000.0,
@@ -124,10 +125,11 @@ impl Default for ScoringWeights {
             healing_reward: 500.0, // Increased to prioritize survival (was 50)
             sickbay_distance_factor: 50.0,
 
-            backtracking_penalty: 50.0,
+            backtracking_penalty: 200.0, // WAS 50.0. Prevent infinite loops (Slippery Deck).
 
-            solution_solver_reward: 20000.0, // WAS 5000.0. Solving problems is as important as avoiding damage.
+            solution_solver_reward: 60000.0, // WAS 20000.0. Solving problems is as important as avoiding damage.
             solution_distance_factor: 100.0,
+            situation_logistics_reward: 5000.0,
 
             ammo_stockpile_reward: 5000.0, // Encourage dumping ammo in Cannons (Huge)
             loose_ammo_reward: 200.0,      // Every nut on the map is hope
@@ -142,7 +144,7 @@ impl Default for ScoringWeights {
 
             boss_level_reward: 20000.0,
             turn_penalty: 100.0, // Increased to prevent stalling
-            step_penalty: 5.0, // Penalize dithering/free actions
+            step_penalty: 20.0,  // WAS 5.0. Prevent free-action loops.
 
             checkmate_threshold: 15.0,
             checkmate_multiplier: 2.5,
@@ -210,7 +212,7 @@ fn min_distance(state: &GameState, start: RoomId, targets: &HashSet<RoomId>) -> 
 pub fn calculate_score(
     parent: &GameState,
     current: &GameState,
-    history: &[(PlayerId, GameAction)],
+    history: &[&(PlayerId, GameAction)],
     weights: &ScoringWeights,
 ) -> f64 {
     let mut score = score_static(current, history, weights);
@@ -222,7 +224,7 @@ pub fn calculate_score(
 /// Higher is better.
 fn score_static(
     state: &GameState,
-    history: &[(PlayerId, GameAction)],
+    history: &[&(PlayerId, GameAction)],
     weights: &ScoringWeights,
 ) -> f64 {
     // Terminal States
@@ -301,8 +303,13 @@ fn score_static(
     }
 
     // Cubic Fire Penalty: Make firefighting > repairing
-    let hull_risk_factor = 1.0 + (MAX_HULL as f64 - state.hull_integrity as f64).max(0.0).powf(weights.hull_risk_exponent);
-    score -= (fire_count as f64).powf(weights.fire_exponent) * weights.fire_penalty_base * hull_risk_factor;
+    let hull_risk_factor = 1.0
+        + (MAX_HULL as f64 - state.hull_integrity as f64)
+            .max(0.0)
+            .powf(weights.hull_risk_exponent);
+    score -= (fire_count as f64).powf(weights.fire_exponent)
+        * weights.fire_penalty_base
+        * hull_risk_factor;
     score -= water_count as f64 * weights.water_penalty;
 
     // -- System Disabled --
@@ -367,7 +374,7 @@ fn score_static(
         hazardous_rooms.iter().map(|&id| (id, 999)).collect();
 
     // --- 3. Active Situations ---
-    score -= state.active_situations.len() as f64 * weights.active_situation_penalty;
+    score -= (state.active_situations.len() as f64).powf(1.5) * weights.active_situation_penalty;
 
     for card in &state.active_situations {
         if card.id == sint_core::types::CardId::Overheating {
@@ -658,15 +665,19 @@ fn score_static(
                 }
                 if let Some(tid) = target_room {
                     let mut min_d = 999;
+                    let mut someone_has_item = false;
+                    let required_item = sol.item_cost.as_ref();
+
                     for p in state.players.values() {
                         if p.hp > 0 {
                             // Check Item Requirement
-                            let meets_req = match &sol.item_cost {
+                            let meets_req = match required_item {
                                 Some(item) => p.inventory.contains(item),
                                 None => true,
                             };
 
                             if meets_req {
+                                someone_has_item = true;
                                 let mut t_set = HashSet::new();
                                 t_set.insert(tid);
                                 let d = min_distance(state, p.room_id, &t_set);
@@ -680,6 +691,41 @@ fn score_static(
                         score += weights.solution_solver_reward;
                     } else if min_d != 999 {
                         score += (20.0 - min_d as f64).max(0.0) * weights.solution_distance_factor;
+                    }
+
+                    // Logistics: If needed item is missing, reward getting it
+                    if !someone_has_item {
+                        if let Some(item) = required_item {
+                            let mut sources = HashSet::new();
+                            if *item == ItemType::Peppernut {
+                                for &k in &ammo_sources {
+                                    sources.insert(k);
+                                }
+                            } else {
+                                // Generic item search
+                                for r in state.map.rooms.values() {
+                                    if r.items.contains(item) {
+                                        sources.insert(r.id);
+                                    }
+                                }
+                            }
+
+                            if !sources.is_empty() {
+                                let mut min_source_dist = 999;
+                                for p in state.players.values() {
+                                    if p.hp > 0 {
+                                        let d = min_distance(state, p.room_id, &sources);
+                                        if d < min_source_dist {
+                                            min_source_dist = d;
+                                        }
+                                    }
+                                }
+                                if min_source_dist != 999 {
+                                    score += (20.0 - min_source_dist as f64).max(0.0)
+                                        * weights.situation_logistics_reward;
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -706,7 +752,8 @@ fn score_static(
     // --- 6. Trajectory Heuristics (Anti-Oscillation) ---
     // (Kept same as before)
     let mut player_moves: HashMap<PlayerId, Vec<(usize, u32)>> = HashMap::new();
-    for (idx, (pid, act)) in history.iter().enumerate() {
+    for (idx, item) in history.iter().enumerate() {
+        let (pid, act) = *item;
         if matches!(act, GameAction::Shoot) {
             score += weights.shooting_reward;
         }
@@ -730,7 +777,8 @@ fn score_static(
             if room_a == room_a_return {
                 let mut useful = false;
                 for j in (idx_b + 1)..idx_a_return {
-                    if let Some((actor, action)) = history.get(j) {
+                    if let Some(item) = history.get(j) {
+                        let (actor, action) = *item;
                         if actor == &pid {
                             match action {
                                 GameAction::Move { .. } => {}
@@ -768,11 +816,7 @@ fn score_static(
 }
 
 /// Calculates the score delta based on the transition from parent to current state.
-fn score_transition(
-    parent: &GameState,
-    current: &GameState,
-    weights: &ScoringWeights,
-) -> f64 {
+fn score_transition(parent: &GameState, current: &GameState, weights: &ScoringWeights) -> f64 {
     let mut score = 0.0;
     // Hull Delta Penalty: Penalize the ACT of losing hull
     let hull_loss = (parent.hull_integrity as f64 - current.hull_integrity as f64).max(0.0);

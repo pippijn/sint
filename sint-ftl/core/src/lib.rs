@@ -1,7 +1,7 @@
 mod bindings;
 pub mod logic;
-pub mod types;
 pub mod small_map;
+pub mod types;
 
 pub use logic::{GameError, GameLogic};
 pub use types::*;

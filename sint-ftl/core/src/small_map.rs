@@ -120,16 +120,18 @@ where
     /// Note: Returns `K` by value, unlike BTreeMap which returns `&K`.
     /// K is Copy, so this is usually fine.
     pub fn iter(&self) -> impl Iterator<Item = (K, &V)> {
-        self.data.iter().enumerate().filter_map(|(i, v)| {
-            v.as_ref().map(|val| (K::from_usize(i), val))
-        })
+        self.data
+            .iter()
+            .enumerate()
+            .filter_map(|(i, v)| v.as_ref().map(|val| (K::from_usize(i), val)))
     }
 
     /// Mutable iterator over (Key, &mut Value).
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (K, &mut V)> {
-        self.data.iter_mut().enumerate().filter_map(|(i, v)| {
-            v.as_mut().map(|val| (K::from_usize(i), val))
-        })
+        self.data
+            .iter_mut()
+            .enumerate()
+            .filter_map(|(i, v)| v.as_mut().map(|val| (K::from_usize(i), val)))
     }
 
     pub fn values(&self) -> impl Iterator<Item = &V> {
@@ -271,8 +273,9 @@ where
     >;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.data.iter().enumerate().filter_map(|(i, v)| {
-            v.as_ref().map(|val| (K::from_usize(i), val))
-        })
+        self.data
+            .iter()
+            .enumerate()
+            .filter_map(|(i, v)| v.as_ref().map(|val| (K::from_usize(i), val)))
     }
 }

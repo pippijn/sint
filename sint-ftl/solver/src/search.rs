@@ -11,9 +11,25 @@ use std::time::{Duration, Instant};
 #[derive(Clone)]
 pub struct SearchNode {
     pub state: GameState,
-    pub history: Vec<(PlayerId, GameAction)>,
+    pub parent: Option<Arc<SearchNode>>,
+    pub last_action: Option<(PlayerId, GameAction)>,
     pub score: f64,
     pub signature: u64,
+}
+
+impl SearchNode {
+    pub fn get_history(&self) -> Vec<&(PlayerId, GameAction)> {
+        let mut history = Vec::new();
+        let mut current = self;
+        while let Some(parent) = &current.parent {
+            if let Some(action) = &current.last_action {
+                history.push(action);
+            }
+            current = parent;
+        }
+        history.reverse();
+        history
+    }
 }
 
 impl PartialEq for SearchNode {
@@ -103,7 +119,7 @@ pub struct ExpansionLog {
     pub phase: GamePhase,
     pub active_player: Option<String>,
     pub ap: i32,
-    pub actions_generated: Vec<String>,
+    pub actions_generated: Vec<Action>,
     pub outcomes: Vec<String>,
 }
 
@@ -135,7 +151,12 @@ impl DebugContext {
                     "Step {}: Phase {:?} | Active: {:?} (AP: {})",
                     log.step, log.phase, log.active_player, log.ap
                 );
-                println!("  Generated: {:?}", log.actions_generated);
+                let actions_str: Vec<String> = log
+                    .actions_generated
+                    .iter()
+                    .map(|a| format!("{:?}", a))
+                    .collect();
+                println!("  Generated: {:?}", actions_str);
                 for out in &log.outcomes {
                     println!("  -> {}", out);
                 }
@@ -163,15 +184,16 @@ pub fn beam_search(config: &SearchConfig, weights: &ScoringWeights) -> Option<Se
     let time_limit = Duration::from_secs(config.time_limit);
 
     let start_sig = get_state_signature(&initial_driver.state);
-    let mut beam = vec![SearchNode {
+    let mut beam = vec![Arc::new(SearchNode {
         state: initial_driver.state,
-        history: Vec::new(),
+        parent: None,
+        last_action: None,
         score: 0.0,
         signature: start_sig,
-    }];
+    })];
 
-    let mut final_solution: Option<SearchNode> = None;
-    let mut best_partial: Option<SearchNode> = beam.first().cloned();
+    let mut final_solution: Option<Arc<SearchNode>> = None;
+    let mut best_partial: Option<Arc<SearchNode>> = beam.first().cloned();
     let mut visited: HashMap<u64, (i32, f64)> = HashMap::new();
 
     let debug_ctx = Arc::new(DebugContext::new());
@@ -223,14 +245,14 @@ pub fn beam_search(config: &SearchConfig, weights: &ScoringWeights) -> Option<Se
         }
 
         let debug_clone = debug_ctx.clone();
-        let next_nodes: Vec<SearchNode> = beam
+        let next_nodes: Vec<Arc<SearchNode>> = beam
             .par_iter()
-            .flat_map(|node| expand_node(node, weights, config, step, &debug_clone))
+            .flat_map(|node| expand_node(node.clone(), weights, config, step, &debug_clone))
             .collect();
 
         let total_generated = next_nodes.len();
 
-        let mut unique_nodes: std::collections::BTreeMap<u64, SearchNode> =
+        let mut unique_nodes: std::collections::BTreeMap<u64, Arc<SearchNode>> =
             std::collections::BTreeMap::new();
         for n in &next_nodes {
             let sig = n.signature;
@@ -248,7 +270,7 @@ pub fn beam_search(config: &SearchConfig, weights: &ScoringWeights) -> Option<Se
             unique_nodes.insert(sig, n.clone());
         }
 
-        let mut sorted_nodes: Vec<SearchNode> = unique_nodes.into_values().collect();
+        let mut sorted_nodes: Vec<Arc<SearchNode>> = unique_nodes.into_values().collect();
         sorted_nodes.par_sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
 
         if sorted_nodes.is_empty() && !beam.is_empty() {
@@ -309,16 +331,16 @@ pub fn beam_search(config: &SearchConfig, weights: &ScoringWeights) -> Option<Se
         println!("⏱️ Search finished in {:.2?}", elapsed);
     }
 
-    final_solution.or(best_partial)
+    final_solution.or(best_partial).map(|n| (*n).clone())
 }
 
 fn expand_node(
-    node: &SearchNode,
+    node: Arc<SearchNode>,
     weights: &ScoringWeights,
     _config: &SearchConfig,
     step: usize,
     debug: &DebugContext,
-) -> Vec<SearchNode> {
+) -> Vec<Arc<SearchNode>> {
     let state = &node.state;
 
     // Driver guarantees we are in a stable state (TacticalPlanning or GameOver)
@@ -344,8 +366,7 @@ fn expand_node(
     match active_player {
         Some(p) => {
             let legal_actions = sint_core::logic::actions::get_valid_actions(state, &p.id);
-            log_entry.actions_generated =
-                legal_actions.iter().map(|a| format!("{:?}", a)).collect();
+            log_entry.actions_generated = legal_actions.clone();
 
             let mut results = Vec::new();
 
@@ -372,17 +393,25 @@ fn expand_node(
                     };
                     match driver.apply(&p.id, act.clone()) {
                         Ok(_) => {
-                            let mut current_history = node.history.clone();
-                            current_history.push((p.id.clone(), act.clone()));
-                            let score = calculate_score(&node.state, &driver.state, &current_history, weights);
+                            let next_action = (p.id.clone(), act.clone());
+                            let mut current_history = node.get_history();
+                            current_history.push(&next_action);
+
+                            let score = calculate_score(
+                                &node.state,
+                                &driver.state,
+                                &current_history,
+                                weights,
+                            );
 
                             let signature = get_state_signature(&driver.state);
-                            results.push(SearchNode {
+                            results.push(Arc::new(SearchNode {
                                 state: driver.state,
-                                history: current_history,
+                                parent: Some(node.clone()),
+                                last_action: Some(next_action),
                                 score,
                                 signature,
-                            });
+                            }));
                         }
                         Err(e) => {
                             log_entry
@@ -401,18 +430,7 @@ fn expand_node(
             results
         }
         None => {
-            // No active players with AP > 0.
-            // This implies stable state requires a transition, but Driver.stabilize()
-            // guarantees that if we are in TacticalPlanning, there IS an unready player with AP > 0,
-            // UNLESS all unready players have AP <= 0 (which Driver should have forced ready).
-
-            // If we hit this, it means we are "stuck" in TacticalPlanning with everyone Ready (wait, no, Driver advances phase then)
-            // or everyone who is Unready has 0 AP (Driver advances them).
-
-            // So if we return None here, it means we are in a state not covered by Driver logic,
-            // or Driver returned a state where everyone is Ready but phase didn't change?
-
-            // Log it
+            // No Active Player found in ostensibly stable state
             log_entry
                 .outcomes
                 .push("No Active Player found in ostensibly stable state".to_string());

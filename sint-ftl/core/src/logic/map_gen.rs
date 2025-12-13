@@ -1,5 +1,5 @@
-use crate::types::{GameMap, HazardType, ItemType, MapLayout, Room, SystemType};
 use crate::small_map::SmallMap;
+use crate::types::{GameMap, HazardType, ItemType, MapLayout, Room, SystemType};
 
 pub struct RoomDef {
     pub name: &'static str,

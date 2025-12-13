@@ -51,5 +51,8 @@ fn main() {
     if result.success || args.verbose {
         let state_for_print = GameLogic::new_game(player_ids, seed);
         replay::print_trajectory(state_for_print, result.history);
+        if result.success {
+            println!("✅ Verification Successful: Goal reached!");
+        }
     }
 }
