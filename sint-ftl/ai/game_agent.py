@@ -292,7 +292,7 @@ class GameAgent:
             print(f"DEBUG: Prompt sent to AI:\n{prompt}")
         
         # Filter Tools
-        all_funcs = self.tools.function_declarations
+        all_funcs = self.tools.function_declarations or []
         allowed_names = {"action_chat", "action_fullsync", "action_join", "action_setname"} # Base tools
 
         # 1. Get Valid Actions from Core
@@ -330,8 +330,10 @@ class GameAgent:
             if response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
                 for part in response.candidates[0].content.parts:
                     if fn := part.function_call:
-                        print(f"AI decided to: {fn.name}")
-                        await self.execute_tool(fn.name, dict(fn.args))
+                        if fn.name:
+                            print(f"AI decided to: {fn.name}")
+                            args = dict(fn.args) if fn.args else {}
+                            await self.execute_tool(fn.name, args)
                     if part.text:
                         print(f"AI Thought: {part.text}")
                     

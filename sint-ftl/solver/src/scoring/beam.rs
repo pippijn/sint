@@ -58,6 +58,7 @@ pub struct BeamScoringWeights {
     pub scavenger_reward: f64,
     pub repair_proximity_reward: f64,
     pub cargo_repair_incentive: f64,
+    pub cargo_repair_proximity_reward: f64, // New: Reward for moving towards Cargo
 
     // Progression
     pub boss_level_reward: f64,
@@ -74,6 +75,8 @@ pub struct BeamScoringWeights {
     pub critical_hull_penalty_per_hp: f64,
     pub critical_fire_threshold: usize,
     pub critical_fire_penalty_per_token: f64,
+    pub critical_survival_mult: f64, // New: Multiplier for offensive scores when critical
+    pub critical_threat_mult: f64,   // New: Multiplier for defensive penalties when critical
 
     // Exponents (Non-Linearity)
     pub hull_exponent: f64,
@@ -133,7 +136,7 @@ impl Default for BeamScoringWeights {
             solution_solver_reward: 60000.0, // WAS 40000.0. Solving problems is key.
             solution_distance_factor: 100.0,
             situation_logistics_reward: 25000.0, // WAS 5000.0. GO GET THE ITEM.
-            situation_resolved_reward: 30000.0, // New: Big payout for finishing the job
+            situation_resolved_reward: 30000.0,  // New: Big payout for finishing the job
 
             ammo_stockpile_reward: 5000.0, // Encourage dumping ammo in Cannons (Huge)
             loose_ammo_reward: 200.0,      // Every nut on the map is hope
@@ -145,6 +148,7 @@ impl Default for BeamScoringWeights {
             scavenger_reward: 500.0,
             repair_proximity_reward: 1000.0,
             cargo_repair_incentive: 25.0,
+            cargo_repair_proximity_reward: 1.0, // New
 
             boss_level_reward: 20000.0,
             turn_penalty: 2000.0, // Increased to prevent stalling
@@ -159,9 +163,11 @@ impl Default for BeamScoringWeights {
             critical_hull_penalty_per_hp: 50_000.0,
             critical_fire_threshold: 2,
             critical_fire_penalty_per_token: 25_000.0,
+            critical_survival_mult: 0.1, // New: Deprioritize offense when dying
+            critical_threat_mult: 5.0,   // New: Amplify threats when dying
 
             // Exponents
-            hull_exponent: 2.0,
+            hull_exponent: 2.2,
             fire_exponent: 2.0,
             cargo_repair_exponent: 1.5,
             hull_risk_exponent: 1.1,
@@ -240,6 +246,17 @@ pub fn score_static(
     }
 
     let mut score = 0.0;
+    let is_critical = (state.hull_integrity as f64) <= weights.critical_hull_threshold;
+    let survival_mult = if is_critical {
+        weights.critical_survival_mult
+    } else {
+        1.0
+    };
+    let threat_mult = if is_critical {
+        weights.critical_threat_mult
+    } else {
+        1.0
+    };
 
     // --- Checkmate Heuristic ---
     let mut checkmate_mult = 1.0;
@@ -251,7 +268,7 @@ pub fn score_static(
     // Override everything if we are about to die.
     // Survival is absolute. Do not reduce panic based on enemy health.
 
-    if (state.hull_integrity as f64) <= weights.critical_hull_threshold {
+    if is_critical {
         let mut panic_score = -weights.critical_hull_penalty_base;
         panic_score -= (weights.critical_hull_threshold + 1.0 - state.hull_integrity as f64)
             * weights.critical_hull_penalty_per_hp;
@@ -290,7 +307,8 @@ pub fn score_static(
     score += (state.enemy.max_hp as f64 - state.enemy.hp as f64)
         * weights.enemy_hp
         * checkmate_mult
-        * bloodlust_mult;
+        * bloodlust_mult
+        * survival_mult; // Apply survival multiplier to deprioritize offense when dying
 
     score -= state.turn_count as f64 * weights.turn_penalty;
     score -= history.len() as f64 * weights.step_penalty;
@@ -324,7 +342,8 @@ pub fn score_static(
 
     score -= (fire_rooms.len() as f64).powf(weights.fire_exponent)
         * weights.fire_penalty_base
-        * hull_risk_mult;
+        * hull_risk_mult
+        * threat_mult; // Apply threat multiplier
     score -= water_count as f64 * weights.water_penalty;
 
     // -- System Disabled --
@@ -361,9 +380,20 @@ pub fn score_static(
         }
     }
     if let Some(cid) = cargo_id {
+        let mut t_set = HashSet::new();
+        t_set.insert(cid);
         for p in state.players.values() {
             if p.room_id == cid {
                 score += dynamic_incentive;
+            }
+            // New: Proximity Reward (Move towards Cargo when damaged)
+            if urgency > 0.0 {
+                let dist = min_distance(state, p.room_id, &t_set);
+                if dist != 999 {
+                    score += (20.0 - dist as f64).max(0.0)
+                        * weights.cargo_repair_proximity_reward
+                        * urgency;
+                }
             }
         }
     }
@@ -442,7 +472,7 @@ pub fn score_static(
         } else {
             // Not protected - Apply penalties
             if players_in_target > 0 {
-                score -= players_in_target as f64 * weights.threat_player_penalty;
+                score -= players_in_target as f64 * weights.threat_player_penalty * threat_mult;
             }
 
             if let Some(sys) = attack.target_system {
@@ -450,11 +480,11 @@ pub fn score_static(
                     sys,
                     SystemType::Engine | SystemType::Cannons | SystemType::Bridge
                 ) {
-                    score -= weights.threat_system_penalty;
+                    score -= weights.threat_system_penalty * threat_mult;
                 }
             }
             // General hull risk
-            score -= weights.threat_system_penalty * weights.threat_hull_risk_mult;
+            score -= weights.threat_system_penalty * weights.threat_hull_risk_mult * threat_mult;
         }
     } else {
         // No attack coming, but shields up? Wasted AP mostly, but small safety bonus
@@ -528,10 +558,6 @@ pub fn score_static(
             _ => None,
         };
 
-        // Dynamic Role Override: Firefighter roams free
-        if has_extinguisher {
-            assigned_room = None;
-        }
         // Dynamic Role Override: Critical Health (Seek Healing)
         if p.hp < 2 {
             assigned_room = None;
@@ -593,10 +619,10 @@ pub fn score_static(
 
         // -- Role: Emergency (Fire & Repair) & Global Coverage --
         // Unified logic: Go to hazards. Prioritize critical systems.
-        // If holding extinguisher, prioritize fire.
         let mut emergency_score = 0.0;
         let mut best_target_dist = 999;
         let mut is_critical_target = false;
+        let mut best_target_is_fire = false;
 
         // Iterate all hazardous rooms to find best emergency target for THIS player
         // AND update global coverage stats.
@@ -618,11 +644,6 @@ pub fn score_static(
             // --- Individual Role Logic ---
             let has_fire = room.hazards.contains(&HazardType::Fire);
 
-            // If fire exists, only Extinguisher holder gets full priority (others can help but less efficient)
-            if has_fire && !has_extinguisher {
-                continue;
-            }
-
             let is_critical = matches!(
                 room.system,
                 Some(SystemType::Engine) | Some(SystemType::Cannons) | Some(SystemType::Bridge)
@@ -631,9 +652,13 @@ pub fn score_static(
             if d < best_target_dist {
                 best_target_dist = d;
                 is_critical_target = is_critical;
-            } else if d == best_target_dist && is_critical {
+                best_target_is_fire = has_fire;
+            } else if d == best_target_dist {
                 // Tie-breaker: Critical system wins
-                is_critical_target = true;
+                if is_critical && !is_critical_target {
+                    is_critical_target = true;
+                    best_target_is_fire = has_fire;
+                }
             }
         }
 
@@ -649,6 +674,11 @@ pub fn score_static(
             if is_critical_target {
                 emergency_score +=
                     (20.0 - best_target_dist as f64).max(0.0) * weights.repair_proximity_reward;
+            }
+
+            // Extinguisher Bonus
+            if best_target_is_fire && has_extinguisher {
+                emergency_score *= 1.5;
             }
 
             score += emergency_score;

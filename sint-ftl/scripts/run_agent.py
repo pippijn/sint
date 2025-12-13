@@ -7,7 +7,7 @@ import argparse
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import common
 
-def main():
+def main() -> None:
     if not os.environ.get("GEMINI_API_KEY"):
          print("⚠️  GEMINI_API_KEY not set. AI Agent requires it.")
 

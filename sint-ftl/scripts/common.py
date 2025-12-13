@@ -2,6 +2,7 @@ import os
 import sys
 import subprocess
 import time
+from typing import Optional, Any, Union
 
 # Configuration
 # scripts/common.py -> ../scripts -> .. (ROOT)
@@ -11,7 +12,7 @@ VENV_BIN = os.path.join(VENV_DIR, 'bin')
 PYTHON_EXEC = os.path.join(VENV_BIN, 'python3')
 BUILD_MARKER = os.path.join(VENV_DIR, '.build_marker')
 
-def run_cmd(cmd, cwd=ROOT_DIR, env=None, background=False, quiet=False):
+def run_cmd(cmd: str, cwd: str = ROOT_DIR, env: Optional[dict[str, str]] = None, background: bool = False, quiet: bool = False) -> Any:
     if not quiet:
         print(f'🚀 Running: {cmd}')
     if env is None:
@@ -27,8 +28,9 @@ def run_cmd(cmd, cwd=ROOT_DIR, env=None, background=False, quiet=False):
         if ret != 0:
             print(f'❌ Command failed: {cmd}')
             sys.exit(ret)
+        return ret
 
-def check_venv():
+def check_venv() -> None:
     if not os.path.exists(VENV_DIR):
         print('🔧 Creating Python virtual environment...')
         subprocess.check_call([sys.executable, '-m', 'venv', '.venv'])
@@ -38,8 +40,8 @@ def check_venv():
         run_cmd(f'{venv_python} -m pip install -q -r ai/requirements.txt', quiet=True)
         run_cmd(f'{venv_python} -m pip install -q maturin', quiet=True)
 
-def get_latest_mtime(path):
-    max_mtime = 0
+def get_latest_mtime(path: str) -> float:
+    max_mtime = 0.0
     if os.path.isfile(path):
         return os.path.getmtime(path)
         
@@ -52,7 +54,7 @@ def get_latest_mtime(path):
                     max_mtime = m
     return max_mtime
 
-def needs_rebuild():
+def needs_rebuild() -> bool:
     if not os.path.exists(BUILD_MARKER):
         return True
     
@@ -73,7 +75,7 @@ def needs_rebuild():
             
     return False
 
-def build_bindings(force=False):
+def build_bindings(force: bool = False) -> None:
     if not force and not needs_rebuild():
         # print('⏩ Skipping build (up to date)')
         return

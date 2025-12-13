@@ -10,12 +10,12 @@ import shutil
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import common
 
-def run_tests():
+def run_tests() -> None:
     print("🧪 Running Tests...")
     common.run_cmd("cargo check --all")
     common.run_cmd("cargo test --all")
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Sint FTL Launcher")
     parser.add_argument("--ai", action="store_true", help="Start an AI agent")
     parser.add_argument("--build-only", action="store_true", help="Build and exit")

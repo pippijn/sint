@@ -154,7 +154,8 @@ pub fn rhea_search(config: &RHEAConfig, weights: &RheaScoringWeights) -> Option<
         let best_ind = &population[0];
 
         if config.verbose && (steps_taken % 10 == 0 || steps_taken == config.max_steps) {
-            println!("RHEA Step {}: Best Score {:.1} | Round {} | Hull {} | Boss {} | Plan {}", 
+            println!(
+                "RHEA Step {}: Best Score {:.1} | Round {} | Hull {} | Boss {} | Plan {}",
                 steps_taken,
                 best_ind.score,
                 current_state.turn_count,

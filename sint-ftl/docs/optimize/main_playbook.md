@@ -14,17 +14,17 @@ This playbook outlines the workflow for the main agent to iteratively optimize t
 ## Workflow Loop
 
 ### 1. Generate Data
-Run the solver with sufficient steps. **Always invoke the script directly, do not use python3.**
+Run the solver with sufficient steps. **Always invoke the script directly, do not use python3.** Use `--output-dir .` to save logs in the current directory.
 
 **Single Seed:**
 ```bash
-scripts/run_solve.py --steps 3000 --seeds 12345
+scripts/run_solve.py --steps 3000 --seeds 12345 --output-dir .
 ```
 
 **Multiple Seeds (Parallel):**
 This verifies robustness across different RNG states.
 ```bash
-scripts/run_solve.py --steps 3000 --seeds 12345,54321,99999 --parallel
+scripts/run_solve.py --steps 3000 --seeds 12345,54321,99999 --parallel --output-dir .
 ```
 
 *   *Check:* Did it finish? Did it win? If it won, can we optimize for speed (fewer rounds)?
