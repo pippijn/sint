@@ -30,7 +30,7 @@ pub fn get_legal_actions(state: &GameState) -> Vec<(PlayerId, GameAction)> {
     Vec::new()
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SearchNode {
     pub state: GameState,
     pub parent: Option<Arc<SearchNode>>,

@@ -155,7 +155,9 @@ pub enum HazardType {
     Water,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Hash)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Hash, PartialOrd, Ord,
+)]
 pub enum ItemType {
     Peppernut,
     Extinguisher,

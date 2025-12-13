@@ -71,7 +71,24 @@ impl DebugContext {
     }
 }
 
-pub fn beam_search(config: &BeamSearchConfig, weights: &BeamScoringWeights) -> Option<SearchNode> {
+#[derive(Clone, Debug)]
+pub struct SearchProgress {
+    pub step: usize,
+    pub best_score: f64,
+    pub hull: i32,
+    pub boss_hp: i32,
+    pub is_done: bool,
+    pub current_best_node: Option<Arc<SearchNode>>,
+}
+
+pub fn beam_search<F>(
+    config: &BeamSearchConfig,
+    weights: &BeamScoringWeights,
+    progress_callback: Option<F>,
+) -> Option<SearchNode>
+where
+    F: Fn(SearchProgress) + Sync + Send,
+{
     let player_ids: Vec<String> = (0..config.players).map(|i| format!("P{}", i + 1)).collect();
     let initial_state = GameLogic::new_game(player_ids.clone(), config.seed);
 
@@ -127,6 +144,20 @@ pub fn beam_search(config: &BeamSearchConfig, weights: &BeamScoringWeights) -> O
             } else {
                 best_partial = Some(best_in_beam.clone());
             }
+
+            // Report progress every 10 steps or if done
+            if let Some(cb) = &progress_callback {
+                if step % 10 == 0 {
+                    cb(SearchProgress {
+                        step,
+                        best_score: best_in_beam.score,
+                        hull: best_in_beam.state.hull_integrity,
+                        boss_hp: best_in_beam.state.enemy.hp,
+                        is_done: false,
+                        current_best_node: Some(best_in_beam.clone()),
+                    });
+                }
+            }
         }
 
         if start_time.elapsed() > time_limit {
@@ -145,6 +176,17 @@ pub fn beam_search(config: &BeamSearchConfig, weights: &BeamScoringWeights) -> O
                     println!("🏆 VICTORY FOUND at step {}!", step);
                 }
                 final_solution = Some(win.clone());
+                // Report final success
+                if let Some(cb) = &progress_callback {
+                    cb(SearchProgress {
+                        step,
+                        best_score: win.score,
+                        hull: win.state.hull_integrity,
+                        boss_hp: win.state.enemy.hp,
+                        is_done: true,
+                        current_best_node: Some(win.clone()),
+                    });
+                }
                 break;
             }
         }

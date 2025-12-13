@@ -1,8 +1,8 @@
 use crate::state::GameContext;
 use leptos::*;
 use sint_core::{
-    logic::pathfinding::find_path, types::MapLayout, Action, GameAction, GamePhase, HazardType,
-    ItemType, Player, Room,
+    logic::pathfinding::find_path, types::MapLayout, Action, AttackEffect, GameAction, GamePhase,
+    HazardType, ItemType, Player, Room,
 };
 
 #[derive(Clone, Copy, PartialEq)]
@@ -318,7 +318,7 @@ fn RoomCard(room: Room, ctx: GameContext, door_dir: Option<DoorDirection>) -> im
             .enemy
             .next_attack
             .as_ref()
-            .is_some_and(|a| a.target_room == room.id);
+            .is_some_and(|a| a.target_room == room.id && a.effect != AttackEffect::Miss);
 
         // 5. Ghosts
         let ghosts: Vec<String> = s

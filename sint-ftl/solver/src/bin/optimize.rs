@@ -1,22 +1,42 @@
 use clap::{Parser, ValueEnum};
-use rand::prelude::*;
-use rayon::prelude::*;
-use sint_core::types::GamePhase;
+use crossterm::{
+    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
+    execute,
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+};
+use ratatui::{
+    backend::CrosstermBackend,
+    layout::{Constraint, Direction, Layout},
+    style::{Color, Modifier, Style},
+    symbols,
+    text::Span,
+    widgets::{Axis, BarChart, Block, Borders, Chart, Dataset, GraphType, Paragraph, Row, Table},
+    Frame, Terminal,
+};
+use sint_solver::optimization::{
+    run_ga, run_spsa, EvaluationMetrics, OptimizationStatus, OptimizerConfig, OptimizerMessage,
+    Strategy, Target,
+};
 use sint_solver::scoring::beam::BeamScoringWeights;
 use sint_solver::scoring::rhea::RheaScoringWeights;
-use sint_solver::search::beam::{beam_search, BeamSearchConfig};
-use sint_solver::search::rhea::{rhea_search, RHEAConfig};
+use sint_solver::search::beam::SearchProgress;
+use std::{
+    io,
+    sync::mpsc,
+    thread,
+    time::{Duration, Instant},
+};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// Optimization Strategy
-    #[arg(long, value_enum, default_value_t = Strategy::GA)]
-    strategy: Strategy,
+    #[arg(long, value_enum, default_value_t = ArgStrategy::GA)]
+    strategy: ArgStrategy,
 
     /// Target Search Algorithm
-    #[arg(long, value_enum, default_value_t = Target::Beam)]
-    target: Target,
+    #[arg(long, value_enum, default_value_t = ArgTarget::Beam)]
+    target: ArgTarget,
 
     /// Generations / Iterations (Optimizer)
     #[arg(short, long, default_value_t = 20)]
@@ -29,6 +49,10 @@ struct Args {
     /// Seeds to evaluate (comma separated)
     #[arg(long, default_value = "12345")]
     seeds: String,
+
+    /// Enable TUI mode
+    #[arg(long)]
+    tui: bool,
 
     // --- RHEA Specifics ---
     /// RHEA Horizon
@@ -45,493 +69,36 @@ struct Args {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
-enum Strategy {
+enum ArgStrategy {
     GA,
     SPSA,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
-enum Target {
+enum ArgTarget {
     Beam,
     Rhea,
 }
 
-fn get_base_weights_beam() -> BeamScoringWeights {
-    BeamScoringWeights::default()
-}
-
-fn get_base_weights_rhea() -> RheaScoringWeights {
-    RheaScoringWeights::default()
-}
-
-// Map multipliers vector to BeamScoringWeights
-fn apply_multipliers_beam(base: &BeamScoringWeights, m: &[f64]) -> BeamScoringWeights {
-    let mut w = base.clone();
-    let mut i = 0;
-
-    // Ensure we don't go out of bounds if param count mismatches, though we should sync them.
-    if m.len() < 59 {
-        panic!(
-            "Multiplier vector too short for Beam weights. Expected 59, got {}",
-            m.len()
-        );
-    }
-
-    w.hull_integrity *= m[i];
-    i += 1;
-    w.hull_delta_penalty *= m[i];
-    i += 1;
-    w.enemy_hp *= m[i];
-    i += 1;
-    w.player_hp *= m[i];
-    i += 1;
-    w.ap_balance *= m[i];
-    i += 1;
-    w.fire_penalty_base *= m[i];
-    i += 1;
-    w.water_penalty *= m[i];
-    i += 1;
-    w.active_situation_penalty *= m[i];
-    i += 1;
-    w.threat_player_penalty *= m[i];
-    i += 1;
-    w.threat_system_penalty *= m[i];
-    i += 1;
-    w.death_penalty *= m[i];
-    i += 1;
-    w.station_keeping_reward *= m[i];
-    i += 1;
-    w.gunner_base_reward *= m[i];
-    i += 1;
-    w.gunner_per_ammo *= m[i];
-    i += 1;
-    w.gunner_working_bonus *= m[i];
-    i += 1;
-    w.gunner_distance_factor *= m[i];
-    i += 1;
-    w.firefighter_base_reward *= m[i];
-    i += 1;
-    w.firefighter_distance_factor *= m[i];
-    i += 1;
-    w.healing_reward *= m[i];
-    i += 1;
-    w.sickbay_distance_factor *= m[i];
-    i += 1;
-    w.backtracking_penalty *= m[i];
-    i += 1;
-    w.solution_solver_reward *= m[i];
-    i += 1;
-    w.solution_distance_factor *= m[i];
-    i += 1;
-    w.situation_logistics_reward *= m[i];
-    i += 1;
-    w.situation_resolved_reward *= m[i];
-    i += 1;
-    w.ammo_stockpile_reward *= m[i];
-    i += 1;
-    w.loose_ammo_reward *= m[i];
-    i += 1;
-    w.hazard_proximity_reward *= m[i];
-    i += 1;
-    w.situation_exposure_penalty *= m[i];
-    i += 1;
-    w.system_disabled_penalty *= m[i];
-    i += 1;
-    w.shooting_reward *= m[i];
-    i += 1;
-    w.scavenger_reward *= m[i];
-    i += 1;
-    w.repair_proximity_reward *= m[i];
-    i += 1;
-    w.cargo_repair_incentive *= m[i];
-    i += 1;
-    w.boss_level_reward *= m[i];
-    i += 1;
-    w.turn_penalty *= m[i];
-    i += 1;
-    w.step_penalty *= m[i];
-    i += 1;
-    w.checkmate_threshold *= m[i];
-    i += 1;
-    w.checkmate_multiplier *= m[i];
-    i += 1;
-    w.critical_hull_threshold *= m[i];
-    i += 1;
-    w.critical_hull_penalty_base *= m[i];
-    i += 1;
-    w.critical_hull_penalty_per_hp *= m[i];
-    i += 1;
-    w.critical_fire_threshold = (w.critical_fire_threshold as f64 * m[i]) as usize;
-    i += 1;
-    w.critical_fire_penalty_per_token *= m[i];
-    i += 1;
-    w.hull_exponent *= m[i];
-    i += 1;
-    w.fire_exponent *= m[i];
-    i += 1;
-    w.cargo_repair_exponent *= m[i];
-    i += 1;
-    w.hull_risk_exponent *= m[i];
-    i += 1;
-    w.fire_urgency_mult *= m[i];
-    i += 1;
-    w.hazard_proximity_range *= m[i];
-    i += 1;
-    w.gunner_dist_range *= m[i];
-    i += 1;
-    w.gunner_per_ammo_mult *= m[i];
-    i += 1;
-    w.gunner_en_route_mult *= m[i];
-    i += 1;
-    w.gunner_wheelbarrow_penalty *= m[i];
-    i += 1;
-    w.baker_wheelbarrow_mult *= m[i];
-    i += 1;
-    w.threat_severe_reward *= m[i];
-    i += 1;
-    w.threat_mitigated_reward *= m[i];
-    i += 1;
-    w.threat_hull_risk_mult *= m[i];
-    i += 1;
-    w.threat_shield_waste_penalty *= m[i];
-
-    w
-}
-
-fn apply_multipliers_rhea(base: &RheaScoringWeights, m: &[f64]) -> RheaScoringWeights {
-    let mut w = base.clone();
-    let mut i = 0;
-
-    if m.len() < 10 {
-        panic!(
-            "Multiplier vector too short for Rhea weights. Expected 10, got {}",
-            m.len()
-        );
-    }
-
-    w.victory_base *= m[i];
-    i += 1;
-    w.victory_hull_mult *= m[i];
-    i += 1;
-    w.defeat_penalty *= m[i];
-    i += 1;
-    w.boss_damage_reward *= m[i];
-    i += 1;
-
-    // Threshold is integer
-    w.hull_critical_threshold = (w.hull_critical_threshold as f64 * m[i]) as i32;
-    i += 1;
-
-    w.hull_critical_penalty_base *= m[i];
-    i += 1;
-    w.hull_normal_reward *= m[i];
-    i += 1;
-    w.fire_penalty *= m[i];
-    i += 1;
-    w.ammo_holding_reward *= m[i];
-    i += 1;
-    w.turn_penalty *= m[i];
-
-    w
-}
-
-fn get_param_count(target: Target) -> usize {
-    match target {
-        Target::Beam => 59,
-        Target::Rhea => 10,
-    }
-}
-
-fn mutate(rng: &mut impl Rng, genome: &mut Vec<f64>) {
-    let idx = rng.gen_range(0..genome.len());
-    // Mutate by +/- 20% or random small noise
-    if rng.gen_bool(0.5) {
-        genome[idx] *= rng.gen_range(0.8..1.2);
-    } else {
-        // For multipliers, additive noise should be small
-        genome[idx] += rng.gen_range(-0.1..0.1);
-    }
-    if genome[idx] < 0.0 {
-        genome[idx] = 0.0;
-    }
-}
-
-fn evaluate(args: &Args, multipliers: &[f64], seeds: &[u64]) -> f64 {
-    let total_score: f64 = seeds
-        .par_iter()
-        .map(|&seed| {
-            let mut fitness = 0.0;
-            let sol = match args.target {
-                Target::Beam => {
-                    let weights = apply_multipliers_beam(&get_base_weights_beam(), multipliers);
-                    let config = BeamSearchConfig {
-                        players: 6,
-                        seed,
-                        width: 100, // Reduced width for speed during optimization
-                        steps: 1000,
-                        time_limit: 5,
-                        verbose: false,
-                    };
-                    beam_search(&config, &weights)
-                }
-                Target::Rhea => {
-                    let weights = apply_multipliers_rhea(&get_base_weights_rhea(), multipliers);
-                    let config = RHEAConfig {
-                        players: 6,
-                        seed,
-                        horizon: args.rhea_horizon,
-                        generations: args.rhea_generations,
-                        population_size: args.rhea_population,
-                        max_steps: 1000,
-                        time_limit: 5,
-                        verbose: false,
-                    };
-                    rhea_search(&config, &weights)
-                }
-            };
-
-            if let Some(sol) = sol {
-                // 1. Victory (Ultimate Goal)
-                if sol.state.phase == GamePhase::Victory {
-                    fitness += 100_000.0;
-                    // Speed bonus
-                    fitness += (200 - sol.state.turn_count as i32).max(0) as f64 * 100.0;
-                }
-
-                // 2. Boss Progress (Major Milestones)
-                fitness += (sol.state.boss_level as f64) * 10_000.0;
-
-                // 3. Current Boss Damage (Progress within level)
-                let damage_dealt = (sol.state.enemy.max_hp - sol.state.enemy.hp) as f64;
-                fitness += damage_dealt * 200.0;
-
-                // 4. Hull Integrity (Survival)
-                if sol.state.hull_integrity > 0 {
-                    fitness += sol.state.hull_integrity as f64 * 300.0;
-                } else {
-                    fitness -= 10_000.0;
-                }
-
-                // 5. Situation Control (Clean Board)
-                fitness -= sol.state.active_situations.len() as f64 * 500.0;
-
-                // 6. Hazard Control
-                let hazard_count: usize =
-                    sol.state.map.rooms.values().map(|r| r.hazards.len()).sum();
-                fitness -= hazard_count as f64 * 100.0;
-
-                // 7. Survival Duration (Secondary)
-                if sol.state.phase != GamePhase::GameOver {
-                    fitness += sol.state.turn_count as f64 * 20.0;
-                }
-
-                fitness
-            } else {
-                -20_000.0 // Failed to find any path
-            }
-        })
-        .sum();
-
-    total_score / (seeds.len() as f64)
-}
-
-fn run_ga(args: &Args, seeds: &[u64]) {
-    println!(
-        "🧬 Starting Evolution ({}): Gens={}, Pop={}, Seeds={:?}",
-        match args.target {
-            Target::Beam => "Beam",
-            Target::Rhea => "Rhea",
-        },
-        args.generations,
-        args.population,
-        seeds
-    );
-
-    let param_count = get_param_count(args.target);
-    let mut rng = rand::thread_rng();
-
-    // Initialize Population with Multipliers (start at 1.0)
-    let default_genome = vec![1.0; param_count];
-    let mut population: Vec<Vec<f64>> = (0..args.population)
-        .map(|i| {
-            if i == 0 {
-                default_genome.clone()
-            } else {
-                let mut g = default_genome.clone();
-                for _ in 0..3 {
-                    mutate(&mut rng, &mut g);
-                }
-                g
-            }
-        })
-        .collect();
-
-    for gen in 0..args.generations {
-        println!("\n--- Generation {} ---", gen);
-
-        // Evaluate
-        let mut scored_pop: Vec<(f64, Vec<f64>)> = population
-            .par_iter()
-            .map(|genome| {
-                let score = evaluate(args, genome, seeds);
-                (score, genome.clone())
-            })
-            .collect();
-
-        // Sort descending
-        scored_pop.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
-
-        let best_score = scored_pop[0].0;
-        let avg_score: f64 = scored_pop.iter().map(|s| s.0).sum::<f64>() / (args.population as f64);
-
-        println!("Best: {:.2} | Avg: {:.2}", best_score, avg_score);
-
-        // Elitism: Keep top 20%
-        let elite_count = (args.population as f64 * 0.2).ceil() as usize;
-        let mut new_pop = Vec::new();
-        for i in 0..elite_count {
-            new_pop.push(scored_pop[i].1.clone());
-        }
-
-        // Offspring
-        while new_pop.len() < args.population {
-            // Tournament Selection
-            let p1 = &scored_pop[rng.gen_range(0..elite_count * 2.min(args.population))];
-            let p2 = &scored_pop[rng.gen_range(0..elite_count * 2.min(args.population))];
-
-            // Crossover
-            let split = rng.gen_range(0..p1.1.len());
-            let mut child = Vec::new();
-            child.extend_from_slice(&p1.1[0..split]);
-            child.extend_from_slice(&p2.1[split..]);
-
-            // Mutation
-            if rng.gen_bool(0.3) {
-                mutate(&mut rng, &mut child);
-            }
-
-            new_pop.push(child);
-        }
-
-        population = new_pop;
-    }
-
-    // Print Best
-    let best_genome = &population[0];
-    println!("\n🏆 Best Weights Found:");
-    match args.target {
-        Target::Beam => println!(
-            "{:#?}",
-            apply_multipliers_beam(&get_base_weights_beam(), best_genome)
-        ),
-        Target::Rhea => println!(
-            "{:#?}",
-            apply_multipliers_rhea(&get_base_weights_rhea(), best_genome)
-        ),
-    }
-}
-
-fn run_spsa(args: &Args, seeds: &[u64]) {
-    println!(
-        "📉 Starting SPSA ({}): Iterations={}, Seeds={:?}",
-        match args.target {
-            Target::Beam => "Beam",
-            Target::Rhea => "Rhea",
-        },
-        args.generations,
-        seeds
-    );
-
-    let param_count = get_param_count(args.target);
-
-    // Start with identity multipliers
-    let mut theta = vec![1.0; param_count];
-    let p = theta.len();
-
-    // SPSA hyperparameters
-    let c = 0.05;
-    let gamma = 0.101;
-    let a = 0.1;
-    let big_a = 20.0;
-    let alpha = 0.602;
-
-    let mut best_theta = theta.clone();
-    let mut best_score = evaluate(args, &theta, seeds);
-
-    println!("Initial Score: {:.2}", best_score);
-
-    for k in 0..args.generations {
-        let mut rng = rand::thread_rng();
-
-        let ak = a / (k as f64 + 1.0 + big_a).powf(alpha);
-        let ck = c / (k as f64 + 1.0).powf(gamma);
-
-        // Generate Bernoulli perturbation vector (+1 or -1)
-        let delta: Vec<f64> = (0..p)
-            .map(|_| if rng.gen_bool(0.5) { 1.0 } else { -1.0 })
-            .collect();
-
-        // Theta + ck * delta
-        let mut theta_plus = theta.clone();
-        for i in 0..p {
-            theta_plus[i] += ck * delta[i];
-            if theta_plus[i] < 0.0 {
-                theta_plus[i] = 0.0;
-            }
-        }
-
-        // Theta - ck * delta
-        let mut theta_minus = theta.clone();
-        for i in 0..p {
-            theta_minus[i] -= ck * delta[i];
-            if theta_minus[i] < 0.0 {
-                theta_minus[i] = 0.0;
-            }
-        }
-
-        let y_plus = evaluate(args, &theta_plus, seeds);
-        let y_minus = evaluate(args, &theta_minus, seeds);
-
-        // Gradient Estimate
-        let mut ghat = vec![0.0; p];
-        for i in 0..p {
-            ghat[i] = (y_plus - y_minus) / (2.0 * ck * delta[i]);
-        }
-
-        // Update Theta (Gradient Ascent)
-        for i in 0..p {
-            theta[i] += ak * ghat[i];
-            if theta[i] < 0.0 {
-                theta[i] = 0.0;
-            }
-        }
-
-        let current_score = evaluate(args, &theta, seeds);
-        println!(
-            "Iter {}: Score {:.2} (Best {:.2}) | ak={:.4} ck={:.4}",
-            k, current_score, best_score, ak, ck
-        );
-
-        if current_score > best_score {
-            best_score = current_score;
-            best_theta = theta.clone();
+impl From<ArgStrategy> for Strategy {
+    fn from(s: ArgStrategy) -> Self {
+        match s {
+            ArgStrategy::GA => Strategy::GA,
+            ArgStrategy::SPSA => Strategy::SPSA,
         }
     }
+}
 
-    println!("\n🏆 Best Weights Found (SPSA):");
-    match args.target {
-        Target::Beam => println!(
-            "{:#?}",
-            apply_multipliers_beam(&get_base_weights_beam(), &best_theta)
-        ),
-        Target::Rhea => println!(
-            "{:#?}",
-            apply_multipliers_rhea(&get_base_weights_rhea(), &best_theta)
-        ),
+impl From<ArgTarget> for Target {
+    fn from(t: ArgTarget) -> Self {
+        match t {
+            ArgTarget::Beam => Target::Beam,
+            ArgTarget::Rhea => Target::Rhea,
+        }
     }
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     let seeds: Vec<u64> = args
         .seeds
@@ -539,8 +106,485 @@ fn main() {
         .map(|s| s.trim().parse().unwrap())
         .collect();
 
-    match args.strategy {
-        Strategy::GA => run_ga(&args, &seeds),
-        Strategy::SPSA => run_spsa(&args, &seeds),
+    let config = OptimizerConfig {
+        strategy: args.strategy.into(),
+        target: args.target.into(),
+        generations: args.generations,
+        population: args.population,
+        seeds: seeds.clone(),
+        rhea_horizon: args.rhea_horizon,
+        rhea_generations: args.rhea_generations,
+        rhea_population: args.rhea_population,
+    };
+
+    if args.tui {
+        run_tui(config)
+    } else {
+        run_cli(config);
+        Ok(())
     }
+}
+
+fn run_cli(config: OptimizerConfig) {
+    println!(
+        "🧬 Starting Optimization ({} -> {}): Gens={}, Pop={}, Seeds={:?}",
+        match config.strategy {
+            Strategy::GA => "GA",
+            Strategy::SPSA => "SPSA",
+        },
+        match config.target {
+            Target::Beam => "Beam",
+            Target::Rhea => "Rhea",
+        },
+        config.generations,
+        config.population,
+        config.seeds
+    );
+
+    let (tx, rx) = mpsc::channel();
+    let thread_config = config.clone();
+
+    thread::spawn(move || match thread_config.strategy {
+        Strategy::GA => run_ga(&thread_config, tx),
+        Strategy::SPSA => run_spsa(&thread_config, tx),
+    });
+
+    while let Ok(msg) = rx.recv() {
+        match msg {
+            OptimizerMessage::IndividualUpdate { .. } => {
+                // Ignore live updates in CLI for now
+            }
+            OptimizerMessage::IndividualDone { .. } => {
+                use std::io::Write;
+                print!(".");
+                io::stdout().flush().unwrap();
+            }
+            OptimizerMessage::GenerationDone(status) => {
+                println!(); // Newline after dots
+                println!(
+                    "Gen {}: Best Score {:.2} | Avg Score {:.2}",
+                    status.generation, status.best_score, status.avg_score
+                );
+                println!(
+                    "  Wins: {} | Losses: {} | Timeouts: {} | Panics: {}",
+                    status.best_metrics.wins,
+                    status.best_metrics.losses,
+                    status.best_metrics.timeouts,
+                    status.best_metrics.panics
+                );
+
+                if status.generation == config.generations - 1 {
+                    println!("\n🏆 Best Weights Found:");
+                    if let Some(w) = status.current_weights_beam {
+                        println!("{:#?}", w);
+                    }
+                    if let Some(w) = status.current_weights_rhea {
+                        println!("{:#?}", w);
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+enum ProgressState {
+    Running(SearchProgress),
+    Done(EvaluationMetrics),
+}
+
+struct App {
+    config: OptimizerConfig,
+    history: Vec<OptimizationStatus>,
+    current_gen_progress: Vec<Option<ProgressState>>,
+    done: bool,
+}
+
+impl App {
+    fn new(config: OptimizerConfig) -> App {
+        App {
+            config: config.clone(),
+            history: Vec::new(),
+            current_gen_progress: vec![None; config.population],
+            done: false,
+        }
+    }
+
+    fn on_tick(&mut self) {}
+}
+
+fn run_tui(config: OptimizerConfig) -> Result<(), Box<dyn std::error::Error>> {
+    // Setup Terminal
+    enable_raw_mode()?;
+    let mut stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend)?;
+
+    // App State
+    let mut app = App::new(config.clone());
+
+    // Spawn Optimization Thread
+    let (tx, rx) = mpsc::channel();
+    let thread_config = config.clone();
+
+    thread::spawn(move || match thread_config.strategy {
+        Strategy::GA => run_ga(&thread_config, tx),
+        Strategy::SPSA => run_spsa(&thread_config, tx),
+    });
+
+    // Run Loop
+    let tick_rate = Duration::from_millis(100); // Faster tick for smooth UI updates
+    let mut last_tick = Instant::now();
+
+    loop {
+        terminal.draw(|f| ui(f, &app))?;
+
+        let timeout = tick_rate
+            .checked_sub(last_tick.elapsed())
+            .unwrap_or_else(|| Duration::from_secs(0));
+
+        if crossterm::event::poll(timeout)? {
+            if let Event::Key(key) = event::read()? {
+                if let KeyCode::Char('q') = key.code {
+                    break;
+                }
+            }
+        }
+
+        if last_tick.elapsed() >= tick_rate {
+            app.on_tick();
+            last_tick = Instant::now();
+        }
+
+        // Check for updates
+        while let Ok(msg) = rx.try_recv() {
+            match msg {
+                OptimizerMessage::IndividualUpdate {
+                    index, progress, ..
+                } => {
+                    if index < app.current_gen_progress.len() {
+                        app.current_gen_progress[index] = Some(ProgressState::Running(progress));
+                    }
+                }
+                OptimizerMessage::IndividualDone { index, metrics, .. } => {
+                    if index < app.current_gen_progress.len() {
+                        app.current_gen_progress[index] = Some(ProgressState::Done(metrics));
+                    }
+                }
+                OptimizerMessage::GenerationDone(status) => {
+                    if status.generation == app.config.generations - 1 {
+                        app.done = true;
+                    }
+                    app.history.push(status);
+                    // Reset progress for next gen
+                    for p in &mut app.current_gen_progress {
+                        *p = None;
+                    }
+                }
+            }
+        }
+    }
+
+    // Cleanup
+    disable_raw_mode()?;
+    execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen,
+        DisableMouseCapture
+    )?;
+    terminal.show_cursor()?;
+
+    Ok(())
+}
+
+fn ui(f: &mut Frame, app: &App) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(
+            [
+                Constraint::Length(3),      // Header
+                Constraint::Percentage(40), // Chart
+                Constraint::Length(10),     // Stats Bar + Population Grid
+                Constraint::Min(0),         // Weights
+            ]
+            .as_ref(),
+        )
+        .split(f.area());
+
+    // ... Header and Chart remain same ...
+    // Header
+    let strategy_str = match app.config.strategy {
+        Strategy::GA => "Genetic Algorithm",
+        Strategy::SPSA => "SPSA",
+    };
+    let target_str = match app.config.target {
+        Target::Beam => "Beam Search",
+        Target::Rhea => "RHEA",
+    };
+
+    let status_str = if app.done {
+        "DONE - Press 'q' to quit"
+    } else {
+        "RUNNING - Press 'q' to quit"
+    };
+
+    let header_text = format!(
+        "Optimizer Visualization | Strategy: {} | Target: {} | Gen: {}/{} | Pop: {} | {}",
+        strategy_str,
+        target_str,
+        app.history.len(),
+        app.config.generations,
+        app.config.population,
+        status_str
+    );
+
+    let header = Paragraph::new(header_text)
+        .style(Style::default().fg(Color::Cyan))
+        .block(Block::default().borders(Borders::ALL).title("Status"));
+    f.render_widget(header, chunks[0]);
+
+    // Chart
+    let best_data: Vec<(f64, f64)> = app
+        .history
+        .iter()
+        .map(|s| (s.generation as f64, s.best_score))
+        .collect();
+
+    let avg_data: Vec<(f64, f64)> = app
+        .history
+        .iter()
+        .map(|s| (s.generation as f64, s.avg_score))
+        .collect();
+
+    let datasets = vec![
+        Dataset::default()
+            .name("Best Score")
+            .marker(symbols::Marker::Braille)
+            .graph_type(GraphType::Line)
+            .style(Style::default().fg(Color::Green))
+            .data(&best_data),
+        Dataset::default()
+            .name("Avg Score")
+            .marker(symbols::Marker::Braille)
+            .graph_type(GraphType::Line)
+            .style(Style::default().fg(Color::Yellow))
+            .data(&avg_data),
+    ];
+
+    let x_max = app.config.generations as f64;
+    // Find y range
+    let y_min = app
+        .history
+        .iter()
+        .map(|s| s.avg_score)
+        .fold(f64::INFINITY, |a, b| a.min(b))
+        .min(0.0);
+    let y_max = app
+        .history
+        .iter()
+        .map(|s| s.best_score)
+        .fold(f64::NEG_INFINITY, |a, b| a.max(b))
+        .max(100.0);
+
+    // Add some padding
+    let y_min = y_min - (y_max - y_min).abs() * 0.1;
+    let y_max = y_max + (y_max - y_min).abs() * 0.1;
+
+    let chart = Chart::new(datasets)
+        .block(
+            Block::default()
+                .title("Fitness History")
+                .borders(Borders::ALL),
+        )
+        .x_axis(
+            Axis::default()
+                .title("Generation")
+                .style(Style::default().fg(Color::Gray))
+                .bounds([0.0, x_max])
+                .labels(vec![
+                    Span::styled("0", Style::default().add_modifier(Modifier::BOLD)),
+                    Span::styled(
+                        format!("{}", x_max),
+                        Style::default().add_modifier(Modifier::BOLD),
+                    ),
+                ]),
+        )
+        .y_axis(
+            Axis::default()
+                .title("Score")
+                .style(Style::default().fg(Color::Gray))
+                .bounds([y_min, y_max])
+                .labels(vec![
+                    Span::styled(
+                        format!("{:.0}", y_min),
+                        Style::default().add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        format!("{:.0}", y_max),
+                        Style::default().add_modifier(Modifier::BOLD),
+                    ),
+                ]),
+        );
+    f.render_widget(chart, chunks[1]);
+
+    // Split Stats Area: Left for History/Stats, Right for Current Gen Population
+    let stats_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(40), Constraint::Percentage(60)].as_ref())
+        .split(chunks[2]);
+
+    // Outcome Stats (Best Individual of Current Gen)
+    if let Some(last_status) = app.history.last() {
+        let m = &last_status.best_metrics;
+
+        let wins = m.wins as u64;
+        let losses = m.losses as u64;
+        let timeouts = m.timeouts as u64;
+        let panics = m.panics as u64;
+        let total = wins + losses + timeouts + panics;
+
+        let bars = vec![
+            ("Wins", wins),
+            ("Loss", losses),
+            ("Time", timeouts),
+            ("Fail", panics),
+        ];
+
+        let barchart = BarChart::default()
+            .block(
+                Block::default()
+                    .title(format!("Outcomes (Best, N={})", total))
+                    .borders(Borders::ALL),
+            )
+            .data(&bars)
+            .bar_width(8)
+            .bar_style(Style::default().fg(Color::Yellow))
+            .value_style(Style::default().fg(Color::Black).bg(Color::Yellow));
+
+        f.render_widget(barchart, stats_chunks[0]);
+    } else {
+        let block = Block::default().title("Outcomes").borders(Borders::ALL);
+        f.render_widget(block, stats_chunks[0]);
+    }
+
+    // Population Visualization
+    // Render a grid of blocks representing individuals.
+    let mut pop_spans = Vec::new();
+    for p in app.current_gen_progress.iter() {
+        let (text, style) = match p {
+            Some(ProgressState::Running(prog)) => {
+                let color = if prog.hull <= 0 {
+                    Color::Red
+                } else if prog.is_done {
+                    Color::Green
+                } else {
+                    Color::Blue
+                };
+                (
+                    format!(
+                        " R{:03} | H{:02} | S{:.0} ",
+                        prog.step, prog.hull, prog.best_score
+                    ),
+                    Style::default().bg(color).fg(Color::White),
+                )
+            }
+            Some(ProgressState::Done(m)) => {
+                let color = if m.wins > 0 {
+                    Color::Green
+                } else if m.losses > 0 {
+                    Color::Red
+                } else if m.timeouts > 0 {
+                    Color::Yellow
+                } else {
+                    Color::Magenta
+                };
+                (
+                    format!(" DONE | S{:.0} ", m.score),
+                    Style::default().bg(color).fg(Color::Black),
+                )
+            }
+            None => (" ... ".to_string(), Style::default().fg(Color::DarkGray)),
+        };
+        pop_spans.push(Span::styled(text, style));
+        pop_spans.push(Span::raw(" ")); // Spacing
+    }
+
+    let pop_paragraph = Paragraph::new(ratatui::text::Line::from(pop_spans))
+        .block(
+            Block::default()
+                .title("Current Generation Population")
+                .borders(Borders::ALL),
+        )
+        .wrap(ratatui::widgets::Wrap { trim: true });
+
+    f.render_widget(pop_paragraph, stats_chunks[1]);
+
+    // Weights Table
+    if let Some(last_status) = app.history.last() {
+        let rows = if let Some(w) = &last_status.current_weights_beam {
+            format_beam_weights(w)
+        } else if let Some(w) = &last_status.current_weights_rhea {
+            format_rhea_weights(w)
+        } else {
+            vec![]
+        };
+
+        let table = Table::new(
+            rows,
+            [Constraint::Percentage(50), Constraint::Percentage(50)],
+        )
+        .header(Row::new(vec!["Parameter", "Value"]).style(Style::default().fg(Color::Yellow)))
+        .block(
+            Block::default()
+                .title("Current Best Weights")
+                .borders(Borders::ALL),
+        )
+        .column_spacing(1);
+        f.render_widget(table, chunks[3]);
+    }
+}
+
+fn format_beam_weights<'a>(w: &BeamScoringWeights) -> Vec<Row<'a>> {
+    let debug_str = format!("{:?}", w);
+    let content = debug_str
+        .trim_start_matches("BeamScoringWeights {")
+        .trim_end_matches("}");
+
+    content
+        .split(',')
+        .map(|part| {
+            let parts: Vec<&str> = part.split(':').collect();
+            if parts.len() == 2 {
+                Row::new(vec![
+                    parts[0].trim().to_string(),
+                    parts[1].trim().to_string(),
+                ])
+            } else {
+                Row::new(vec![part.trim().to_string(), "".to_string()])
+            }
+        })
+        .collect()
+}
+
+fn format_rhea_weights<'a>(w: &RheaScoringWeights) -> Vec<Row<'a>> {
+    let debug_str = format!("{:?}", w);
+    let content = debug_str
+        .trim_start_matches("RheaScoringWeights {")
+        .trim_end_matches("}");
+
+    content
+        .split(',')
+        .map(|part| {
+            let parts: Vec<&str> = part.split(':').collect();
+            if parts.len() == 2 {
+                Row::new(vec![
+                    parts[0].trim().to_string(),
+                    parts[1].trim().to_string(),
+                ])
+            } else {
+                Row::new(vec![part.trim().to_string(), "".to_string()])
+            }
+        })
+        .collect()
 }

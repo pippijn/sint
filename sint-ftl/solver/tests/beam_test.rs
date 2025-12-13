@@ -1,5 +1,5 @@
 use sint_solver::scoring::beam::BeamScoringWeights;
-use sint_solver::search::beam::{beam_search, BeamSearchConfig};
+use sint_solver::search::beam::{beam_search, BeamSearchConfig, SearchProgress};
 use std::time::Instant;
 
 #[test]
@@ -13,7 +13,7 @@ fn test_beam_smoke() {
         verbose: false,
     };
     let weights = BeamScoringWeights::default();
-    let result = beam_search(&config, &weights);
+    let result = beam_search(&config, &weights, None::<fn(SearchProgress)>);
     assert!(result.is_some());
 }
 
@@ -29,8 +29,10 @@ fn test_beam_determinism() {
     };
     let weights = BeamScoringWeights::default();
 
-    let result1 = beam_search(&config, &weights).expect("Beam failed run 1");
-    let result2 = beam_search(&config, &weights).expect("Beam failed run 2");
+    let result1 =
+        beam_search(&config, &weights, None::<fn(SearchProgress)>).expect("Beam failed run 1");
+    let result2 =
+        beam_search(&config, &weights, None::<fn(SearchProgress)>).expect("Beam failed run 2");
 
     assert_eq!(
         result1.signature, result2.signature,
@@ -64,7 +66,7 @@ fn test_beam_time_limit() {
     let weights = BeamScoringWeights::default();
 
     let start = Instant::now();
-    let result = beam_search(&config, &weights);
+    let result = beam_search(&config, &weights, None::<fn(SearchProgress)>);
     let duration = start.elapsed();
 
     assert!(result.is_some());
@@ -99,8 +101,10 @@ fn test_beam_width_effect() {
         verbose: false,
     };
 
-    let res_narrow = beam_search(&config_narrow, &weights).expect("Narrow failed");
-    let res_wide = beam_search(&config_wide, &weights).expect("Wide failed");
+    let res_narrow =
+        beam_search(&config_narrow, &weights, None::<fn(SearchProgress)>).expect("Narrow failed");
+    let res_wide =
+        beam_search(&config_wide, &weights, None::<fn(SearchProgress)>).expect("Wide failed");
 
     // Wide beam should generally produce equal or better score
     assert!(res_wide.score >= res_narrow.score - 0.001);
