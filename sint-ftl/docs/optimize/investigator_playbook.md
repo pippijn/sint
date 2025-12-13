@@ -37,16 +37,16 @@ The investigator should answer these specific questions:
 Use this template when calling the `codebase_investigator` tool:
 
 ```text
-Objective: Analyze the solver trajectory in '{TRAJECTORY_FILE}' to determine why the solver failed or stalled.
+Objective: Analyze the solver trajectories in the provided files (e.g., 'trajectories/solve_*.txt') to determine why the solver failed or stalled, and to compare successful vs. failed runs.
 
 Context:
 1. Review 'docs/rules.md' for high-level rules.
 2. Search/Read 'core/src/logic/' to understand exact mechanics (e.g., how 'Fire' really spreads, what 'Card X' actually does in code).
 3. Review 'solver/src/scoring/beam.rs' to understand current AI motivation.
-4. Analyze '{TRAJECTORY_FILE}' (focusing on the last 100 steps and key turning points).
+4. Analyze ALL provided trajectory files (focusing on the last 100 steps of failed runs and key differences in strategy compared to successful runs).
 
 Specific Questions:
-1. What was the exact cause of termination (Death, Beam Died, Step Limit)?
+1. What was the exact cause of termination for each failed run (Death, Beam Died, Step Limit)?
 2. If "Beam Died": Look for stalling. Are players refusing to Pass/VoteReady? Is the Round count stuck?
 3. If Death: Was it preventable? Did the solver ignore a Hazard or Enemy Telegraph?
 4. Evaluate Scoring Linearity: Identify areas where flat weights failed (e.g., low hull should have infinite value, 3+ fires should be panic mode).

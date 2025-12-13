@@ -33,7 +33,7 @@ scripts/run_solve.py --steps 3000 --seeds 12345,54321,99999 --parallel --output-
 If the result is unsatisfactory (or if optimizing for speed), invoke the `codebase_investigator`.
 
 *   **Tool:** `codebase_investigator`
-*   **Prompt:** Use the "Standard Prompt Template" from `docs/optimize/investigator_playbook.md`, replacing `{TRAJECTORY_FILE}` with the actual filename (e.g., `trajectories/solve_12345.txt`).
+*   **Prompt:** Use the "Standard Prompt Template" from `docs/optimize/investigator_playbook.md`. Pass **ALL** generated trajectory files (e.g., `trajectories/*.txt`) in the prompt so the investigator can analyze the aggregate performance.
 
 ### 3. Interpret & Implement
 Read the investigator's report. Look for:
