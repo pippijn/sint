@@ -618,8 +618,8 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
                         None
                     }
                 }
-                SystemType::Engine => Some(GameAction::RaiseShields),
-                SystemType::Bridge => Some(GameAction::EvasiveManeuvers),
+                SystemType::Bridge => Some(GameAction::RaiseShields),
+                SystemType::Engine => Some(GameAction::EvasiveManeuvers),
                 SystemType::Bow => Some(GameAction::Lookout),
                 _ => None,
             };

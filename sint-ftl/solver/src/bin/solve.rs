@@ -310,15 +310,16 @@ fn ui(f: &mut Frame, app: &SolverApp) {
     let current_state = current_node.map(|n| &n.state);
 
     // Stats Widget
-    let (step, hull, boss, score) = if let Some(p) = &app.progress {
+    let (step, hull, boss_name, boss_hp, score) = if let Some(p) = &app.progress {
         (
             p.step,
             p.node.state.hull_integrity,
+            p.node.state.enemy.name.clone(),
             p.node.state.enemy.hp,
             p.node.score.total,
         )
     } else {
-        (0, 0, 0, 0.0)
+        (0, 0, "Boss".to_string(), 0, 0.0)
     };
 
     let (shields, evasion) = if let Some(s) = current_state {
@@ -334,7 +335,8 @@ fn ui(f: &mut Frame, app: &SolverApp) {
     let stats = StatsWidget {
         step,
         hull,
-        boss_hp: boss,
+        boss_name,
+        boss_hp,
         score,
         duration,
         is_done: app.done,

@@ -9,6 +9,7 @@ use std::time::Duration;
 pub struct StatsWidget {
     pub step: usize,
     pub hull: i32,
+    pub boss_name: String,
     pub boss_hp: i32,
     pub score: f64,
     pub duration: Duration,
@@ -39,9 +40,10 @@ impl Widget for StatsWidget {
         };
 
         let stats_text = format!(
-            "Solver TUI | Step: {} | Hull: {} | Boss: {} | Score: {:.0} | Time: {:.1}s | {}{}",
+            "Solver TUI | Step: {} | Hull: {} | {}: {} | Score: {:.0} | Time: {:.1}s | {}{}",
             self.step,
             self.hull,
+            self.boss_name,
             self.boss_hp,
             self.score,
             self.duration.as_secs_f64(),

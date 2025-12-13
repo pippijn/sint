@@ -113,20 +113,23 @@ pub struct BeamScoringWeights {
     pub threat_mitigated_reward: f64,
     pub threat_hull_risk_mult: f64,
     pub threat_shield_waste_penalty: f64,
+
+    pub rest_round_hazard_multiplier: f64,
+    pub rest_round_vitals_multiplier: f64,
 }
 
 impl Default for BeamScoringWeights {
     fn default() -> Self {
         Self {
-            hull_integrity: 1000.0,
+            hull_integrity: 5000.0,
             hull_delta_penalty: 100.0,
             enemy_hp: 2500.0,
             player_hp: 20.0,
             ap_balance: 10.0,
 
             // Hazards
-            fire_penalty_base: 3000.0,
-            fire_token_penalty: 100.0,
+            fire_penalty_base: 15000.0,
+            fire_token_penalty: 500.0,
             water_penalty: 100.0,
 
             // Situations & Threats
@@ -164,7 +167,7 @@ impl Default for BeamScoringWeights {
             hazard_proximity_reward: 5.0,
             situation_exposure_penalty: 100.0,
             system_disabled_penalty: 5000.0,
-            shooting_reward: 10000.0,
+            shooting_reward: 100.0,
 
             scavenger_reward: 50.0,
             repair_proximity_reward: 100.0,
@@ -182,12 +185,12 @@ impl Default for BeamScoringWeights {
 
             // Critical State
             critical_hull_threshold: 6.0,
-            critical_hull_penalty_base: 10000.0,
+            critical_hull_penalty_base: 20000.0,
             critical_hull_penalty_per_hp: 3000.0,
             critical_fire_threshold: 2,
             critical_fire_penalty_per_token: 2000.0,
             critical_system_hazard_penalty: 4000.0,
-            fire_in_critical_hull_penalty: 50000.0,
+            fire_in_critical_hull_penalty: 100000.0,
             critical_survival_mult: 0.4,
             critical_threat_mult: 5.0,
 
@@ -215,6 +218,9 @@ impl Default for BeamScoringWeights {
             threat_mitigated_reward: 500.0,
             threat_hull_risk_mult: 0.5,
             threat_shield_waste_penalty: 100.0,
+
+            rest_round_hazard_multiplier: 2.0,
+            rest_round_vitals_multiplier: 2.0,
         }
     }
 }
@@ -370,12 +376,10 @@ pub fn score_static(
 
     // --- Checkmate Heuristic ---
     let mut checkmate_mult = 1.0;
-    let mut is_checkmate = false;
     if (state.enemy.hp as f64) <= weights.checkmate_threshold && state.enemy.hp > 0 {
         let progress = weights.checkmate_threshold / (state.enemy.hp as f64);
         checkmate_mult = (progress.powf(weights.checkmate_exponent) * weights.checkmate_multiplier)
             .min(weights.checkmate_max_mult);
-        is_checkmate = true;
     }
 
     // --- Critical State Heuristic ---
@@ -416,7 +420,11 @@ pub fn score_static(
     // Non-linear Hull Penalty: Penalize missing hull exponentially (Square of missing health)
     // Use PROJECTED hull
     let missing_hull = (MAX_HULL as f64 - projected_hull as f64).max(0.0);
-    details.vitals -= missing_hull.powf(weights.hull_exponent) * weights.hull_integrity;
+    let mut hull_penalty = missing_hull.powf(weights.hull_exponent) * weights.hull_integrity;
+    if state.is_resting {
+        hull_penalty *= weights.rest_round_vitals_multiplier;
+    }
+    details.vitals -= hull_penalty;
 
     details.progression += state.boss_level as f64 * weights.boss_level_reward;
 
@@ -432,11 +440,7 @@ pub fn score_static(
         * weights.enemy_hp
         * checkmate_mult
         * bloodlust_mult
-        * (if is_checkmate && state.enemy.hp < 5 {
-            1.0
-        } else {
-            survival_multiplier
-        });
+        * survival_multiplier;
 
     if state.enemy.hp <= 0 {
         details.offense += weights.boss_killing_blow_reward;
@@ -473,15 +477,27 @@ pub fn score_static(
     // DAMPENED: Reduced exponent from 2.5 to 1.5 and capped to prevent runaway penalties.
     let hull_risk_mult = (1.0 + (missing_hull_percent * 5.0).powf(1.5)).min(10.0);
 
-    details.hazards -= (fire_rooms.len() as f64).powf(weights.fire_exponent)
+    let mut fire_penalty = (fire_rooms.len() as f64).powf(weights.fire_exponent)
         * weights.fire_penalty_base
         * hull_risk_mult
         * hazard_multiplier;
 
+    if state.is_resting {
+        fire_penalty *= weights.rest_round_hazard_multiplier;
+    }
+
+    details.hazards -= fire_penalty;
+
     // Fire Token Penalty: Quadratic penalty for total fire tokens to reflect spreading risk.
     // Use hull_penalty_scaler for general urgency, but not doubled with hazard_multiplier.
-    details.hazards -=
+    let mut fire_token_penalty =
         (fire_count as f64).powf(2.0) * weights.fire_token_penalty * hull_penalty_scaler;
+
+    if state.is_resting {
+        fire_token_penalty *= weights.rest_round_hazard_multiplier;
+    }
+
+    details.hazards -= fire_token_penalty;
 
     details.hazards -= water_count as f64 * weights.water_penalty * hull_penalty_scaler;
 
@@ -519,7 +535,11 @@ pub fn score_static(
         .powf(weights.cargo_repair_exponent);
 
     // Reward for being in Cargo scales with damage
-    let dynamic_incentive = urgency * weights.cargo_repair_incentive;
+    let mut dynamic_incentive = urgency * weights.cargo_repair_incentive;
+
+    if state.is_resting {
+        dynamic_incentive *= weights.rest_round_vitals_multiplier;
+    }
 
     let mut cargo_id = None;
     for r in state.map.rooms.values() {
@@ -853,6 +873,10 @@ pub fn score_static(
                     * hazard_multiplier;
             }
 
+            if state.is_resting {
+                emergency_score *= weights.rest_round_hazard_multiplier;
+            }
+
             // Extinguisher Bonus
             if best_target_is_fire && has_extinguisher {
                 emergency_score *= 1.5;
@@ -1009,12 +1033,7 @@ pub fn score_static(
     for (idx, item) in history.iter().enumerate() {
         let (pid, act) = *item;
         if matches!(act, GameAction::Shoot) && state.enemy.hp > 0 {
-            details.offense += weights.shooting_reward
-                * (if is_checkmate {
-                    1.0
-                } else {
-                    survival_multiplier
-                });
+            details.offense += weights.shooting_reward * survival_multiplier;
         }
 
         // Inaction Penalty: Penalize repeated Pass/VoteReady by the same player
