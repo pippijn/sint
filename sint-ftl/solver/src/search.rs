@@ -45,6 +45,7 @@ pub struct SearchProgress {
     pub hull: i32,
     pub boss_hp: i32,
     pub is_done: bool,
+    pub failed: bool,
     pub current_best_node: Option<Arc<SearchNode>>,
 }
 

@@ -2,7 +2,7 @@ pub mod beam;
 pub mod rhea;
 
 /// Detailed breakdown of the scoring components for debugging and analysis.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct ScoreDetails {
     pub total: f64,
     pub vitals: f64,           // Hull, Player HP, Victory/GameOver
@@ -14,6 +14,12 @@ pub struct ScoreDetails {
     pub threats: f64,          // Pending enemy attacks
     pub progression: f64,      // Boss level, Turns, Steps
     pub anti_oscillation: f64, // Backtracking penalties
+}
+
+impl PartialOrd for ScoreDetails {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.total.partial_cmp(&other.total)
+    }
 }
 
 impl std::ops::AddAssign for ScoreDetails {

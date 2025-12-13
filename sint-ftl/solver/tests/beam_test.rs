@@ -108,5 +108,5 @@ fn test_beam_width_effect() {
         beam_search(&config_wide, &weights, None::<fn(SearchProgress)>).expect("Wide failed");
 
     // Wide beam should generally produce equal or better score
-    assert!(res_wide.score >= res_narrow.score - 0.001);
+    assert!(res_wide.score.total >= res_narrow.score.total - 0.001);
 }

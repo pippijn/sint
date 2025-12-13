@@ -50,6 +50,8 @@ pub struct BeamScoringWeights {
     pub situation_logistics_reward: f64, // New: Reward for getting items needed for situations
     pub situation_resolved_reward: f64,  // New: Reward for the act of solving
     pub system_importance_multiplier: f64, // New: Multiplier for critical systems
+    pub boss_killing_blow_reward: f64,   // New: Massive reward for finishing the boss
+    pub inaction_penalty: f64,           // New: Penalty for repeated Pass/VoteReady
 
     // Logistics
     pub ammo_stockpile_reward: f64,
@@ -81,6 +83,7 @@ pub struct BeamScoringWeights {
     pub critical_fire_threshold: usize,
     pub critical_fire_penalty_per_token: f64,
     pub critical_system_hazard_penalty: f64, // New: Penalty for hazard in critical system
+    pub fire_in_critical_hull_penalty: f64,  // New: Extreme penalty for fire when hull is low
     pub critical_survival_mult: f64,
     pub critical_threat_mult: f64,
 
@@ -113,24 +116,24 @@ impl Default for BeamScoringWeights {
     fn default() -> Self {
         Self {
             hull_integrity: 1000.0,
-            hull_delta_penalty: 200.0,
+            hull_delta_penalty: 100.0,
             enemy_hp: 2500.0,
             player_hp: 20.0,
             ap_balance: 10.0,
 
             // Hazards
-            fire_penalty_base: 1000.0,
-            fire_token_penalty: 200.0,
+            fire_penalty_base: 3000.0,
+            fire_token_penalty: 100.0,
             water_penalty: 100.0,
 
             // Situations & Threats
-            active_situation_penalty: 5000.0,
+            active_situation_penalty: 10000.0,
             threat_player_penalty: 10.0,
             threat_system_penalty: 200.0,
             death_penalty: 5000.0,
 
             // Roles
-            station_keeping_reward: 500.0,
+            station_keeping_reward: 300.0,
             gunner_base_reward: 60.0,
             gunner_per_ammo: 100.0,
             gunner_working_bonus: 5.0,
@@ -139,8 +142,8 @@ impl Default for BeamScoringWeights {
             firefighter_base_reward: 800.0,
             firefighter_distance_factor: 10.0,
 
-            healing_reward: 500.0,
-            sickbay_distance_factor: 10.0,
+            healing_reward: 1000.0,
+            sickbay_distance_factor: 20.0,
 
             backtracking_penalty: 20.0,
             commitment_bonus: 50.0,
@@ -148,15 +151,17 @@ impl Default for BeamScoringWeights {
             solution_solver_reward: 6000.0,
             solution_distance_factor: 10.0,
             situation_logistics_reward: 2500.0,
-            situation_resolved_reward: 3000.0,
+            situation_resolved_reward: 30000.0,
             system_importance_multiplier: 2.0,
+            boss_killing_blow_reward: 10000000.0,
+            inaction_penalty: 500.0,
 
             ammo_stockpile_reward: 500.0,
             loose_ammo_reward: 20.0,
             hazard_proximity_reward: 5.0,
             situation_exposure_penalty: 100.0,
             system_disabled_penalty: 5000.0,
-            shooting_reward: 2200.0,
+            shooting_reward: 10000.0,
 
             scavenger_reward: 50.0,
             repair_proximity_reward: 100.0,
@@ -167,17 +172,18 @@ impl Default for BeamScoringWeights {
             turn_penalty: 500.0,
             step_penalty: 10.0,
 
-            checkmate_threshold: 20.0,
-            checkmate_multiplier: 16.0,
-            checkmate_max_mult: 100.0,
+            checkmate_threshold: 40.0,
+            checkmate_multiplier: 50.0,
+            checkmate_max_mult: 200.0,
 
             // Critical State
-            critical_hull_threshold: 10.0,
+            critical_hull_threshold: 6.0,
             critical_hull_penalty_base: 15000.0,
             critical_hull_penalty_per_hp: 5000.0,
             critical_fire_threshold: 2,
             critical_fire_penalty_per_token: 2500.0,
             critical_system_hazard_penalty: 5000.0,
+            fire_in_critical_hull_penalty: 100000.0,
             critical_survival_mult: 0.4,
             critical_threat_mult: 5.0,
 
@@ -367,6 +373,12 @@ pub fn score_static(
             * weights.critical_hull_penalty_per_hp
             * hull_penalty_scaler;
 
+        // New: If hull is critical AND there is any fire, add an extreme penalty.
+        // This prevents the AI from ignoring "small" fires when it's one hit from death.
+        if rooms_on_fire > 0 {
+            panic_penalty += weights.fire_in_critical_hull_penalty * hull_penalty_scaler;
+        }
+
         details.panic -= panic_penalty;
     }
 
@@ -405,6 +417,10 @@ pub fn score_static(
         } else {
             survival_multiplier
         });
+
+    if state.enemy.hp <= 0 {
+        details.offense += weights.boss_killing_blow_reward;
+    }
 
     details.progression -= state.turn_count as f64 * weights.turn_penalty;
     details.progression -= history.len() as f64 * weights.step_penalty;
@@ -965,12 +981,13 @@ pub fn score_static(
         }
     }
 
-    // --- 6. Trajectory Heuristics (Anti-Oscillation) ---
-    // (Kept same as before)
+    // --- 6. Trajectory Heuristics (Anti-Oscillation & Inaction) ---
     let mut player_moves: HashMap<PlayerId, Vec<(usize, u32)>> = HashMap::new();
+    let mut last_action_by_player: HashMap<PlayerId, &GameAction> = HashMap::new();
+
     for (idx, item) in history.iter().enumerate() {
         let (pid, act) = *item;
-        if matches!(act, GameAction::Shoot) {
+        if matches!(act, GameAction::Shoot) && state.enemy.hp > 0 {
             details.offense += weights.shooting_reward
                 * (if is_checkmate {
                     1.0
@@ -978,6 +995,16 @@ pub fn score_static(
                     survival_multiplier
                 });
         }
+
+        // Inaction Penalty: Penalize repeated Pass/VoteReady by the same player
+        if matches!(act, GameAction::Pass | GameAction::VoteReady { .. }) {
+            if let Some(prev_act) = last_action_by_player.get(pid) {
+                if matches!(prev_act, GameAction::Pass | GameAction::VoteReady { .. }) {
+                    details.anti_oscillation -= weights.inaction_penalty;
+                }
+            }
+        }
+        last_action_by_player.insert(pid.clone(), act);
 
         if let GameAction::Move { to_room } = act {
             player_moves
@@ -1074,7 +1101,11 @@ fn score_transition(
         details.situations += weights.situation_resolved_reward;
     }
 
-    details.total = details.vitals + details.situations;
+    if parent.enemy.hp > 0 && current.enemy.hp <= 0 {
+        details.offense += weights.boss_killing_blow_reward;
+    }
+
+    details.total = details.vitals + details.situations + details.offense;
     details
 }
 

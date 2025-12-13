@@ -80,6 +80,7 @@ where
                     hull: current_state.hull_integrity,
                     boss_hp: current_state.enemy.hp,
                     is_done: true,
+                    failed: current_state.phase == GamePhase::GameOver,
                     current_best_node: Some(last_node.clone()),
                 });
             }
@@ -187,6 +188,7 @@ where
                 hull: current_state.hull_integrity,
                 boss_hp: current_state.enemy.hp,
                 is_done: false,
+                failed: false,
                 current_best_node: Some(last_node.clone()), // This is technically the node *before* the action we are about to pick, but good enough for context.
             });
         }
@@ -328,6 +330,21 @@ where
                 break;
             }
         }
+    }
+
+    // Report final progress to signal completion
+    if let Some(cb) = &progress_callback
+        && let Some(last_node) = &search_node_chain
+    {
+        cb(SearchProgress {
+            step: steps_taken,
+            best_score: last_node.score.total,
+            hull: current_state.hull_integrity,
+            boss_hp: current_state.enemy.hp,
+            is_done: true,
+            failed: current_state.phase != GamePhase::Victory,
+            current_best_node: Some(last_node.clone()),
+        });
     }
 
     // Unwrap Arc

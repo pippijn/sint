@@ -13,13 +13,16 @@ pub struct StatsWidget {
     pub score: f64,
     pub duration: Duration,
     pub is_done: bool,
+    pub failed: bool,
     pub shields_active: bool,
     pub evasion_active: bool,
 }
 
 impl Widget for StatsWidget {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let status_txt = if self.is_done {
+        let status_txt = if self.failed {
+            "FAILED - Press 'q' to quit"
+        } else if self.is_done {
             "DONE - Press 'q' to quit"
         } else {
             "SEARCHING..."
@@ -46,7 +49,9 @@ impl Widget for StatsWidget {
             defenses
         );
 
-        let color = if self.is_done {
+        let color = if self.failed {
+            Color::Red
+        } else if self.is_done {
             Color::Green
         } else {
             Color::Cyan

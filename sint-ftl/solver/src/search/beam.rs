@@ -150,6 +150,7 @@ where
                     hull: best_in_beam.state.hull_integrity,
                     boss_hp: best_in_beam.state.enemy.hp,
                     is_done: false,
+                    failed: false,
                     current_best_node: Some(best_in_beam.clone()),
                 });
             }
@@ -179,6 +180,7 @@ where
                     hull: win.state.hull_integrity,
                     boss_hp: win.state.enemy.hp,
                     is_done: true,
+                    failed: false,
                     current_best_node: Some(win.clone()),
                 });
             }
@@ -200,6 +202,8 @@ where
             let total_ap: i32 = n.state.players.values().map(|p| p.ap).sum();
 
             if let Some(&(max_ap, max_score)) = visited.get(&sig) {
+                // If we found a path with strictly more AP, it's better (more potential).
+                // If same AP, only keep if score is strictly better.
                 if total_ap < max_ap {
                     continue;
                 }
@@ -278,7 +282,24 @@ where
         println!("⏱️ Search finished in {:.2?}", elapsed);
     }
 
-    final_solution.or(best_partial).map(|n| (*n).clone())
+    let result = final_solution.clone().or(best_partial);
+
+    // Report final progress to signal completion (especially if beam died or time limit reached)
+    if let Some(cb) = &progress_callback {
+        if let Some(node) = &result {
+            cb(SearchProgress {
+                step: config.steps, // Indicate completion
+                best_score: node.score.total,
+                hull: node.state.hull_integrity,
+                boss_hp: node.state.enemy.hp,
+                is_done: true,
+                failed: final_solution.is_none() && beam.is_empty(),
+                current_best_node: Some(node.clone()),
+            });
+        }
+    }
+
+    result.map(|n| (*n).clone())
 }
 
 fn expand_node(
