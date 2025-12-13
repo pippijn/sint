@@ -2,8 +2,9 @@ use clap::{Parser, ValueEnum};
 use rand::prelude::*;
 use rayon::prelude::*;
 use sint_core::types::GamePhase;
-use sint_solver::scoring::ScoringWeights;
-use sint_solver::search::{beam_search, SearchConfig};
+use sint_solver::scoring::beam::ScoringWeights;
+use sint_solver::search::beam::beam_search;
+use sint_solver::search::BeamSearchConfig;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -84,7 +85,7 @@ fn evaluate(base: &ScoringWeights, multipliers: &[f64], seeds: &[u64]) -> f64 {
     let total_score: f64 = seeds
         .par_iter()
         .map(|&seed| {
-            let config = SearchConfig {
+            let config = BeamSearchConfig {
                 players: 6,
                 seed,
                 width: 100, // Small width for speed

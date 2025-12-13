@@ -30,10 +30,10 @@ If the result is unsatisfactory (or if optimizing for speed), invoke the `codeba
 
 ### 3. Interpret & Implement
 Read the investigator's report. Look for:
-*   **Weight Adjustments:** "Increase `fire_penalty` by 50%." -> Modify values in `solver/src/scoring.rs`.
+*   **Weight Adjustments:** "Increase `fire_penalty` by 50%." -> Modify values in `solver/src/scoring/beam.rs`.
 *   **Non-Linearity:** "Fire is fine at 1, but deadly at 3." -> **Implement curves** (e.g., `hazard_count.powf(weights.fire_exponent)`) instead of flat multipliers.
 *   **New Heuristics:** "Solver misses X pattern." -> **Code new logic** in `score_state` to detect X and add fields to `ScoringWeights`.
-    *   **Rule:** **NO MAGIC NUMBERS**. All coefficients, thresholds, and exponents must be defined as fields in the `ScoringWeights` struct (in `solver/src/scoring.rs`).
+    *   **Rule:** **NO MAGIC NUMBERS**. All coefficients, thresholds, and exponents must be defined as fields in the `ScoringWeights` struct (in `solver/src/scoring/beam.rs`).
 *   **Logic Gaps:** "Solver is stuck in Planning phase." -> Modify `solver/src/search.rs` (e.g., fallback logic, pruning).
 *   **Rule Conflicts:** "Solver thinks it can Y but it can't." -> Check `core/src/logic`.
 

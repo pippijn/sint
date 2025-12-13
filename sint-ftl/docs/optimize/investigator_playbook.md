@@ -10,7 +10,7 @@ When invoking the `codebase_investigator`, ensure the following are included in 
 1.  **The Trajectory File:** `solve_output.txt` - The evidence.
 2.  **The Rules:** `docs/rules.md` - The high-level laws.
 3.  **The Code:** `core/src/logic/` (recursively) - The absolute truth of the game physics.
-4.  **The Scoring:** `solver/src/scoring.rs` - The "brain" of the AI.
+4.  **The Scoring:** `solver/src/scoring/beam.rs` - The "brain" of the AI.
 
 ## Analysis Checklist
 The investigator should answer these specific questions:
@@ -42,7 +42,7 @@ Objective: Analyze the solver trajectory in '{TRAJECTORY_FILE}' to determine why
 Context:
 1. Review 'docs/rules.md' for high-level rules.
 2. Search/Read 'core/src/logic/' to understand exact mechanics (e.g., how 'Fire' really spreads, what 'Card X' actually does in code).
-3. Review 'solver/src/scoring.rs' to understand current AI motivation.
+3. Review 'solver/src/scoring/beam.rs' to understand current AI motivation.
 4. Analyze '{TRAJECTORY_FILE}' (focusing on the last 100 steps and key turning points).
 
 Specific Questions:

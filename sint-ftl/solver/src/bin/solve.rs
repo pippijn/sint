@@ -1,14 +1,43 @@
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use sint_core::logic::GameLogic;
 use sint_solver::replay;
-use sint_solver::scoring::ScoringWeights;
-use sint_solver::search::{beam_search, SearchConfig};
+use sint_solver::scoring::beam::ScoringWeights;
+use sint_solver::search::beam::beam_search;
+use sint_solver::search::rhea::{rhea_search, RHEAConfig};
+use sint_solver::search::BeamSearchConfig;
 use std::fs::File;
 use std::io::Write;
+
+#[derive(ValueEnum, Clone, Debug, Default)]
+enum Strategy {
+    #[default]
+    Beam,
+    Rhea,
+}
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
+    /// Search Strategy
+    #[arg(long, value_enum, default_value_t = Strategy::Beam)]
+    strategy: Strategy,
+
+    /// Beam Width (Number of states to keep per step)
+    #[arg(short, long, default_value_t = 500)]
+    beam_width: usize,
+
+    /// RHEA Horizon
+    #[arg(long, default_value_t = 10)]
+    rhea_horizon: usize,
+
+    /// RHEA Generations per step
+    #[arg(long, default_value_t = 50)]
+    rhea_generations: usize,
+
+    /// RHEA Population
+    #[arg(long, default_value_t = 20)]
+    rhea_pop: usize,
+
     /// Number of players
     #[arg(short, long, default_value_t = 6)]
     players: usize,
@@ -16,10 +45,6 @@ struct Args {
     /// Random Seed
     #[arg(long, default_value_t = 12345)]
     seed: u64,
-
-    /// Beam Width (Number of states to keep per step)
-    #[arg(short, long, default_value_t = 500)]
-    width: usize,
 
     /// Max steps (actions/depth)
     #[arg(short, long, default_value_t = 3000)]
@@ -43,16 +68,34 @@ fn main() {
     // Load Scoring Weights
     let weights = ScoringWeights::default();
 
-    let config = SearchConfig {
-        players: args.players,
-        seed: args.seed,
-        width: args.width,
-        steps: args.steps,
-        time_limit: args.time_limit,
-        verbose: true,
+    let sol = match args.strategy {
+        Strategy::Beam => {
+            let config = BeamSearchConfig {
+                players: args.players,
+                seed: args.seed,
+                width: args.beam_width,
+                steps: args.steps,
+                time_limit: args.time_limit,
+                verbose: true,
+            };
+            beam_search(&config, &weights)
+        }
+        Strategy::Rhea => {
+            let config = RHEAConfig {
+                players: args.players,
+                seed: args.seed,
+                horizon: args.rhea_horizon,
+                generations: args.rhea_generations,
+                population_size: args.rhea_pop,
+                max_steps: args.steps,
+                time_limit: args.time_limit,
+                verbose: true,
+            };
+            rhea_search(&config)
+        }
     };
 
-    if let Some(sol) = beam_search(&config, &weights) {
+    if let Some(sol) = sol {
         println!("\n=== BEST RESULT ===");
         println!("Final Phase: {:?}", sol.state.phase);
         println!("Hull: {}", sol.state.hull_integrity);

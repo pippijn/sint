@@ -1,4 +1,4 @@
-use crate::scoring::ScoreAccumulator;
+use crate::scoring::beam::ScoreAccumulator;
 use serde::{Deserialize, Serialize};
 use sint_core::logic::GameLogic;
 use sint_core::types::{Action, GameAction, GamePhase, GameState, ItemType};
