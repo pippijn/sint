@@ -473,7 +473,7 @@ fn ui(f: &mut Frame, app: &App) {
     for p in app.current_gen_progress.iter() {
         let (text, style) = match p {
             Some(ProgressState::Running(prog)) => {
-                let color = if prog.hull <= 0 {
+                let color = if prog.node.state.hull_integrity <= 0 {
                     Color::Red
                 } else if prog.is_done {
                     Color::Green
@@ -483,7 +483,7 @@ fn ui(f: &mut Frame, app: &App) {
                 (
                     format!(
                         " R{:03} | H{:02} | S{:.0} ",
-                        prog.step, prog.hull, prog.best_score
+                        prog.step, prog.node.state.hull_integrity, prog.node.score.total
                     ),
                     Style::default().bg(color).fg(Color::White),
                 )

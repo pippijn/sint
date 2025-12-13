@@ -61,6 +61,17 @@ pub struct BeamScoringWeights {
     pub system_disabled_penalty: f64,
     pub shooting_reward: f64,
 
+    // Exponents (Non-Linearity)
+    pub hull_exponent: f64,
+    pub fire_exponent: f64,
+    pub cargo_repair_exponent: f64,
+    pub hull_risk_exponent: f64,
+    pub panic_fire_exponent: f64,           // New
+    pub panic_hull_exponent: f64,           // New
+    pub checkmate_exponent: f64,            // New
+    pub hull_penalty_scaling: f64,          // New
+    pub projected_hull_panic_exponent: f64, // New
+
     pub scavenger_reward: f64,
     pub repair_proximity_reward: f64,
     pub cargo_repair_incentive: f64,
@@ -87,15 +98,7 @@ pub struct BeamScoringWeights {
     pub critical_survival_mult: f64,
     pub critical_threat_mult: f64,
 
-    // Exponents (Non-Linearity)
-    pub hull_exponent: f64,
-    pub fire_exponent: f64,
-    pub cargo_repair_exponent: f64,
-    pub hull_risk_exponent: f64,
-    pub panic_fire_exponent: f64,  // New
-    pub panic_hull_exponent: f64,  // New
-    pub checkmate_exponent: f64,   // New
-    pub hull_penalty_scaling: f64, // New
+    pub item_juggling_penalty: f64, // New: Penalty for picking up and dropping the same item
 
     // Multipliers & Ranges
     pub fire_urgency_mult: f64,
@@ -167,23 +170,24 @@ impl Default for BeamScoringWeights {
             repair_proximity_reward: 100.0,
             cargo_repair_incentive: 2.5,
             cargo_repair_proximity_reward: 0.1,
+            item_juggling_penalty: 1000.0,
 
             boss_level_reward: 2000.0,
             turn_penalty: 500.0,
             step_penalty: 10.0,
 
             checkmate_threshold: 40.0,
-            checkmate_multiplier: 50.0,
-            checkmate_max_mult: 200.0,
+            checkmate_multiplier: 100.0,
+            checkmate_max_mult: 500.0,
 
             // Critical State
             critical_hull_threshold: 6.0,
-            critical_hull_penalty_base: 15000.0,
-            critical_hull_penalty_per_hp: 5000.0,
+            critical_hull_penalty_base: 10000.0,
+            critical_hull_penalty_per_hp: 3000.0,
             critical_fire_threshold: 2,
-            critical_fire_penalty_per_token: 2500.0,
-            critical_system_hazard_penalty: 5000.0,
-            fire_in_critical_hull_penalty: 100000.0,
+            critical_fire_penalty_per_token: 2000.0,
+            critical_system_hazard_penalty: 4000.0,
+            fire_in_critical_hull_penalty: 50000.0,
             critical_survival_mult: 0.4,
             critical_threat_mult: 5.0,
 
@@ -192,10 +196,11 @@ impl Default for BeamScoringWeights {
             fire_exponent: 2.0,
             cargo_repair_exponent: 1.5,
             hull_risk_exponent: 1.1,
-            panic_fire_exponent: 2.0,  // Quadratic panic
-            panic_hull_exponent: 1.5,  // Accelerated panic
-            checkmate_exponent: 1.5,   // New
-            hull_penalty_scaling: 1.1, // Reduced from 1.2 to reduce stalling
+            panic_fire_exponent: 1.8,           // Reduced from 2.0
+            panic_hull_exponent: 1.3,           // Reduced from 1.5
+            checkmate_exponent: 1.8,            // Increased from 1.5
+            hull_penalty_scaling: 1.05,         // Reduced from 1.1
+            projected_hull_panic_exponent: 1.8, // Reduced from 2.5
 
             // Multipliers
             fire_urgency_mult: 5.0,
@@ -352,6 +357,17 @@ pub fn score_static(
     // Use a threshold only for the 'panic' additive penalty
     let is_critical = (projected_hull as f64) <= weights.critical_hull_threshold;
 
+    // --- Projected Hull Panic ---
+    // Smooth exponential penalty as projected hull approaches zero.
+    let projected_hull_panic = if projected_hull < MAX_HULL {
+        let risk_factor =
+            (MAX_HULL as f64 - projected_hull as f64) / (MAX_HULL as f64 - 1.0).max(1.0);
+        risk_factor.powf(weights.projected_hull_panic_exponent) * weights.critical_hull_penalty_base
+    } else {
+        0.0
+    };
+    details.panic -= projected_hull_panic;
+
     // --- Checkmate Heuristic ---
     let mut checkmate_mult = 1.0;
     let mut is_checkmate = false;
@@ -382,10 +398,14 @@ pub fn score_static(
         details.panic -= panic_penalty;
     }
 
-    if fire_count_total >= weights.critical_fire_threshold {
+    // Dynamic Hazard Threshold: Panic triggers earlier if hull is low.
+    let dynamic_fire_threshold = (weights.critical_fire_threshold as f64
+        * (state.hull_integrity as f64 / MAX_HULL as f64))
+        .max(1.0);
+
+    if fire_count_total as f64 >= dynamic_fire_threshold {
         // Massive penalty for uncontrolled fire
-        let excess_fire =
-            (fire_count_total as f64 - weights.critical_fire_threshold as f64 + 1.0).max(1.0);
+        let excess_fire = (fire_count_total as f64 - dynamic_fire_threshold + 1.0).max(1.0);
         let fire_panic = excess_fire.powf(weights.panic_fire_exponent)
             * weights.critical_fire_penalty_per_token
             * hull_penalty_scaler;
@@ -412,7 +432,7 @@ pub fn score_static(
         * weights.enemy_hp
         * checkmate_mult
         * bloodlust_mult
-        * (if is_checkmate {
+        * (if is_checkmate && state.enemy.hp < 5 {
             1.0
         } else {
             survival_multiplier
@@ -450,7 +470,8 @@ pub fn score_static(
     // Cubic Fire Penalty: Make firefighting > repairing
     // Non-Linear Fire Penalty based on Hull Risk (Inverse Power Function)
     // Use PROJECTED hull to feel the fear.
-    let hull_risk_mult = 1.0 + (missing_hull_percent * 10.0).powf(2.5);
+    // DAMPENED: Reduced exponent from 2.5 to 1.5 and capped to prevent runaway penalties.
+    let hull_risk_mult = (1.0 + (missing_hull_percent * 5.0).powf(1.5)).min(10.0);
 
     details.hazards -= (fire_rooms.len() as f64).powf(weights.fire_exponent)
         * weights.fire_penalty_base
@@ -1005,6 +1026,41 @@ pub fn score_static(
             }
         }
         last_action_by_player.insert(pid.clone(), act);
+
+        // Item Juggling Penalty: Penalize PickUp followed by Drop
+        if let GameAction::Drop { item_index: _ } = act {
+            let mut found_pickup = false;
+            for prev_idx in (0..idx).rev() {
+                let (prev_pid, prev_act) = history[prev_idx];
+                if prev_pid != pid {
+                    continue;
+                }
+                match prev_act {
+                    GameAction::PickUp { item_type: _ } => {
+                        found_pickup = true;
+                        break;
+                    }
+                    GameAction::Move { .. }
+                    | GameAction::Shoot
+                    | GameAction::FirstAid { .. }
+                    | GameAction::Revive { .. }
+                    | GameAction::Repair
+                    | GameAction::Extinguish
+                    | GameAction::Interact
+                    | GameAction::Bake
+                    | GameAction::RaiseShields
+                    | GameAction::EvasiveManeuvers
+                    | GameAction::Lookout => {
+                        // Useful action in between, not juggling
+                        break;
+                    }
+                    _ => {}
+                }
+            }
+            if found_pickup {
+                details.anti_oscillation -= weights.item_juggling_penalty;
+            }
+        }
 
         if let GameAction::Move { to_room } = act {
             player_moves

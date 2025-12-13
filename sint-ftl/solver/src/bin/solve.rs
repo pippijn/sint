@@ -306,15 +306,17 @@ fn ui(f: &mut Frame, app: &SolverApp) {
         .split(f.area());
 
     // Data prep
-    let current_node = app
-        .progress
-        .as_ref()
-        .and_then(|p| p.current_best_node.as_ref());
+    let current_node = app.progress.as_ref().map(|p| &p.node);
     let current_state = current_node.map(|n| &n.state);
 
     // Stats Widget
     let (step, hull, boss, score) = if let Some(p) = &app.progress {
-        (p.step, p.hull, p.boss_hp, p.best_score)
+        (
+            p.step,
+            p.node.state.hull_integrity,
+            p.node.state.enemy.hp,
+            p.node.score.total,
+        )
     } else {
         (0, 0, 0, 0.0)
     };

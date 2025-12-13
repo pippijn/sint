@@ -41,12 +41,9 @@ pub struct SearchNode {
 #[derive(Clone, Debug)]
 pub struct SearchProgress {
     pub step: usize,
-    pub best_score: f64,
-    pub hull: i32,
-    pub boss_hp: i32,
     pub is_done: bool,
     pub failed: bool,
-    pub current_best_node: Option<Arc<SearchNode>>,
+    pub node: Arc<SearchNode>,
 }
 
 impl SearchNode {

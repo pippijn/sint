@@ -146,12 +146,9 @@ where
             if let Some(cb) = &progress_callback {
                 cb(SearchProgress {
                     step,
-                    best_score: best_in_beam.score.total,
-                    hull: best_in_beam.state.hull_integrity,
-                    boss_hp: best_in_beam.state.enemy.hp,
                     is_done: false,
                     failed: false,
-                    current_best_node: Some(best_in_beam.clone()),
+                    node: best_in_beam.clone(),
                 });
             }
         }
@@ -176,12 +173,9 @@ where
             if let Some(cb) = &progress_callback {
                 cb(SearchProgress {
                     step,
-                    best_score: win.score.total,
-                    hull: win.state.hull_integrity,
-                    boss_hp: win.state.enemy.hp,
                     is_done: true,
                     failed: false,
-                    current_best_node: Some(win.clone()),
+                    node: win.clone(),
                 });
             }
             break;
@@ -289,12 +283,9 @@ where
         if let Some(node) = &result {
             cb(SearchProgress {
                 step: config.steps, // Indicate completion
-                best_score: node.score.total,
-                hull: node.state.hull_integrity,
-                boss_hp: node.state.enemy.hp,
                 is_done: true,
                 failed: final_solution.is_none() && beam.is_empty(),
-                current_best_node: Some(node.clone()),
+                node: node.clone(),
             });
         }
     }
