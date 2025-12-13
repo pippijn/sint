@@ -10,8 +10,10 @@ impl CardBehavior for SlipperyDeckCard {
         Card {
             id: CardId::SlipperyDeck,
             title: "Slippery Deck".to_owned(),
-            description: "Soap everywhere. Move costs 0 AP, but Actions cost +1 AP.".to_owned(),
-            card_type: CardType::Situation,
+            description:
+                "Soap everywhere. Move costs 0 AP, but Actions cost +1 AP. Lasts 3 rounds."
+                    .to_owned(),
+            card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![],
             solution: Some(CardSolution {
                 target_system: Some(SystemType::Engine),
@@ -20,6 +22,27 @@ impl CardBehavior for SlipperyDeckCard {
                 required_players: 1,
             }),
             affected_player: None,
+        }
+    }
+
+    fn on_round_end(&self, state: &mut GameState) {
+        let mut expired = false;
+        for card in state.active_situations.iter_mut() {
+            if card.id == CardId::SlipperyDeck {
+                if let CardType::Timebomb { rounds_left } = &mut card.card_type {
+                    if *rounds_left > 0 {
+                        *rounds_left -= 1;
+                        if *rounds_left == 0 {
+                            expired = true;
+                        }
+                    }
+                }
+            }
+        }
+        if expired {
+            state
+                .active_situations
+                .retain(|c| c.id != CardId::SlipperyDeck);
         }
     }
 

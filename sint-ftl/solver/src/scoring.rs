@@ -108,7 +108,7 @@ impl Default for ScoringWeights {
 
             // Situations & Threats
             active_situation_penalty: 50000.0, // WAS 8000.0 - HUGE increase. Situations kill runs.
-            threat_player_penalty: 100.0,     // Reduced to allow calculated risks
+            threat_player_penalty: 100.0,      // Reduced to allow calculated risks
             threat_system_penalty: 2000.0,
             death_penalty: 50000.0,
 
@@ -136,14 +136,14 @@ impl Default for ScoringWeights {
             hazard_proximity_reward: 50.0,
             situation_exposure_penalty: 1000.0,
             system_disabled_penalty: 5000.0,
-            shooting_reward: 100.0, // SHOOT! (Reduced to favor actual damage)
+            shooting_reward: 250.0, // SHOOT! (Reduced to favor actual damage)
 
             scavenger_reward: 500.0,
             repair_proximity_reward: 1000.0,
-            cargo_repair_incentive: 50.0,
+            cargo_repair_incentive: 25.0,
 
             boss_level_reward: 20000.0,
-            turn_penalty: 100.0, // Increased to prevent stalling
+            turn_penalty: 500.0, // Increased to prevent stalling
             step_penalty: 20.0,  // WAS 5.0. Prevent free-action loops.
 
             checkmate_threshold: 15.0,
@@ -157,7 +157,7 @@ impl Default for ScoringWeights {
             critical_fire_penalty_per_token: 25_000.0,
 
             // Exponents
-            hull_exponent: 2.0,
+            hull_exponent: 1.5,
             fire_exponent: 3.0,
             cargo_repair_exponent: 1.5,
             hull_risk_exponent: 1.1,
@@ -276,7 +276,20 @@ fn score_static(
     score -= missing_hull.powf(weights.hull_exponent) * weights.hull_integrity;
 
     score += state.boss_level as f64 * weights.boss_level_reward;
-    score += (state.enemy.max_hp - state.enemy.hp) as f64 * weights.enemy_hp * checkmate_mult;
+
+    // Bloodlust: If enemy is low, increase reward for damage
+    let enemy_hp_percent = if state.enemy.max_hp > 0 {
+        state.enemy.hp as f64 / state.enemy.max_hp as f64
+    } else {
+        0.0
+    };
+    let bloodlust_mult = if enemy_hp_percent < 0.5 { 1.5 } else { 1.0 };
+
+    score += (state.enemy.max_hp as f64 - state.enemy.hp as f64)
+        * weights.enemy_hp
+        * checkmate_mult
+        * bloodlust_mult;
+
     score -= state.turn_count as f64 * weights.turn_penalty;
     score -= history.len() as f64 * weights.step_penalty;
 
