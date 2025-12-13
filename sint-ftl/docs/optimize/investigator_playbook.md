@@ -50,5 +50,5 @@ Specific Questions:
 2. If "Beam Died": Look for stalling. Are players refusing to Pass/VoteReady? Is the Round count stuck?
 3. If Death: Was it preventable? Did the solver ignore a Hazard or Enemy Telegraph?
 4. Evaluate Scoring Linearity: Identify areas where flat weights failed (e.g., low hull should have infinite value, 3+ fires should be panic mode).
-5. Provide 3 specific recommendations for adjusting 'ScoringWeights' or 'search.rs' logic, including math curves if needed.
+5. Provide 3 specific recommendations for adjusting 'BeamScoringWeights' or 'search.rs' logic, including math curves if needed.
 ```

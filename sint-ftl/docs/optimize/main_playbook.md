@@ -32,8 +32,9 @@ If the result is unsatisfactory (or if optimizing for speed), invoke the `codeba
 Read the investigator's report. Look for:
 *   **Weight Adjustments:** "Increase `fire_penalty` by 50%." -> Modify values in `solver/src/scoring/beam.rs`.
 *   **Non-Linearity:** "Fire is fine at 1, but deadly at 3." -> **Implement curves** (e.g., `hazard_count.powf(weights.fire_exponent)`) instead of flat multipliers.
-*   **New Heuristics:** "Solver misses X pattern." -> **Code new logic** in `score_state` to detect X and add fields to `ScoringWeights`.
-    *   **Rule:** **NO MAGIC NUMBERS**. All coefficients, thresholds, and exponents must be defined as fields in the `ScoringWeights` struct (in `solver/src/scoring/beam.rs`).
+*   **New Heuristics:** "Solver misses X pattern." -> **Code new logic** in `score_state` to detect X and add fields to `BeamScoringWeights`.
+*   **Rule:** **NO MAGIC NUMBERS**. All coefficients, thresholds, and exponents must be defined as fields in the `BeamScoringWeights` struct (in `solver/src/scoring/beam.rs`).
+*   **Do NOT** hardcode values like `500.0` or `10.0` directly in `score_static`. Define a field like `my_new_heuristic_reward` in the struct, add it to `BeamScoringWeights::default()`, and use `weights.my_new_heuristic_reward`.
 *   **Logic Gaps:** "Solver is stuck in Planning phase." -> Modify `solver/src/search.rs` (e.g., fallback logic, pruning).
 *   **Rule Conflicts:** "Solver thinks it can Y but it can't." -> Check `core/src/logic`.
 
@@ -50,7 +51,7 @@ Read the investigator's report. Look for:
 *   **Symptom:** Solver runs for max steps but Round count is low (e.g., Step 2000, Round 12).
 *   **Root Cause:** The penalty for advancing the turn (Turn Penalty + Pending Enemy Damage) is higher than the penalty for wasting AP in the current turn.
 *   **Fix:**
-    1.  Add/Increase `step_penalty` in `ScoringWeights` (penalize dithering).
+    1.  Add/Increase `step_penalty` in `BeamScoringWeights` (penalize dithering).
     2.  Increase `ap_balance` (make keeping AP valuable).
     3.  Decrease `turn_penalty` (make advancing less scary).
 

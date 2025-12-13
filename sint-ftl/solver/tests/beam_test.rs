@@ -1,6 +1,5 @@
-use sint_solver::scoring::beam::ScoringWeights;
-use sint_solver::search::beam::beam_search;
-use sint_solver::search::BeamSearchConfig;
+use sint_solver::scoring::beam::BeamScoringWeights;
+use sint_solver::search::beam::{beam_search, BeamSearchConfig};
 use std::time::Instant;
 
 #[test]
@@ -13,7 +12,7 @@ fn test_beam_smoke() {
         time_limit: 5,
         verbose: false,
     };
-    let weights = ScoringWeights::default();
+    let weights = BeamScoringWeights::default();
     let result = beam_search(&config, &weights);
     assert!(result.is_some());
 }
@@ -28,7 +27,7 @@ fn test_beam_determinism() {
         time_limit: 10,
         verbose: false,
     };
-    let weights = ScoringWeights::default();
+    let weights = BeamScoringWeights::default();
 
     let result1 = beam_search(&config, &weights).expect("Beam failed run 1");
     let result2 = beam_search(&config, &weights).expect("Beam failed run 2");
@@ -62,7 +61,7 @@ fn test_beam_time_limit() {
         time_limit: 1, // Short time limit
         verbose: false,
     };
-    let weights = ScoringWeights::default();
+    let weights = BeamScoringWeights::default();
 
     let start = Instant::now();
     let result = beam_search(&config, &weights);
@@ -79,7 +78,7 @@ fn test_beam_time_limit() {
 
 #[test]
 fn test_beam_width_effect() {
-    let weights = ScoringWeights::default();
+    let weights = BeamScoringWeights::default();
     let seed = 12345;
 
     let config_narrow = BeamSearchConfig {

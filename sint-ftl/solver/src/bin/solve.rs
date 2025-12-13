@@ -1,10 +1,10 @@
 use clap::{Parser, ValueEnum};
 use sint_core::logic::GameLogic;
 use sint_solver::replay;
-use sint_solver::scoring::beam::ScoringWeights;
-use sint_solver::search::beam::beam_search;
+use sint_solver::scoring::beam::BeamScoringWeights;
+use sint_solver::scoring::rhea::RheaScoringWeights;
+use sint_solver::search::beam::{beam_search, BeamSearchConfig};
 use sint_solver::search::rhea::{rhea_search, RHEAConfig};
-use sint_solver::search::BeamSearchConfig;
 use std::fs::File;
 use std::io::Write;
 
@@ -65,11 +65,9 @@ fn main() {
     // Init
     let player_ids: Vec<String> = (0..args.players).map(|i| format!("P{}", i + 1)).collect();
 
-    // Load Scoring Weights
-    let weights = ScoringWeights::default();
-
     let sol = match args.strategy {
         Strategy::Beam => {
+            let weights = BeamScoringWeights::default();
             let config = BeamSearchConfig {
                 players: args.players,
                 seed: args.seed,
@@ -81,6 +79,7 @@ fn main() {
             beam_search(&config, &weights)
         }
         Strategy::Rhea => {
+            let weights = RheaScoringWeights::default();
             let config = RHEAConfig {
                 players: args.players,
                 seed: args.seed,
@@ -91,7 +90,7 @@ fn main() {
                 time_limit: args.time_limit,
                 verbose: true,
             };
-            rhea_search(&config)
+            rhea_search(&config, &weights)
         }
     };
 

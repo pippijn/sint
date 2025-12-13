@@ -1,5 +1,5 @@
 use crate::driver::GameDriver;
-use crate::scoring::rhea::score_rhea;
+use crate::scoring::rhea::{score_rhea, RheaScoringWeights};
 use crate::search::{get_legal_actions, get_state_signature, SearchNode};
 use rand::prelude::*;
 use rand::rngs::StdRng;
@@ -26,7 +26,7 @@ struct Individual {
     score: f64,
 }
 
-pub fn rhea_search(config: &RHEAConfig) -> Option<SearchNode> {
+pub fn rhea_search(config: &RHEAConfig, weights: &RheaScoringWeights) -> Option<SearchNode> {
     let player_ids: Vec<String> = (0..config.players).map(|i| format!("P{}", i + 1)).collect();
     let initial_state = GameLogic::new_game(player_ids, config.seed);
 
@@ -104,7 +104,8 @@ pub fn rhea_search(config: &RHEAConfig) -> Option<SearchNode> {
             population.par_iter_mut().enumerate().for_each(|(i, ind)| {
                 if ind.score == 0.0 {
                     let mut rng = StdRng::seed_from_u64(config.seed + eval_seed_base + i as u64);
-                    ind.score = evaluate_individual(ind, &current_state, config, &mut rng);
+                    ind.score =
+                        evaluate_individual(ind, &current_state, config, &weights, &mut rng);
                 }
             });
 
@@ -284,6 +285,7 @@ fn evaluate_individual(
     ind: &mut Individual,
     start_state: &GameState,
     config: &RHEAConfig,
+    weights: &RheaScoringWeights,
     rng: &mut impl Rng,
 ) -> f64 {
     let mut driver = GameDriver {
@@ -354,7 +356,7 @@ fn evaluate_individual(
     }
 
     // Evaluate final state
-    score_rhea(&driver.state)
+    score_rhea(&driver.state, weights)
 }
 
 fn mutate(ind: &mut Individual, _config: &RHEAConfig, rng: &mut impl Rng) {

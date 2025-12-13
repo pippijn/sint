@@ -7,7 +7,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 
 /// Hyperparameters for the scoring function.
 #[derive(Debug, Clone)]
-pub struct ScoringWeights {
+pub struct BeamScoringWeights {
     // Vital Stats
     pub hull_integrity: f64,
     pub hull_delta_penalty: f64,
@@ -96,7 +96,7 @@ pub struct ScoringWeights {
     pub threat_shield_waste_penalty: f64,
 }
 
-impl Default for ScoringWeights {
+impl Default for BeamScoringWeights {
     fn default() -> Self {
         Self {
             hull_integrity: 8000.0, // Critical: Hull is Life (Increased to prioritize survival)
@@ -217,7 +217,7 @@ pub fn calculate_score(
     parent: &GameState,
     current: &GameState,
     history: &[&(PlayerId, GameAction)],
-    weights: &ScoringWeights,
+    weights: &BeamScoringWeights,
 ) -> f64 {
     let mut score = score_static(current, history, weights);
     score += score_transition(parent, current, weights);
@@ -229,7 +229,7 @@ pub fn calculate_score(
 pub fn score_static(
     state: &GameState,
     history: &[&(PlayerId, GameAction)],
-    weights: &ScoringWeights,
+    weights: &BeamScoringWeights,
 ) -> f64 {
     // Terminal States
     if state.phase == GamePhase::Victory {
@@ -841,7 +841,7 @@ pub fn score_static(
 }
 
 /// Calculates the score delta based on the transition from parent to current state.
-fn score_transition(parent: &GameState, current: &GameState, weights: &ScoringWeights) -> f64 {
+fn score_transition(parent: &GameState, current: &GameState, weights: &BeamScoringWeights) -> f64 {
     let mut score = 0.0;
     // Hull Delta Penalty: Penalize the ACT of losing hull
     let hull_loss = (parent.hull_integrity as f64 - current.hull_integrity as f64).max(0.0);

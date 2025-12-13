@@ -73,15 +73,6 @@ impl std::hash::Hash for SearchNode {
     }
 }
 
-pub struct BeamSearchConfig {
-    pub players: usize,
-    pub seed: u64,
-    pub width: usize,
-    pub steps: usize,
-    pub time_limit: u64,
-    pub verbose: bool,
-}
-
 struct DeterministicHasher(u64);
 impl Hasher for DeterministicHasher {
     fn finish(&self) -> u64 {

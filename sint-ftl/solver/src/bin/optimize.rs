@@ -2,9 +2,10 @@ use clap::{Parser, ValueEnum};
 use rand::prelude::*;
 use rayon::prelude::*;
 use sint_core::types::GamePhase;
-use sint_solver::scoring::beam::ScoringWeights;
-use sint_solver::search::beam::beam_search;
-use sint_solver::search::BeamSearchConfig;
+use sint_solver::scoring::beam::BeamScoringWeights;
+use sint_solver::scoring::rhea::RheaScoringWeights;
+use sint_solver::search::beam::{beam_search, BeamSearchConfig};
+use sint_solver::search::rhea::{rhea_search, RHEAConfig};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -13,17 +14,34 @@ struct Args {
     #[arg(long, value_enum, default_value_t = Strategy::GA)]
     strategy: Strategy,
 
-    /// Generations / Iterations
+    /// Target Search Algorithm
+    #[arg(long, value_enum, default_value_t = Target::Beam)]
+    target: Target,
+
+    /// Generations / Iterations (Optimizer)
     #[arg(short, long, default_value_t = 20)]
     generations: usize,
 
-    /// Population Size (for GA)
+    /// Population Size (Optimizer GA)
     #[arg(short, long, default_value_t = 40)]
     population: usize,
 
     /// Seeds to evaluate (comma separated)
     #[arg(long, default_value = "12345")]
     seeds: String,
+
+    // --- RHEA Specifics ---
+    /// RHEA Horizon
+    #[arg(long, default_value_t = 10)]
+    rhea_horizon: usize,
+
+    /// RHEA Generations (per search step)
+    #[arg(long, default_value_t = 50)]
+    rhea_generations: usize,
+
+    /// RHEA Population (per search step)
+    #[arg(long, default_value_t = 20)]
+    rhea_population: usize,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
@@ -32,38 +50,196 @@ enum Strategy {
     SPSA,
 }
 
-const PARAM_COUNT: usize = 23;
-
-fn get_base_weights() -> ScoringWeights {
-    ScoringWeights::default()
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
+enum Target {
+    Beam,
+    Rhea,
 }
 
-fn apply_multipliers(base: &ScoringWeights, m: &[f64]) -> ScoringWeights {
+fn get_base_weights_beam() -> BeamScoringWeights {
+    BeamScoringWeights::default()
+}
+
+fn get_base_weights_rhea() -> RheaScoringWeights {
+    RheaScoringWeights::default()
+}
+
+// Map multipliers vector to BeamScoringWeights
+fn apply_multipliers_beam(base: &BeamScoringWeights, m: &[f64]) -> BeamScoringWeights {
     let mut w = base.clone();
-    w.hull_integrity *= m[0];
-    w.enemy_hp *= m[1];
-    w.player_hp *= m[2];
-    w.ap_balance *= m[3];
-    w.fire_penalty_base *= m[4];
-    w.water_penalty *= m[5];
-    w.active_situation_penalty *= m[6];
-    w.threat_player_penalty *= m[7];
-    w.threat_system_penalty *= m[8];
-    w.death_penalty *= m[9];
-    w.gunner_base_reward *= m[10];
-    w.gunner_per_ammo *= m[11];
-    w.gunner_working_bonus *= m[12];
-    w.gunner_distance_factor *= m[13];
-    w.firefighter_base_reward *= m[14];
-    w.firefighter_distance_factor *= m[15];
-    w.healing_reward *= m[16];
-    w.sickbay_distance_factor *= m[17];
-    w.backtracking_penalty *= m[18];
-    w.solution_solver_reward *= m[19];
-    w.solution_distance_factor *= m[20];
-    w.ammo_stockpile_reward *= m[21];
-    w.boss_level_reward *= m[22];
+    let mut i = 0;
+
+    // Ensure we don't go out of bounds if param count mismatches, though we should sync them.
+    if m.len() < 59 {
+        panic!(
+            "Multiplier vector too short for Beam weights. Expected 59, got {}",
+            m.len()
+        );
+    }
+
+    w.hull_integrity *= m[i];
+    i += 1;
+    w.hull_delta_penalty *= m[i];
+    i += 1;
+    w.enemy_hp *= m[i];
+    i += 1;
+    w.player_hp *= m[i];
+    i += 1;
+    w.ap_balance *= m[i];
+    i += 1;
+    w.fire_penalty_base *= m[i];
+    i += 1;
+    w.water_penalty *= m[i];
+    i += 1;
+    w.active_situation_penalty *= m[i];
+    i += 1;
+    w.threat_player_penalty *= m[i];
+    i += 1;
+    w.threat_system_penalty *= m[i];
+    i += 1;
+    w.death_penalty *= m[i];
+    i += 1;
+    w.station_keeping_reward *= m[i];
+    i += 1;
+    w.gunner_base_reward *= m[i];
+    i += 1;
+    w.gunner_per_ammo *= m[i];
+    i += 1;
+    w.gunner_working_bonus *= m[i];
+    i += 1;
+    w.gunner_distance_factor *= m[i];
+    i += 1;
+    w.firefighter_base_reward *= m[i];
+    i += 1;
+    w.firefighter_distance_factor *= m[i];
+    i += 1;
+    w.healing_reward *= m[i];
+    i += 1;
+    w.sickbay_distance_factor *= m[i];
+    i += 1;
+    w.backtracking_penalty *= m[i];
+    i += 1;
+    w.solution_solver_reward *= m[i];
+    i += 1;
+    w.solution_distance_factor *= m[i];
+    i += 1;
+    w.situation_logistics_reward *= m[i];
+    i += 1;
+    w.situation_resolved_reward *= m[i];
+    i += 1;
+    w.ammo_stockpile_reward *= m[i];
+    i += 1;
+    w.loose_ammo_reward *= m[i];
+    i += 1;
+    w.hazard_proximity_reward *= m[i];
+    i += 1;
+    w.situation_exposure_penalty *= m[i];
+    i += 1;
+    w.system_disabled_penalty *= m[i];
+    i += 1;
+    w.shooting_reward *= m[i];
+    i += 1;
+    w.scavenger_reward *= m[i];
+    i += 1;
+    w.repair_proximity_reward *= m[i];
+    i += 1;
+    w.cargo_repair_incentive *= m[i];
+    i += 1;
+    w.boss_level_reward *= m[i];
+    i += 1;
+    w.turn_penalty *= m[i];
+    i += 1;
+    w.step_penalty *= m[i];
+    i += 1;
+    w.checkmate_threshold *= m[i];
+    i += 1;
+    w.checkmate_multiplier *= m[i];
+    i += 1;
+    w.critical_hull_threshold *= m[i];
+    i += 1;
+    w.critical_hull_penalty_base *= m[i];
+    i += 1;
+    w.critical_hull_penalty_per_hp *= m[i];
+    i += 1;
+    w.critical_fire_threshold = (w.critical_fire_threshold as f64 * m[i]) as usize;
+    i += 1;
+    w.critical_fire_penalty_per_token *= m[i];
+    i += 1;
+    w.hull_exponent *= m[i];
+    i += 1;
+    w.fire_exponent *= m[i];
+    i += 1;
+    w.cargo_repair_exponent *= m[i];
+    i += 1;
+    w.hull_risk_exponent *= m[i];
+    i += 1;
+    w.fire_urgency_mult *= m[i];
+    i += 1;
+    w.hazard_proximity_range *= m[i];
+    i += 1;
+    w.gunner_dist_range *= m[i];
+    i += 1;
+    w.gunner_per_ammo_mult *= m[i];
+    i += 1;
+    w.gunner_en_route_mult *= m[i];
+    i += 1;
+    w.gunner_wheelbarrow_penalty *= m[i];
+    i += 1;
+    w.baker_wheelbarrow_mult *= m[i];
+    i += 1;
+    w.threat_severe_reward *= m[i];
+    i += 1;
+    w.threat_mitigated_reward *= m[i];
+    i += 1;
+    w.threat_hull_risk_mult *= m[i];
+    i += 1;
+    w.threat_shield_waste_penalty *= m[i];
+
     w
+}
+
+fn apply_multipliers_rhea(base: &RheaScoringWeights, m: &[f64]) -> RheaScoringWeights {
+    let mut w = base.clone();
+    let mut i = 0;
+
+    if m.len() < 10 {
+        panic!(
+            "Multiplier vector too short for Rhea weights. Expected 10, got {}",
+            m.len()
+        );
+    }
+
+    w.victory_base *= m[i];
+    i += 1;
+    w.victory_hull_mult *= m[i];
+    i += 1;
+    w.defeat_penalty *= m[i];
+    i += 1;
+    w.boss_damage_reward *= m[i];
+    i += 1;
+
+    // Threshold is integer
+    w.hull_critical_threshold = (w.hull_critical_threshold as f64 * m[i]) as i32;
+    i += 1;
+
+    w.hull_critical_penalty_base *= m[i];
+    i += 1;
+    w.hull_normal_reward *= m[i];
+    i += 1;
+    w.fire_penalty *= m[i];
+    i += 1;
+    w.ammo_holding_reward *= m[i];
+    i += 1;
+    w.turn_penalty *= m[i];
+
+    w
+}
+
+fn get_param_count(target: Target) -> usize {
+    match target {
+        Target::Beam => 59,
+        Target::Rhea => 10,
+    }
 }
 
 fn mutate(rng: &mut impl Rng, genome: &mut Vec<f64>) {
@@ -80,23 +256,41 @@ fn mutate(rng: &mut impl Rng, genome: &mut Vec<f64>) {
     }
 }
 
-fn evaluate(base: &ScoringWeights, multipliers: &[f64], seeds: &[u64]) -> f64 {
-    let weights = apply_multipliers(base, multipliers);
+fn evaluate(args: &Args, multipliers: &[f64], seeds: &[u64]) -> f64 {
     let total_score: f64 = seeds
         .par_iter()
         .map(|&seed| {
-            let config = BeamSearchConfig {
-                players: 6,
-                seed,
-                width: 100, // Small width for speed
-                steps: 100, // Short horizon
-                time_limit: 5,
-                verbose: false,
+            let mut fitness = 0.0;
+            let sol = match args.target {
+                Target::Beam => {
+                    let weights = apply_multipliers_beam(&get_base_weights_beam(), multipliers);
+                    let config = BeamSearchConfig {
+                        players: 6,
+                        seed,
+                        width: 100, // Reduced width for speed during optimization
+                        steps: 1000,
+                        time_limit: 5,
+                        verbose: false,
+                    };
+                    beam_search(&config, &weights)
+                }
+                Target::Rhea => {
+                    let weights = apply_multipliers_rhea(&get_base_weights_rhea(), multipliers);
+                    let config = RHEAConfig {
+                        players: 6,
+                        seed,
+                        horizon: args.rhea_horizon,
+                        generations: args.rhea_generations,
+                        population_size: args.rhea_population,
+                        max_steps: 1000,
+                        time_limit: 5,
+                        verbose: false,
+                    };
+                    rhea_search(&config, &weights)
+                }
             };
 
-            if let Some(sol) = beam_search(&config, &weights) {
-                let mut fitness = 0.0;
-
+            if let Some(sol) = sol {
                 // 1. Victory (Ultimate Goal)
                 if sol.state.phase == GamePhase::Victory {
                     fitness += 100_000.0;
@@ -108,16 +302,13 @@ fn evaluate(base: &ScoringWeights, multipliers: &[f64], seeds: &[u64]) -> f64 {
                 fitness += (sol.state.boss_level as f64) * 10_000.0;
 
                 // 3. Current Boss Damage (Progress within level)
-                // We want to kill the current boss.
                 let damage_dealt = (sol.state.enemy.max_hp - sol.state.enemy.hp) as f64;
                 fitness += damage_dealt * 200.0;
 
                 // 4. Hull Integrity (Survival)
-                // If dead, hull is <= 0.
                 if sol.state.hull_integrity > 0 {
                     fitness += sol.state.hull_integrity as f64 * 300.0;
                 } else {
-                    // Massive penalty for death
                     fitness -= 10_000.0;
                 }
 
@@ -130,7 +321,6 @@ fn evaluate(base: &ScoringWeights, multipliers: &[f64], seeds: &[u64]) -> f64 {
                 fitness -= hazard_count as f64 * 100.0;
 
                 // 7. Survival Duration (Secondary)
-                // Only reward rounds if we are alive
                 if sol.state.phase != GamePhase::GameOver {
                     fitness += sol.state.turn_count as f64 * 20.0;
                 }
@@ -147,15 +337,21 @@ fn evaluate(base: &ScoringWeights, multipliers: &[f64], seeds: &[u64]) -> f64 {
 
 fn run_ga(args: &Args, seeds: &[u64]) {
     println!(
-        "🧬 Starting Evolution: Gens={}, Pop={}, Seeds={:?}",
-        args.generations, args.population, seeds
+        "🧬 Starting Evolution ({}): Gens={}, Pop={}, Seeds={:?}",
+        match args.target {
+            Target::Beam => "Beam",
+            Target::Rhea => "Rhea",
+        },
+        args.generations,
+        args.population,
+        seeds
     );
 
-    let base_weights = get_base_weights();
+    let param_count = get_param_count(args.target);
     let mut rng = rand::thread_rng();
 
     // Initialize Population with Multipliers (start at 1.0)
-    let default_genome = vec![1.0; PARAM_COUNT];
+    let default_genome = vec![1.0; param_count];
     let mut population: Vec<Vec<f64>> = (0..args.population)
         .map(|i| {
             if i == 0 {
@@ -177,7 +373,7 @@ fn run_ga(args: &Args, seeds: &[u64]) {
         let mut scored_pop: Vec<(f64, Vec<f64>)> = population
             .par_iter()
             .map(|genome| {
-                let score = evaluate(&base_weights, genome, seeds);
+                let score = evaluate(args, genome, seeds);
                 (score, genome.clone())
             })
             .collect();
@@ -222,32 +418,45 @@ fn run_ga(args: &Args, seeds: &[u64]) {
 
     // Print Best
     let best_genome = &population[0];
-    let best_weights = apply_multipliers(&base_weights, best_genome);
     println!("\n🏆 Best Weights Found:");
-    println!("{:#?}", best_weights);
+    match args.target {
+        Target::Beam => println!(
+            "{:#?}",
+            apply_multipliers_beam(&get_base_weights_beam(), best_genome)
+        ),
+        Target::Rhea => println!(
+            "{:#?}",
+            apply_multipliers_rhea(&get_base_weights_rhea(), best_genome)
+        ),
+    }
 }
 
 fn run_spsa(args: &Args, seeds: &[u64]) {
     println!(
-        "📉 Starting SPSA: Iterations={}, Seeds={:?}",
-        args.generations, seeds
+        "📉 Starting SPSA ({}): Iterations={}, Seeds={:?}",
+        match args.target {
+            Target::Beam => "Beam",
+            Target::Rhea => "Rhea",
+        },
+        args.generations,
+        seeds
     );
 
-    let base_weights = get_base_weights();
+    let param_count = get_param_count(args.target);
 
     // Start with identity multipliers
-    let mut theta = vec![1.0; PARAM_COUNT];
+    let mut theta = vec![1.0; param_count];
     let p = theta.len();
 
-    // SPSA hyperparameters (Tuned for normalized multipliers ~1.0)
-    let c = 0.05; // Perturbation size (5%)
+    // SPSA hyperparameters
+    let c = 0.05;
     let gamma = 0.101;
-    let a = 0.1; // Step size scaling (since params are ~1.0, steps should be small)
-    let big_a = 20.0; // Stability constant
+    let a = 0.1;
+    let big_a = 20.0;
     let alpha = 0.602;
 
     let mut best_theta = theta.clone();
-    let mut best_score = evaluate(&base_weights, &theta, seeds);
+    let mut best_score = evaluate(args, &theta, seeds);
 
     println!("Initial Score: {:.2}", best_score);
 
@@ -268,7 +477,7 @@ fn run_spsa(args: &Args, seeds: &[u64]) {
             theta_plus[i] += ck * delta[i];
             if theta_plus[i] < 0.0 {
                 theta_plus[i] = 0.0;
-            } // Constraint
+            }
         }
 
         // Theta - ck * delta
@@ -277,17 +486,15 @@ fn run_spsa(args: &Args, seeds: &[u64]) {
             theta_minus[i] -= ck * delta[i];
             if theta_minus[i] < 0.0 {
                 theta_minus[i] = 0.0;
-            } // Constraint
+            }
         }
 
-        let y_plus = evaluate(&base_weights, &theta_plus, seeds);
-        let y_minus = evaluate(&base_weights, &theta_minus, seeds);
+        let y_plus = evaluate(args, &theta_plus, seeds);
+        let y_minus = evaluate(args, &theta_minus, seeds);
 
         // Gradient Estimate
-        // g_k = (y_plus - y_minus) / (2 * ck * delta)
         let mut ghat = vec![0.0; p];
         for i in 0..p {
-            // Note: delta is +/- 1.0
             ghat[i] = (y_plus - y_minus) / (2.0 * ck * delta[i]);
         }
 
@@ -299,7 +506,7 @@ fn run_spsa(args: &Args, seeds: &[u64]) {
             }
         }
 
-        let current_score = evaluate(&base_weights, &theta, seeds);
+        let current_score = evaluate(args, &theta, seeds);
         println!(
             "Iter {}: Score {:.2} (Best {:.2}) | ak={:.4} ck={:.4}",
             k, current_score, best_score, ak, ck
@@ -312,7 +519,16 @@ fn run_spsa(args: &Args, seeds: &[u64]) {
     }
 
     println!("\n🏆 Best Weights Found (SPSA):");
-    println!("{:#?}", apply_multipliers(&base_weights, &best_theta));
+    match args.target {
+        Target::Beam => println!(
+            "{:#?}",
+            apply_multipliers_beam(&get_base_weights_beam(), &best_theta)
+        ),
+        Target::Rhea => println!(
+            "{:#?}",
+            apply_multipliers_rhea(&get_base_weights_rhea(), &best_theta)
+        ),
+    }
 }
 
 fn main() {

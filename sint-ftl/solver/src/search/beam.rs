@@ -1,12 +1,21 @@
 use crate::driver::GameDriver;
-use crate::scoring::beam::{calculate_score, ScoringWeights};
-use crate::search::{get_state_signature, BeamSearchConfig, SearchNode};
+use crate::scoring::beam::{calculate_score, BeamScoringWeights};
+use crate::search::{get_state_signature, SearchNode};
 use rayon::prelude::*;
 use sint_core::logic::GameLogic;
 use sint_core::types::{Action, GameAction, GamePhase};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+
+pub struct BeamSearchConfig {
+    pub players: usize,
+    pub seed: u64,
+    pub width: usize,
+    pub steps: usize,
+    pub time_limit: u64,
+    pub verbose: bool,
+}
 
 // --- DEBUG CONTEXT ---
 #[derive(Debug, Clone)]
@@ -62,7 +71,7 @@ impl DebugContext {
     }
 }
 
-pub fn beam_search(config: &BeamSearchConfig, weights: &ScoringWeights) -> Option<SearchNode> {
+pub fn beam_search(config: &BeamSearchConfig, weights: &BeamScoringWeights) -> Option<SearchNode> {
     let player_ids: Vec<String> = (0..config.players).map(|i| format!("P{}", i + 1)).collect();
     let initial_state = GameLogic::new_game(player_ids.clone(), config.seed);
 
@@ -237,7 +246,7 @@ pub fn beam_search(config: &BeamSearchConfig, weights: &ScoringWeights) -> Optio
 
 fn expand_node(
     node: Arc<SearchNode>,
-    weights: &ScoringWeights,
+    weights: &BeamScoringWeights,
     _config: &BeamSearchConfig,
     step: usize,
     debug: &DebugContext,
