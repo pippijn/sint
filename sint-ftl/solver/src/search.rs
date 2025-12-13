@@ -36,6 +36,7 @@ pub struct SearchNode {
     pub last_action: Option<(PlayerId, GameAction)>,
     pub score: ScoreDetails,
     pub signature: u64,
+    pub history_len: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -48,9 +49,25 @@ pub struct SearchProgress {
 
 impl SearchNode {
     pub fn get_history(&self) -> Vec<&(PlayerId, GameAction)> {
-        let mut history = Vec::new();
+        let mut history = Vec::with_capacity(self.history_len);
         let mut current = self;
         while let Some(parent) = &current.parent {
+            if let Some(action) = &current.last_action {
+                history.push(action);
+            }
+            current = parent;
+        }
+        history.reverse();
+        history
+    }
+
+    pub fn get_recent_history(&self, n: usize) -> Vec<&(PlayerId, GameAction)> {
+        let mut history = Vec::with_capacity(n);
+        let mut current = self;
+        while let Some(parent) = &current.parent {
+            if history.len() >= n {
+                break;
+            }
             if let Some(action) = &current.last_action {
                 history.push(action);
             }
@@ -69,7 +86,7 @@ impl PartialEq for SearchNode {
 
 impl PartialOrd for SearchNode {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.score.total.partial_cmp(&other.score.total)
+        Some(self.cmp(other))
     }
 }
 

@@ -13,26 +13,31 @@ pub struct LogWidget<'a> {
 
 impl<'a> Widget for LogWidget<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let block = Block::default()
-            .borders(Borders::ALL)
-            .title("Best Trajectory")
-            .border_style(Style::default().fg(Color::White));
-
         let mut items = Vec::new();
+        let mut title = "Best Trajectory".to_string();
+
         if let Some(node) = self.current_node {
-            let history = node.get_history();
-            // Show last 20 actions
-            let start = if history.len() > 20 {
-                history.len() - 20
-            } else {
-                0
-            };
-            for (i, (pid, act)) in history.iter().enumerate().skip(start) {
-                items.push(ListItem::new(format!("{}: {} -> {:?}", i + 1, pid, act)));
+            title = format!("Best Trajectory ({} actions)", node.history_len);
+            let history = node.get_recent_history(20);
+
+            let start_idx = node.history_len.saturating_sub(20);
+
+            for (i, (pid, act)) in history.iter().enumerate() {
+                items.push(ListItem::new(format!(
+                    "{}: {} -> {:?}",
+                    start_idx + i + 1,
+                    pid,
+                    act
+                )));
             }
         } else {
             items.push(ListItem::new("Waiting for data..."));
         }
+
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .title(title)
+            .border_style(Style::default().fg(Color::White));
 
         List::new(items).block(block).render(area, buf);
     }

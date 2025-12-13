@@ -109,6 +109,7 @@ where
         last_action: None,
         score: ScoreDetails::default(),
         signature: start_sig,
+        history_len: 0,
     })];
 
     let mut final_solution: Option<Arc<SearchNode>> = None;
@@ -117,7 +118,9 @@ where
 
     let debug_ctx = Arc::new(DebugContext::new());
 
+    let mut last_step = 0;
     for step in 0..config.steps {
+        last_step = step;
         if beam.is_empty() {
             if config.verbose {
                 println!("💀 Beam died at step {}", step);
@@ -255,19 +258,20 @@ where
         }
         beam = sorted_nodes;
 
-        if let Some(cb) = beam.first() {
-            if config.verbose && step % 10 == 0 {
-                println!(
-                    "Step {}: Best Score {:.1} | Round {} | Hull {} | Boss {} | Beam {}",
-                    step,
-                    cb.score.total,
-                    cb.state.turn_count,
-                    cb.state.hull_integrity,
-                    cb.state.enemy.hp,
-                    beam.len()
-                );
-                println!("  Score Breakdown: {}", cb.score.format_short());
-            }
+        if let Some(cb) = beam.first()
+            && config.verbose
+            && step % 10 == 0
+        {
+            println!(
+                "Step {}: Best Score {:.1} | Round {} | Hull {} | Boss {} | Beam {}",
+                step,
+                cb.score.total,
+                cb.state.turn_count,
+                cb.state.hull_integrity,
+                cb.state.enemy.hp,
+                beam.len()
+            );
+            println!("  Score Breakdown: {}", cb.score.format_short());
         }
     }
 
@@ -279,15 +283,15 @@ where
     let result = final_solution.clone().or(best_partial);
 
     // Report final progress to signal completion (especially if beam died or time limit reached)
-    if let Some(cb) = &progress_callback {
-        if let Some(node) = &result {
-            cb(SearchProgress {
-                step: config.steps, // Indicate completion
-                is_done: true,
-                failed: final_solution.is_none() && beam.is_empty(),
-                node: node.clone(),
-            });
-        }
+    if let Some(cb) = &progress_callback
+        && let Some(node) = &result
+    {
+        cb(SearchProgress {
+            step: last_step, // Report the actual step reached
+            is_done: true,
+            failed: final_solution.is_none() && beam.is_empty(),
+            node: node.clone(),
+        });
     }
 
     result.map(|n| (*n).clone())
@@ -370,6 +374,7 @@ fn expand_node(
                                 last_action: Some(next_action),
                                 score,
                                 signature,
+                                history_len: node.history_len + 1,
                             }));
                         }
                         Err(e) => {

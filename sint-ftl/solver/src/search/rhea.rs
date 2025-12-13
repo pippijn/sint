@@ -52,6 +52,7 @@ where
         last_action: None,
         score: ScoreDetails::default(),
         signature: get_state_signature(&current_state),
+        history_len: 0,
     }));
 
     if config.verbose {
@@ -260,12 +261,14 @@ where
         match driver.apply(pid, act.clone()) {
             Ok(_) => {
                 let next_state = driver.state;
+                let prev_sn = search_node_chain.as_ref().unwrap();
                 let new_sn = Arc::new(SearchNode {
                     state: next_state.clone(),
                     parent: search_node_chain.clone(),
                     last_action: Some((pid.clone(), act.clone())),
                     score: best_ind.score, // Approximate score
                     signature: get_state_signature(&next_state),
+                    history_len: prev_sn.history_len + 1,
                 });
                 search_node_chain = Some(new_sn);
                 current_state = next_state;

@@ -1018,12 +1018,11 @@ pub fn score_static(
         }
 
         // Inaction Penalty: Penalize repeated Pass/VoteReady by the same player
-        if matches!(act, GameAction::Pass | GameAction::VoteReady { .. }) {
-            if let Some(prev_act) = last_action_by_player.get(pid) {
-                if matches!(prev_act, GameAction::Pass | GameAction::VoteReady { .. }) {
-                    details.anti_oscillation -= weights.inaction_penalty;
-                }
-            }
+        if matches!(act, GameAction::Pass | GameAction::VoteReady { .. })
+            && let Some(prev_act) = last_action_by_player.get(pid)
+            && matches!(prev_act, GameAction::Pass | GameAction::VoteReady { .. })
+        {
+            details.anti_oscillation -= weights.inaction_penalty;
         }
         last_action_by_player.insert(pid.clone(), act);
 
