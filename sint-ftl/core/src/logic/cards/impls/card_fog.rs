@@ -37,8 +37,8 @@ impl CardBehavior for FogBankCard {
             // Reveal/Generate the attack now
             let mut rng = StdRng::seed_from_u64(state.rng_seed);
             // 2d6 distribution (2-12)
-            let roll = rng.gen_range(1..=6) + rng.gen_range(1..=6);
-            state.rng_seed = rng.gen();
+            let roll = rng.random_range(1..=6) + rng.random_range(1..=6);
+            state.rng_seed = rng.random();
 
             if let Some(sys) = SystemType::from_u32(roll) {
                 attack.target_system = Some(sys);

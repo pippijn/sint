@@ -71,7 +71,7 @@ impl GameLogic {
 
         // Initialize RNG for shuffling
         let mut rng = StdRng::seed_from_u64(seed);
-        let next_seed = rng.gen();
+        let next_seed = rng.random();
 
         GameState {
             sequence_id: 0,

@@ -2,7 +2,7 @@ use crate::{
     logic::cards::behavior::CardBehavior,
     types::{Card, CardId, CardSolution, CardType, GameState, SystemType},
 };
-use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
+use rand::{prelude::IndexedRandom, rngs::StdRng, Rng, SeedableRng};
 
 pub struct ManOverboardCard;
 
@@ -52,7 +52,7 @@ impl CardBehavior for ManOverboardCard {
                 // Remove player
                 state.players.remove(victim);
             }
-            state.rng_seed = rng.gen();
+            state.rng_seed = rng.random();
 
             state
                 .active_situations

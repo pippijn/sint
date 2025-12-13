@@ -134,8 +134,8 @@ pub fn rhea_search(config: &RHEAConfig, weights: &RheaScoringWeights) -> Option<
                     let mut rng =
                         StdRng::seed_from_u64(config.seed + next_gen_seed_base + i as u64);
                     // Tournament
-                    let p1 = &pop_ref[rng.gen_range(0..pop_ref.len())];
-                    let p2 = &pop_ref[rng.gen_range(0..pop_ref.len())];
+                    let p1 = &pop_ref[rng.random_range(0..pop_ref.len())];
+                    let p2 = &pop_ref[rng.random_range(0..pop_ref.len())];
                     let parent = if p1.score > p2.score { p1 } else { p2 };
 
                     let mut child = parent.clone();
@@ -365,6 +365,6 @@ fn mutate(ind: &mut Individual, _config: &RHEAConfig, rng: &mut impl Rng) {
     }
 
     // Truncate mutation: Cut the tail and let evaluation regrow it.
-    let cut_point = rng.gen_range(0..ind.actions.len());
+    let cut_point = rng.random_range(0..ind.actions.len());
     ind.actions.truncate(cut_point);
 }

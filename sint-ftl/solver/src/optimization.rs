@@ -274,13 +274,13 @@ fn get_param_count(target: Target) -> usize {
 }
 
 fn mutate(rng: &mut impl Rng, genome: &mut Vec<f64>) {
-    let idx = rng.gen_range(0..genome.len());
+    let idx = rng.random_range(0..genome.len());
     // Mutate by +/- 20% or random small noise
-    if rng.gen_bool(0.5) {
-        genome[idx] *= rng.gen_range(0.8..1.2);
+    if rng.random_bool(0.5) {
+        genome[idx] *= rng.random_range(0.8..1.2);
     } else {
         // For multipliers, additive noise should be small
-        genome[idx] += rng.gen_range(-0.1..0.1);
+        genome[idx] += rng.random_range(-0.1..0.1);
     }
     if genome[idx] < 0.0 {
         genome[idx] = 0.0;
@@ -399,7 +399,7 @@ where
 
 pub fn run_ga(config: &OptimizerConfig, tx: Sender<OptimizerMessage>) {
     let param_count = get_param_count(config.target);
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     // Initialize Population
     let default_genome = vec![1.0; param_count];
@@ -487,17 +487,17 @@ pub fn run_ga(config: &OptimizerConfig, tx: Sender<OptimizerMessage>) {
         // Offspring
         while new_pop.len() < config.population {
             // Tournament Selection
-            let p1 = &scored_pop[rng.gen_range(0..elite_count * 2.min(config.population))];
-            let p2 = &scored_pop[rng.gen_range(0..elite_count * 2.min(config.population))];
+            let p1 = &scored_pop[rng.random_range(0..elite_count * 2.min(config.population))];
+            let p2 = &scored_pop[rng.random_range(0..elite_count * 2.min(config.population))];
 
             // Crossover
-            let split = rng.gen_range(0..p1.1.len());
+            let split = rng.random_range(0..p1.1.len());
             let mut child = Vec::new();
             child.extend_from_slice(&p1.1[0..split]);
             child.extend_from_slice(&p2.1[split..]);
 
             // Mutation
-            if rng.gen_bool(0.3) {
+            if rng.random_bool(0.3) {
                 mutate(&mut rng, &mut child);
             }
 
@@ -527,14 +527,14 @@ pub fn run_spsa(config: &OptimizerConfig, tx: Sender<OptimizerMessage>) {
     let mut best_metrics = current_metrics.clone();
 
     for k in 0..config.generations {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
 
         let ak = a / (k as f64 + 1.0 + big_a).powf(alpha);
         let ck = c / (k as f64 + 1.0).powf(gamma);
 
         // Generate Bernoulli perturbation vector (+1 or -1)
         let delta: Vec<f64> = (0..p)
-            .map(|_| if rng.gen_bool(0.5) { 1.0 } else { -1.0 })
+            .map(|_| if rng.random_bool(0.5) { 1.0 } else { -1.0 })
             .collect();
 
         // Theta + ck * delta

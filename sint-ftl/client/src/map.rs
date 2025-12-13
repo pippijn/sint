@@ -1,5 +1,6 @@
 use crate::state::GameContext;
-use leptos::*;
+use leptos::either::Either;
+use leptos::prelude::*;
 use sint_core::{
     logic::pathfinding::find_path, types::MapLayout, Action, AttackEffect, GameAction, GamePhase,
     HazardType, ItemType, Player, Room,
@@ -21,8 +22,8 @@ pub fn MapView(ctx: GameContext) -> impl IntoView {
         {move || {
             let layout_type = state.get().layout;
             match layout_type {
-                MapLayout::Star => view! { <StarMapView ctx=ctx.clone() /> },
-                MapLayout::Torus => view! { <TorusMapView ctx=ctx.clone() /> },
+                MapLayout::Star => Either::Left(view! { <StarMapView ctx=ctx.clone() /> }),
+                MapLayout::Torus => Either::Right(view! { <TorusMapView ctx=ctx.clone() /> }),
             }
         }}
     }
@@ -33,7 +34,7 @@ fn StarMapView(ctx: GameContext) -> impl IntoView {
     let state = ctx.state;
 
     // Layout Logic (Memoized)
-    let layout = create_memo(move |_| {
+    let layout = Memo::new(move |_| {
         let s = state.get();
         // 1. Find Hub (Room 0)
         let mut rooms: Vec<Room> = s.map.rooms.values().cloned().collect();
@@ -85,7 +86,7 @@ fn StarMapView(ctx: GameContext) -> impl IntoView {
         ">
             // Top Row
             <div style="display: flex; gap: 15px; width: 100%;">
-                {{
+                {({
                     let ctx_top = ctx.clone();
                     move || {
                         layout
@@ -103,12 +104,12 @@ fn StarMapView(ctx: GameContext) -> impl IntoView {
                             })
                             .collect::<Vec<_>>()
                     }
-                }}
+                })()}
             </div>
 
             // Hallway (Spine)
             <div style="display: flex; width: 100%;">
-                {{
+                {({
                     let ctx_mid = ctx.clone();
                     move || {
                         layout
@@ -128,12 +129,12 @@ fn StarMapView(ctx: GameContext) -> impl IntoView {
                             })
                             .collect::<Vec<_>>()
                     }
-                }}
+                })()}
             </div>
 
             // Bottom Row
             <div style="display: flex; gap: 15px; width: 100%;">
-                {{
+                {({
                     let ctx_bot = ctx.clone();
                     move || {
                         layout
@@ -151,7 +152,7 @@ fn StarMapView(ctx: GameContext) -> impl IntoView {
                             })
                             .collect::<Vec<_>>()
                     }
-                }}
+                })()}
             </div>
         </div>
     }
@@ -190,7 +191,7 @@ fn TorusMapView(ctx: GameContext) -> impl IntoView {
     // Room 0 -> (0,0), Room 1 -> (0,1)...
     // The Torus generator creates IDs 0..11 sequentially.
 
-    let cells = create_memo(move |_| {
+    let cells = Memo::new(move |_| {
         let s = state.get();
         let mut cell_views = vec![];
 
@@ -217,7 +218,7 @@ fn TorusMapView(ctx: GameContext) -> impl IntoView {
         height: 600px;
         box-sizing: border-box;
         ">
-            {{
+            {({
                 let ctx_inner = ctx.clone();
                 move || {
                     cells
@@ -237,7 +238,7 @@ fn TorusMapView(ctx: GameContext) -> impl IntoView {
                         })
                         .collect::<Vec<_>>()
                 }
-            }}
+            })()}
         </div>
     }
 }
@@ -252,7 +253,7 @@ fn RoomCard(room: Room, ctx: GameContext, door_dir: Option<DoorDirection>) -> im
     let my_pid_memo = my_pid.clone();
     let room_memo = room.clone();
 
-    let calc = create_memo(move |_| {
+    let calc = Memo::new(move |_| {
         let s = state_sig.get();
         let my_pid = &my_pid_memo;
         let room = &room_memo;
@@ -417,56 +418,61 @@ fn RoomCard(room: Room, ctx: GameContext, door_dir: Option<DoorDirection>) -> im
                         let d_style = "position: absolute; width: 20px; height: 20px; z-index: 10; background: #555; border: 1px solid #333;";
                         match door_dir {
                             Some(DoorDirection::Top) => {
+                                Either::Left(
 
-                                view! {
-                                    <div style=format!(
-                                        "{}; top: -10px; left: 50%; transform: translateX(-50%);",
-                                        d_style,
-                                    )></div>
-                                }
-                                    .into_view()
+                                    view! {
+                                        <div style=format!(
+                                            "{}; top: -10px; left: 50%; transform: translateX(-50%);",
+                                            d_style,
+                                        )></div>
+                                    },
+                                )
                             }
                             Some(DoorDirection::Bottom) => {
-                                view! {
-                                    <div style=format!(
-                                        "{}; bottom: -10px; left: 50%; transform: translateX(-50%);",
-                                        d_style,
-                                    )></div>
-                                }
-                                    .into_view()
+                                Either::Left(
+                                    view! {
+                                        <div style=format!(
+                                            "{}; bottom: -10px; left: 50%; transform: translateX(-50%);",
+                                            d_style,
+                                        )></div>
+                                    },
+                                )
                             }
                             Some(DoorDirection::Left) => {
-                                view! {
-                                    <div style=format!(
-                                        "{}; left: -10px; top: 50%; transform: translateY(-50%);",
-                                        d_style,
-                                    )></div>
-                                }
-                                    .into_view()
+                                Either::Left(
+                                    view! {
+                                        <div style=format!(
+                                            "{}; left: -10px; top: 50%; transform: translateY(-50%);",
+                                            d_style,
+                                        )></div>
+                                    },
+                                )
                             }
                             Some(DoorDirection::Right) => {
-                                view! {
-                                    <div style=format!(
-                                        "{}; right: -10px; top: 50%; transform: translateY(-50%);",
-                                        d_style,
-                                    )></div>
-                                }
-                                    .into_view()
+                                Either::Left(
+                                    view! {
+                                        <div style=format!(
+                                            "{}; right: -10px; top: 50%; transform: translateY(-50%);",
+                                            d_style,
+                                        )></div>
+                                    },
+                                )
                             }
-                            _ => view! {}.into_view(),
+                            _ => Either::Right(view! {}),
                         }
                     }
 
                     // Target Indicator
                     {if is_targeted {
-                        view! {
-                            <div style="position: absolute; top: -10px; right: -10px; background: #f44336; color: white; padding: 2px 8px; border-radius: 10px; font-weight: bold; font-size: 0.8em; box-shadow: 0 2px 4px rgba(0,0,0,0.5);">
-                                "TARGET"
-                            </div>
-                        }
-                            .into_view()
+                        Either::Left(
+                            view! {
+                                <div style="position: absolute; top: -10px; right: -10px; background: #f44336; color: white; padding: 2px 8px; border-radius: 10px; font-weight: bold; font-size: 0.8em; box-shadow: 0 2px 4px rgba(0,0,0,0.5);">
+                                    "TARGET"
+                                </div>
+                            },
+                        )
                     } else {
-                        view! {}.into_view()
+                        Either::Right(view! {})
                     }}
 
                     // Header

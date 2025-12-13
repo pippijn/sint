@@ -1,7 +1,8 @@
 use crate::chat::ChatView;
 use crate::map::MapView;
 use crate::state::{provide_game_context, GameContext};
-use leptos::*;
+use leptos::either::Either;
+use leptos::prelude::*;
 use sint_core::{types::MapLayout, Action, GameAction, GamePhase, MetaAction};
 
 #[component]
@@ -70,7 +71,7 @@ pub fn GameView(room_id: String, player_id: String) -> impl IntoView {
 
                 <div style="text-align: right; font-size: 0.9em;">
                     <span style="margin-right: 15px; font-weight: bold; color: #81c784;">
-                        {&pid}
+                        {move || pid.clone()}
                     </span>
                     <span title="Hull Integrity" style="margin-right: 10px;">
                         "🛡 "
@@ -117,37 +118,41 @@ pub fn GameView(room_id: String, player_id: String) -> impl IntoView {
                     // Game Over Overlay
                     {move || {
                         if state.get().phase == GamePhase::GameOver {
-                            view! {
-                                <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100;">
-                                    <h1 style="color: #f44336; font-size: 3em; margin: 0; text-shadow: 0 0 10px #f44336;">
-                                        "GAME OVER"
-                                    </h1>
-                                    <div style="color: white; font-size: 1.2em; margin-top: 10px;">
-                                        "The Steamboat has fallen."
+                            Either::Left(
+                                view! {
+                                    <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100;">
+                                        <h1 style="color: #f44336; font-size: 3em; margin: 0; text-shadow: 0 0 10px #f44336;">
+                                            "GAME OVER"
+                                        </h1>
+                                        <div style="color: white; font-size: 1.2em; margin-top: 10px;">
+                                            "The Steamboat has fallen."
+                                        </div>
+                                        <div style="margin-top: 20px; color: #aaa;">
+                                            "Refresh to try again."
+                                        </div>
                                     </div>
-                                    <div style="margin-top: 20px; color: #aaa;">
-                                        "Refresh to try again."
-                                    </div>
-                                </div>
-                            }
-                                .into_view()
+                                },
+                            )
                         } else if state.get().phase == GamePhase::Victory {
-                            view! {
-                                <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100;">
-                                    <h1 style="color: #4caf50; font-size: 3em; margin: 0; text-shadow: 0 0 10px #4caf50;">
-                                        "VICTORY!"
-                                    </h1>
-                                    <div style="color: white; font-size: 1.2em; margin-top: 10px;">
-                                        "The Steamboat is safe... for now."
-                                    </div>
-                                    <div style="margin-top: 20px; color: #aaa;">
-                                        "All Bosses Defeated."
-                                    </div>
-                                </div>
-                            }
-                                .into_view()
+                            Either::Right(
+                                Either::Left(
+                                    view! {
+                                        <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100;">
+                                            <h1 style="color: #4caf50; font-size: 3em; margin: 0; text-shadow: 0 0 10px #4caf50;">
+                                                "VICTORY!"
+                                            </h1>
+                                            <div style="color: white; font-size: 1.2em; margin-top: 10px;">
+                                                "The Steamboat is safe... for now."
+                                            </div>
+                                            <div style="margin-top: 20px; color: #aaa;">
+                                                "All Bosses Defeated."
+                                            </div>
+                                        </div>
+                                    },
+                                ),
+                            )
                         } else {
-                            view! {}.into_view()
+                            Either::Right(Either::Right(view! {}))
                         }
                     }}
                 </div>
@@ -188,55 +193,62 @@ fn ProposalQueueView(ctx: GameContext) -> impl IntoView {
             {move || {
                 let s = state.get();
                 if s.proposal_queue.is_empty() {
-                    view! {
-                        <div style="color: #666; font-style: italic;">
-                            "No actions planned yet."
-                        </div>
-                    }
-                        .into_view()
+                    Either::Left(
+                        view! {
+                            <div style="color: #666; font-style: italic;">
+                                "No actions planned yet."
+                            </div>
+                        },
+                    )
                 } else {
-                    s.proposal_queue
-                        .iter()
-                        .map(|p| {
-                            let is_mine = p.player_id == pid;
-                            let action_desc = format!("{:?}", p.action);
-                            let c_undo = ctx_undo.clone();
-                            let action_id = p.id.clone();
+                    Either::Right(
+                        s
+                            .proposal_queue
+                            .iter()
+                            .map(|p| {
+                                let is_mine = p.player_id == pid;
+                                let action_desc = format!("{:?}", p.action);
+                                let c_undo = ctx_undo.clone();
+                                let action_id = p.id.clone();
+                                let p_id_disp = p.player_id.clone();
 
-                            view! {
-                                <div style="margin-bottom: 8px; background: #333; padding: 6px; border-radius: 4px; border-left: 3px solid #2196f3;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <span style="font-weight: bold; color: #90caf9;">
-                                            {&p.player_id}
-                                        </span>
-                                        {if is_mine {
-                                            view! {
-                                                <button
-                                                    style="background: #f44336; border: none; color: white; padding: 2px 6px; border-radius: 2px; font-size: 0.7em; cursor: pointer;"
-                                                    on:click=move |_| {
-                                                        c_undo
-                                                            .perform_action
-                                                            .call(
-                                                                Action::Game(GameAction::Undo {
-                                                                    action_id: action_id.clone(),
-                                                                }),
-                                                            )
-                                                    }
-                                                >
-                                                    "UNDO"
-                                                </button>
-                                            }
-                                                .into_view()
-                                        } else {
-                                            view! {}.into_view()
-                                        }}
+                                view! {
+                                    <div style="margin-bottom: 8px; background: #333; padding: 6px; border-radius: 4px; border-left: 3px solid #2196f3;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                                            <span style="font-weight: bold; color: #90caf9;">
+                                                {p_id_disp}
+                                            </span>
+                                            {if is_mine {
+                                                Either::Left(
+                                                    view! {
+                                                        <button
+                                                            style="background: #f44336; border: none; color: white; padding: 2px 6px; border-radius: 2px; font-size: 0.7em; cursor: pointer;"
+                                                            on:click=move |_| {
+                                                                c_undo
+                                                                    .perform_action
+                                                                    .call(
+                                                                        Action::Game(GameAction::Undo {
+                                                                            action_id: action_id.clone(),
+                                                                        }),
+                                                                    )
+                                                            }
+                                                        >
+                                                            "UNDO"
+                                                        </button>
+                                                    },
+                                                )
+                                            } else {
+                                                Either::Right(view! {})
+                                            }}
+                                        </div>
+                                        <div style="color: #ccc; margin-top: 2px;">
+                                            {action_desc}
+                                        </div>
                                     </div>
-                                    <div style="color: #ccc; margin-top: 2px;">{action_desc}</div>
-                                </div>
-                            }
-                        })
-                        .collect::<Vec<_>>()
-                        .into_view()
+                                }
+                            })
+                            .collect::<Vec<_>>(),
+                    )
                 }
             }}
         </div>
@@ -253,12 +265,13 @@ fn EnemyView(ctx: GameContext) -> impl IntoView {
             let e = &s.enemy;
             let hp_percent = (e.hp as f32 / e.max_hp as f32) * 100.0;
             let hp_percent = if hp_percent < 0.0 { 0.0 } else { hp_percent };
+            let name = e.name.clone();
 
             view! {
                 <div style="flex: 0 0 100px; border-bottom: 1px solid #444; margin-bottom: 20px; padding: 10px; background: #221a1a; display: flex; justify-content: space-between; align-items: center;">
                     // Enemy Info
                     <div>
-                        <h2 style="margin: 0; color: #ff5252; font-size: 1.1em;">{&e.name}</h2>
+                        <h2 style="margin: 0; color: #ff5252; font-size: 1.1em;">{name}</h2>
                         <div style="margin-top: 5px; width: 200px; height: 10px; background: #444; border-radius: 5px; overflow: hidden;">
                             <div style=format!(
                                 "width: {}%; height: 100%; background: #ff5252;",
@@ -279,26 +292,29 @@ fn EnemyView(ctx: GameContext) -> impl IntoView {
                                 .get(&attack.target_room)
                                 .map(|r| r.name.clone())
                                 .unwrap_or("Unknown".to_owned());
-                            view! {
-                                <div style="color: #ff9800; font-weight: bold;">
-                                    "⚠ WARNING: ATTACK IMMINENT"
-                                </div>
-                                <div style="font-size: 0.9em; margin-top: 5px;">
-                                    "Target: "
-                                    <span style="color: #fff;">
-                                        {room_name} " (" {attack.target_room} ")"
-                                    </span>
-                                </div>
-                                <div style="font-size: 0.8em; color: #ccc;">
-                                    "Effect: " {format!("{:?}", attack.effect)}
-                                </div>
-                            }
-                                .into_view()
+                            let attack_debug = format!("{:?}", attack.effect);
+                            Either::Left(
+                                view! {
+                                    <div style="color: #ff9800; font-weight: bold;">
+                                        "⚠ WARNING: ATTACK IMMINENT"
+                                    </div>
+                                    <div style="font-size: 0.9em; margin-top: 5px;">
+                                        "Target: "
+                                        <span style="color: #fff;">
+                                            {room_name} " (" {attack.target_room} ")"
+                                        </span>
+                                    </div>
+                                    <div style="font-size: 0.8em; color: #ccc;">
+                                        "Effect: " {attack_debug}
+                                    </div>
+                                },
+                            )
                         } else {
-                            view! {
-                                <div style="color: #81c784;">"No active threat detected."</div>
-                            }
-                                .into_view()
+                            Either::Right(
+                                view! {
+                                    <div style="color: #81c784;">"No active threat detected."</div>
+                                },
+                            )
                         }}
                     </div>
                 </div>
@@ -316,69 +332,78 @@ fn MorningReportView(ctx: GameContext) -> impl IntoView {
             let has_event = s.latest_event.is_some();
             let has_situations = !s.active_situations.is_empty();
             if has_event || has_situations {
+                Either::Left(
 
-                view! {
-                    <div style="background: #673ab7; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #9575cd;">
-                        <h3 style="margin-top: 0;">"Morning Report"</h3>
+                    view! {
+                        <div style="background: #673ab7; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #9575cd;">
+                            <h3 style="margin-top: 0;">"Morning Report"</h3>
 
-                        // Latest Event (Just Drawn)
-                        {if let Some(card) = &s.latest_event {
-                            view! {
-                                <div style="margin-bottom: 20px; background: #fff; color: #222; padding: 15px; border-radius: 4px; border-left: 5px solid #ff4081;">
-                                    <div style="font-size: 0.8em; text-transform: uppercase; color: #888; font-weight: bold;">
-                                        "Just Drawn"
-                                    </div>
-                                    <h2 style="margin: 5px 0;">{&card.title}</h2>
-                                    <div>{&card.description}</div>
-                                </div>
-                            }
-                                .into_view()
-                        } else {
-                            view! {}.into_view()
-                        }}
+                            // Latest Event (Just Drawn)
+                            {if let Some(card) = &s.latest_event {
+                                let title = card.title.clone();
+                                let description = card.description.clone();
+                                Either::Left(
+                                    view! {
+                                        <div style="margin-bottom: 20px; background: #fff; color: #222; padding: 15px; border-radius: 4px; border-left: 5px solid #ff4081;">
+                                            <div style="font-size: 0.8em; text-transform: uppercase; color: #888; font-weight: bold;">
+                                                "Just Drawn"
+                                            </div>
+                                            <h2 style="margin: 5px 0;">{title}</h2>
+                                            <div>{description}</div>
+                                        </div>
+                                    },
+                                )
+                            } else {
+                                Either::Right(view! {})
+                            }}
 
-                        // Active Situations
-                        {if has_situations {
-                            view! {
-                                <div>
-                                    <h4 style="margin: 10px 0;">"Active Situations"</h4>
-                                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                                        {s
-                                            .active_situations
-                                            .iter()
-                                            .map(|card| {
-                                                view! {
-                                                    <div style="background: #eee; color: #222; padding: 10px; border-radius: 4px; width: 200px;">
-                                                        <strong>{&card.title}</strong>
-                                                        <div style="font-size: 0.8em; margin-top: 5px;">
-                                                            {&card.description}
-                                                        </div>
-                                                        {if let Some(sol) = &card.solution {
-                                                            view! {
-                                                                <div style="font-size: 0.7em; margin-top: 5px; color: #555;">
-                                                                    "Solution: " {format!("{:?}", sol)}
+                            // Active Situations
+                            {if has_situations {
+                                Either::Left(
+                                    view! {
+                                        <div>
+                                            <h4 style="margin: 10px 0;">"Active Situations"</h4>
+                                            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                                {s
+                                                    .active_situations
+                                                    .iter()
+                                                    .map(|card| {
+                                                        let title = card.title.clone();
+                                                        let description = card.description.clone();
+                                                        view! {
+                                                            <div style="background: #eee; color: #222; padding: 10px; border-radius: 4px; width: 200px;">
+                                                                <strong>{title}</strong>
+                                                                <div style="font-size: 0.8em; margin-top: 5px;">
+                                                                    {description}
                                                                 </div>
-                                                            }
-                                                                .into_view()
-                                                        } else {
-                                                            view! {}.into_view()
-                                                        }}
-                                                    </div>
-                                                }
-                                            })
-                                            .collect::<Vec<_>>()}
-                                    </div>
-                                </div>
-                            }
-                                .into_view()
-                        } else {
-                            view! {}.into_view()
-                        }}
-                    </div>
-                }
-                    .into_view()
+                                                                {if let Some(sol) = &card.solution {
+                                                                    let sol_debug = format!("{:?}", sol);
+                                                                    Either::Left(
+                                                                        view! {
+                                                                            <div style="font-size: 0.7em; margin-top: 5px; color: #555;">
+                                                                                "Solution: " {sol_debug}
+                                                                            </div>
+                                                                        },
+                                                                    )
+                                                                } else {
+                                                                    Either::Right(view! {})
+                                                                }}
+                                                            </div>
+                                                        }
+                                                    })
+                                                    .collect::<Vec<_>>()}
+                                            </div>
+                                        </div>
+                                    },
+                                )
+                            } else {
+                                Either::Right(view! {})
+                            }}
+                        </div>
+                    },
+                )
             } else {
-                view! {}.into_view()
+                Either::Right(view! {})
             }
         }}
     }
@@ -391,7 +416,7 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
     let ctx_ready = ctx.clone();
     let ctx_update = ctx.clone();
 
-    let (name_input, set_name_input) = create_signal(pid.clone());
+    let (name_input, set_name_input) = signal(pid.clone());
 
     view! {
         <div style="background: #333; padding: 15px; border-radius: 8px;">
@@ -415,223 +440,232 @@ fn MyStatus(ctx: GameContext) -> impl IntoView {
                     let is_ready = p.is_ready;
                     let c_ready = ctx_ready.clone();
                     let is_lobby = s.phase == GamePhase::Lobby;
+                    Either::Left(
 
-                    view! {
-                        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
-                            // Name Input or Display
-                            {if is_lobby {
-                                let c_up = ctx_update.clone();
-                                let c_map = ctx_update.clone();
-                                let current_layout = s.layout;
-                                view! {
-                                    <div style="width: 100%; display: flex; flex-direction: column; gap: 5px; margin-bottom: 5px;">
-                                        <div style="display: flex; gap: 5px;">
-                                            <input
-                                                type="text"
-                                                prop:value=name_input
-                                                on:input=move |ev| {
-                                                    set_name_input.set(event_target_value(&ev))
-                                                }
-                                                style="flex: 1; padding: 6px; border-radius: 4px; border: 1px solid #555; background: #222; color: white; min-width: 0;"
-                                            />
+                        view! {
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                                // Name Input or Display
+                                {if is_lobby {
+                                    let c_up = ctx_update.clone();
+                                    let c_map = ctx_update.clone();
+                                    let current_layout = s.layout;
+                                    Either::Left(
+                                        view! {
+                                            <div style="width: 100%; display: flex; flex-direction: column; gap: 5px; margin-bottom: 5px;">
+                                                <div style="display: flex; gap: 5px;">
+                                                    <input
+                                                        type="text"
+                                                        prop:value=name_input
+                                                        on:input=move |ev| {
+                                                            set_name_input.set(event_target_value(&ev))
+                                                        }
+                                                        style="flex: 1; padding: 6px; border-radius: 4px; border: 1px solid #555; background: #222; color: white; min-width: 0;"
+                                                    />
+                                                    <button
+                                                        on:click=move |_| {
+                                                            c_up.perform_action
+                                                                .call(
+                                                                    Action::Meta(MetaAction::SetName {
+                                                                        name: name_input.get(),
+                                                                    }),
+                                                                )
+                                                        }
+                                                        style="padding: 6px 12px; background: #2196f3; color: white; border: none; border-radius: 4px; cursor: pointer;"
+                                                    >
+                                                        "UPDATE"
+                                                    </button>
+                                                </div>
+
+                                                // Map Layout Selector
+                                                <div style="display: flex; align-items: center; gap: 5px; background: #222; padding: 5px; border-radius: 4px;">
+                                                    <span style="font-size: 0.9em; color: #aaa;">"Map:"</span>
+                                                    <select
+                                                        on:change=move |ev| {
+                                                            let val = event_target_value(&ev);
+                                                            let layout = match val.as_str() {
+                                                                "Torus" => MapLayout::Torus,
+                                                                _ => MapLayout::Star,
+                                                            };
+                                                            c_map
+                                                                .perform_action
+                                                                .call(Action::Meta(MetaAction::SetMapLayout { layout }));
+                                                        }
+                                                        prop:value=format!("{:?}", current_layout)
+                                                        style="flex: 1; padding: 4px; border-radius: 2px; border: 1px solid #555; background: #333; color: white;"
+                                                    >
+                                                        <option value="Star">"Star Layout"</option>
+                                                        <option value="Torus">"Torus Layout"</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        },
+                                    )
+                                } else {
+                                    let layout_name = format!("{:?}", s.layout);
+                                    Either::Right(
+                                        view! {
+                                            <div style="width: 100%; margin-bottom: 5px;">
+                                                <div style="font-size: 1.1em;">
+                                                    "👤 " <strong>{p.name.clone()}</strong>
+                                                </div>
+                                                <div style="font-size: 0.8em; color: #888;">
+                                                    "Map: " {layout_name}
+                                                </div>
+                                            </div>
+                                        },
+                                    )
+                                }}
+                                <div style="width: 100%; display: flex; flex-direction: column; gap: 5px;">
+                                    <div>
+                                        "📍 Location: " <strong>{room_name}</strong> " ("
+                                        {p.room_id} ")"
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between;">
+                                        <span>
+                                            "❤ HP: " <strong>{p.hp}</strong> "/"
+                                            {sint_core::logic::MAX_PLAYER_HP}
+                                        </span>
+                                        <span>
+                                            "⚡ AP: " <strong>{p.ap}</strong> "/"
+                                            {sint_core::logic::MAX_PLAYER_AP}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div style="width: 100%; display: flex; gap: 5px; align-items: center; background: #222; padding: 5px; border-radius: 4px;">
+                                    "🎒 "
+                                    {if p.inventory.is_empty() {
+                                        Either::Left(
+                                            view! {
+                                                <span style="color: #666; font-style: italic;">
+                                                    "Empty"
+                                                </span>
+                                            },
+                                        )
+                                    } else {
+                                        Either::Right(
+                                            p
+                                                .inventory
+                                                .iter()
+                                                .enumerate()
+                                                .map(|(i, item)| {
+                                                    let (emoji, name) = match item {
+                                                        sint_core::ItemType::Peppernut => ("🍪", "Peppernut"),
+                                                        sint_core::ItemType::Extinguisher => {
+                                                            ("🧯", "Extinguisher")
+                                                        }
+                                                        sint_core::ItemType::Keychain => ("🔑", "Keychain"),
+                                                        sint_core::ItemType::Wheelbarrow => ("🛒", "Wheelbarrow"),
+                                                        sint_core::ItemType::Mitre => ("🧢", "Mitre"),
+                                                    };
+                                                    let c_drop = ctx_update.clone();
+                                                    let is_planning = s.phase == GamePhase::TacticalPlanning;
+                                                    let cursor = if is_planning {
+                                                        "pointer"
+                                                    } else {
+                                                        "default"
+                                                    };
+                                                    let title = if is_planning {
+                                                        format!("{} (Click to Drop)", name)
+                                                    } else {
+                                                        name.to_owned()
+                                                    };
+
+                                                    view! {
+                                                        <span
+                                                            title=title
+                                                            style=format!(
+                                                                "font-size: 1.2em; cursor: {}; margin-right: 5px;",
+                                                                cursor,
+                                                            )
+                                                            on:click=move |_| {
+                                                                if is_planning {
+                                                                    c_drop
+                                                                        .perform_action
+                                                                        .call(Action::Game(GameAction::Drop { item_index: i }));
+                                                                }
+                                                            }
+                                                        >
+                                                            {emoji}
+                                                        </span>
+                                                    }
+                                                })
+                                                .collect::<Vec<_>>(),
+                                        )
+                                    }}
+                                </div>
+                                {if is_lobby {
+                                    let c_ready_click = c_ready.clone();
+                                    Either::Left(
+                                        view! {
                                             <button
                                                 on:click=move |_| {
-                                                    c_up.perform_action
-                                                        .call(
-                                                            Action::Meta(MetaAction::SetName {
-                                                                name: name_input.get(),
-                                                            }),
-                                                        )
-                                                }
-                                                style="padding: 6px 12px; background: #2196f3; color: white; border: none; border-radius: 4px; cursor: pointer;"
-                                            >
-                                                "UPDATE"
-                                            </button>
-                                        </div>
-
-                                        // Map Layout Selector
-                                        <div style="display: flex; align-items: center; gap: 5px; background: #222; padding: 5px; border-radius: 4px;">
-                                            <span style="font-size: 0.9em; color: #aaa;">"Map:"</span>
-                                            <select
-                                                on:change=move |ev| {
-                                                    let val = event_target_value(&ev);
-                                                    let layout = match val.as_str() {
-                                                        "Torus" => MapLayout::Torus,
-                                                        _ => MapLayout::Star,
-                                                    };
-                                                    c_map
+                                                    c_ready_click
                                                         .perform_action
-                                                        .call(Action::Meta(MetaAction::SetMapLayout { layout }));
+                                                        .call(
+                                                            Action::Game(GameAction::VoteReady {
+                                                                ready: !is_ready,
+                                                            }),
+                                                        );
                                                 }
-                                                prop:value=format!("{:?}", current_layout)
-                                                style="flex: 1; padding: 4px; border-radius: 2px; border: 1px solid #555; background: #333; color: white;"
-                                            >
-                                                <option value="Star">"Star Layout"</option>
-                                                <option value="Torus">"Torus Layout"</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                }
-                                    .into_view()
-                            } else {
-                                let layout_name = format!("{:?}", s.layout);
-                                view! {
-                                    <div style="width: 100%; margin-bottom: 5px;">
-                                        <div style="font-size: 1.1em;">
-                                            "👤 " <strong>{p.name}</strong>
-                                        </div>
-                                        <div style="font-size: 0.8em; color: #888;">
-                                            "Map: " {layout_name}
-                                        </div>
-                                    </div>
-                                }
-                                    .into_view()
-                            }}
-                            <div style="width: 100%; display: flex; flex-direction: column; gap: 5px;">
-                                <div>
-                                    "📍 Location: " <strong>{room_name}</strong> " (" {p.room_id}
-                                    ")"
-                                </div>
-                                <div style="display: flex; justify-content: space-between;">
-                                    <span>
-                                        "❤ HP: " <strong>{p.hp}</strong> "/"
-                                        {sint_core::logic::MAX_PLAYER_HP}
-                                    </span>
-                                    <span>
-                                        "⚡ AP: " <strong>{p.ap}</strong> "/"
-                                        {sint_core::logic::MAX_PLAYER_AP}
-                                    </span>
-                                </div>
-                            </div>
-                            <div style="width: 100%; display: flex; gap: 5px; align-items: center; background: #222; padding: 5px; border-radius: 4px;">
-                                "🎒 "
-                                {if p.inventory.is_empty() {
-                                    view! {
-                                        <span style="color: #666; font-style: italic;">
-                                            "Empty"
-                                        </span>
-                                    }
-                                        .into_view()
-                                } else {
-                                    p.inventory
-                                        .iter()
-                                        .enumerate()
-                                        .map(|(i, item)| {
-                                            let (emoji, name) = match item {
-                                                sint_core::ItemType::Peppernut => ("🍪", "Peppernut"),
-                                                sint_core::ItemType::Extinguisher => {
-                                                    ("🧯", "Extinguisher")
-                                                }
-                                                sint_core::ItemType::Keychain => ("🔑", "Keychain"),
-                                                sint_core::ItemType::Wheelbarrow => ("🛒", "Wheelbarrow"),
-                                                sint_core::ItemType::Mitre => ("🧢", "Mitre"),
-                                            };
-                                            let c_drop = ctx_update.clone();
-                                            let is_planning = s.phase == GamePhase::TacticalPlanning;
-                                            let cursor = if is_planning {
-                                                "pointer"
-                                            } else {
-                                                "default"
-                                            };
-                                            let title = if is_planning {
-                                                format!("{} (Click to Drop)", name)
-                                            } else {
-                                                name.to_owned()
-                                            };
-
-                                            view! {
-                                                <span
-                                                    title=title
-                                                    style=format!(
-                                                        "font-size: 1.2em; cursor: {}; margin-right: 5px;",
-                                                        cursor,
-                                                    )
-                                                    on:click=move |_| {
-                                                        if is_planning {
-                                                            c_drop
-                                                                .perform_action
-                                                                .call(Action::Game(GameAction::Drop { item_index: i }));
-                                                        }
+                                                style=move || {
+                                                    if is_ready {
+                                                        "width: 100%; background: #4caf50; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; margin-top: 5px;"
+                                                    } else {
+                                                        "width: 100%; background: #e91e63; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; box-shadow: 0 0 10px rgba(233, 30, 99, 0.4); margin-top: 5px;"
                                                     }
-                                                >
-                                                    {emoji}
-                                                </span>
-                                            }
-                                        })
-                                        .collect::<Vec<_>>()
-                                        .into_view()
+                                                }
+                                            >
+                                                {if is_ready {
+                                                    "✅ WAITING FOR OTHERS..."
+                                                } else {
+                                                    "🚀 VOTE START"
+                                                }}
+                                            </button>
+                                        },
+                                    )
+                                } else {
+                                    let c_ready_click = c_ready.clone();
+                                    Either::Right(
+                                        view! {
+                                            <button
+                                                on:click=move |_| {
+                                                    c_ready_click
+                                                        .perform_action
+                                                        .call(
+                                                            Action::Game(GameAction::VoteReady {
+                                                                ready: !is_ready,
+                                                            }),
+                                                        );
+                                                }
+                                                style=move || {
+                                                    if is_ready {
+                                                        "width: 100%; background: #4caf50; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; margin-top: 5px;"
+                                                    } else {
+                                                        "width: 100%; background: #555; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; margin-top: 5px;"
+                                                    }
+                                                }
+                                            >
+                                                {if is_ready { "✅ READY" } else { "❌ NOT READY" }}
+                                            </button>
+                                        },
+                                    )
                                 }}
                             </div>
-                            {if is_lobby {
-                                let c_ready_click = c_ready.clone();
-                                view! {
-                                    <button
-                                        on:click=move |_| {
-                                            c_ready_click
-                                                .perform_action
-                                                .call(
-                                                    Action::Game(GameAction::VoteReady {
-                                                        ready: !is_ready,
-                                                    }),
-                                                );
-                                        }
-                                        style=move || {
-                                            if is_ready {
-                                                "width: 100%; background: #4caf50; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; margin-top: 5px;"
-                                            } else {
-                                                "width: 100%; background: #e91e63; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; box-shadow: 0 0 10px rgba(233, 30, 99, 0.4); margin-top: 5px;"
-                                            }
-                                        }
-                                    >
-                                        {if is_ready {
-                                            "✅ WAITING FOR OTHERS..."
-                                        } else {
-                                            "🚀 VOTE START"
-                                        }}
-                                    </button>
-                                }
-                                    .into_view()
-                            } else {
-                                let c_ready_click = c_ready.clone();
-                                view! {
-                                    <button
-                                        on:click=move |_| {
-                                            c_ready_click
-                                                .perform_action
-                                                .call(
-                                                    Action::Game(GameAction::VoteReady {
-                                                        ready: !is_ready,
-                                                    }),
-                                                );
-                                        }
-                                        style=move || {
-                                            if is_ready {
-                                                "width: 100%; background: #4caf50; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; margin-top: 5px;"
-                                            } else {
-                                                "width: 100%; background: #555; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; margin-top: 5px;"
-                                            }
-                                        }
-                                    >
-                                        {if is_ready { "✅ READY" } else { "❌ NOT READY" }}
-                                    </button>
-                                }
-                                    .into_view()
-                            }}
-                        </div>
-                    }
-                        .into_view()
+                        },
+                    )
                 } else {
-                    view! {
-                        <div style="display: flex; flex-direction: column; gap: 10px; align-items: center; justify-content: center; height: 100px;">
-                            <div style="color: #4caf50; font-weight: bold; font-size: 1.1em;">
-                                "⏳ Connecting to Ship..."
+                    Either::Right(
+                        view! {
+                            <div style="display: flex; flex-direction: column; gap: 10px; align-items: center; justify-content: center; height: 100px;">
+                                <div style="color: #4caf50; font-weight: bold; font-size: 1.1em;">
+                                    "⏳ Connecting to Ship..."
+                                </div>
+                                <div style="font-size: 0.8em; color: #888;">
+                                    "Syncing Neural Link for " {pid.clone()}
+                                </div>
                             </div>
-                            <div style="font-size: 0.8em; color: #888;">
-                                "Syncing Neural Link for " {pid.clone()}
-                            </div>
-                        </div>
-                    }
-                        .into_view()
+                        },
+                    )
                 }
             }}
         </div>
@@ -652,27 +686,25 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                     let s = state.get();
                     if s.phase != GamePhase::TacticalPlanning {
                         return vec![
-
-                            view! {
-                                <div style="color: #888; font-style: italic;">
-                                    "Waiting for Tactical Planning..."
-                                </div>
-                            }
-                                .into_view(),
+                            Either::Left(
+                                view! {
+                                    <div style="color: #888; font-style: italic;">
+                                        "Waiting for Tactical Planning..."
+                                    </div>
+                                },
+                            ),
                         ];
                     }
                     let valid_actions = sint_core::logic::actions::get_valid_actions(&s, &pid);
                     if valid_actions.is_empty() {
                         return vec![
-
-                            // Use Core Logic to get valid actions
-
-                            view! {
-                                <div style="color: #888; font-style: italic;">
-                                    "No valid actions available."
-                                </div>
-                            }
-                                .into_view(),
+                            Either::Left(
+                                view! {
+                                    <div style="color: #888; font-style: italic;">
+                                        "No valid actions available."
+                                    </div>
+                                },
+                            ),
                         ];
                     }
                     valid_actions
@@ -685,8 +717,9 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                     | GameAction::VoteReady { .. } => None,
                                     _ => {
                                         Some(
-                                            render_action_button(ctx_action.clone(), &s, &pid, ga)
-                                                .into_view(),
+                                            Either::Right(
+                                                render_action_button(ctx_action.clone(), &s, &pid, ga),
+                                            ),
                                         )
                                     }
                                 }
@@ -694,7 +727,7 @@ fn Actions(ctx: GameContext) -> impl IntoView {
                                 None
                             }
                         })
-                        .collect::<Vec<View>>()
+                        .collect::<Vec<Either<_, _>>>()
                 }}
             </div>
         </div>

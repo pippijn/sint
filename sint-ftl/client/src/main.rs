@@ -1,4 +1,5 @@
-use leptos::*;
+use leptos::mount::mount_to_body;
+use leptos::prelude::*;
 use sint_client::App;
 
 fn main() {

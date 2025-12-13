@@ -111,8 +111,8 @@ impl ActionHandler for ShootHandler {
         if !simulation {
             // Calculate Hit
             let mut rng = StdRng::seed_from_u64(state.rng_seed);
-            let roll: u32 = rng.gen_range(1..=6);
-            state.rng_seed = rng.gen();
+            let roll: u32 = rng.random_range(1..=6);
+            state.rng_seed = rng.random();
 
             use crate::logic::cards::get_behavior;
 

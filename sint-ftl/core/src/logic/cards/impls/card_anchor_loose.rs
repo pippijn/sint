@@ -31,9 +31,9 @@ impl CardBehavior for AnchorLooseCard {
 
         let room_keys: Vec<u32> = state.map.rooms.keys().collect();
         if !room_keys.is_empty() {
-            let idx = rng.gen_range(0..room_keys.len());
+            let idx = rng.random_range(0..room_keys.len());
             let target = room_keys[idx];
-            state.rng_seed = rng.gen();
+            state.rng_seed = rng.random();
 
             if let Some(room) = state.map.rooms.get_mut(&target) {
                 room.hazards.push(HazardType::Water);

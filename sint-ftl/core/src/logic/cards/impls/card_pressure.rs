@@ -29,9 +29,9 @@ impl CardBehavior for HighPressureCard {
             if let Some(room) = state.map.rooms.get(&current_room_id) {
                 if !room.neighbors.is_empty() {
                     let mut rng = StdRng::seed_from_u64(state.rng_seed);
-                    let idx = rng.gen_range(0..room.neighbors.len());
+                    let idx = rng.random_range(0..room.neighbors.len());
                     let next_room = room.neighbors[idx];
-                    state.rng_seed = rng.gen();
+                    state.rng_seed = rng.random();
 
                     if let Some(p) = state.players.get_mut(&pid) {
                         p.room_id = next_room;

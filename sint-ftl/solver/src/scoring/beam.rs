@@ -75,14 +75,17 @@ pub struct BeamScoringWeights {
     pub critical_hull_penalty_per_hp: f64,
     pub critical_fire_threshold: usize,
     pub critical_fire_penalty_per_token: f64,
-    pub critical_survival_mult: f64, // New: Multiplier for offensive scores when critical
-    pub critical_threat_mult: f64,   // New: Multiplier for defensive penalties when critical
+    pub critical_system_hazard_penalty: f64, // New: Penalty for hazard in critical system
+    pub critical_survival_mult: f64,
+    pub critical_threat_mult: f64,
 
     // Exponents (Non-Linearity)
     pub hull_exponent: f64,
     pub fire_exponent: f64,
     pub cargo_repair_exponent: f64,
     pub hull_risk_exponent: f64,
+    pub panic_fire_exponent: f64, // New
+    pub panic_hull_exponent: f64, // New
 
     // Multipliers & Ranges
     pub fire_urgency_mult: f64,
@@ -163,14 +166,17 @@ impl Default for BeamScoringWeights {
             critical_hull_penalty_per_hp: 50_000.0,
             critical_fire_threshold: 2,
             critical_fire_penalty_per_token: 25_000.0,
-            critical_survival_mult: 0.1, // New: Deprioritize offense when dying
-            critical_threat_mult: 5.0,   // New: Amplify threats when dying
+            critical_system_hazard_penalty: 50_000.0, // Major penalty
+            critical_survival_mult: 0.1,
+            critical_threat_mult: 5.0,
 
             // Exponents
             hull_exponent: 2.2,
             fire_exponent: 2.0,
             cargo_repair_exponent: 1.5,
             hull_risk_exponent: 1.1,
+            panic_fire_exponent: 2.0, // Quadratic panic
+            panic_hull_exponent: 1.5, // Accelerated panic
 
             // Multipliers
             fire_urgency_mult: 5.0,
@@ -270,8 +276,10 @@ pub fn score_static(
 
     if is_critical {
         let mut panic_score = -weights.critical_hull_penalty_base;
-        panic_score -= (weights.critical_hull_threshold + 1.0 - state.hull_integrity as f64)
-            * weights.critical_hull_penalty_per_hp;
+        let deficit =
+            (weights.critical_hull_threshold + 1.0 - state.hull_integrity as f64).max(0.0);
+        panic_score -=
+            deficit.powf(weights.panic_hull_exponent) * weights.critical_hull_penalty_per_hp;
 
         score += panic_score;
     }
@@ -286,7 +294,10 @@ pub fn score_static(
 
     if fire_count_total >= weights.critical_fire_threshold {
         // Massive penalty for uncontrolled fire
-        score -= (fire_count_total as f64) * weights.critical_fire_penalty_per_token;
+        let excess_fire =
+            (fire_count_total as f64 - weights.critical_fire_threshold as f64 + 1.0).max(1.0);
+        score -=
+            excess_fire.powf(weights.panic_fire_exponent) * weights.critical_fire_penalty_per_token;
     }
 
     // --- 1. Vital Stats & Progression ---
@@ -356,9 +367,15 @@ pub fn score_static(
                 if !room.hazards.is_empty() {
                     let has_disabling_hazard = room.hazards.contains(&HazardType::Fire)
                         || room.hazards.contains(&HazardType::Water);
+
+                    // Penalty for the system being currently disabled
                     if has_disabling_hazard {
                         score -= weights.system_disabled_penalty;
                     }
+
+                    // New: Penalty for ANY hazard in a critical room (Danger Zone)
+                    // Even if not disabled yet (e.g. fire just started), we want to clear it ASAP.
+                    score -= weights.critical_system_hazard_penalty * (room.hazards.len() as f64);
                 }
             }
         }
@@ -560,6 +577,12 @@ pub fn score_static(
 
         // Dynamic Role Override: Critical Health (Seek Healing)
         if p.hp < 2 {
+            assigned_room = None;
+        }
+
+        // Dynamic Role Override: Fire Panic
+        // If the ship is burning significantly, forget your post and grab a bucket.
+        if fire_count_total >= weights.critical_fire_threshold {
             assigned_room = None;
         }
 

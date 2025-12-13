@@ -2,11 +2,10 @@ use crate::ws::{ClientMessage, ServerMessage};
 use futures::channel::mpsc;
 use futures::{SinkExt, StreamExt};
 use gloo_net::websocket::{futures::WebSocket, Message};
-use leptos::*;
+use leptos::prelude::*;
 use sint_core::{Action, GameLogic, GameState, MetaAction, PlayerEvent};
-use std::cell::RefCell;
 use std::collections::VecDeque;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 use wasm_bindgen_futures::spawn_local;
 
@@ -19,7 +18,7 @@ pub struct GameContext {
 }
 
 #[derive(Clone)]
-pub struct ActionCallback(Rc<dyn Fn(Action)>);
+pub struct ActionCallback(Arc<dyn Fn(Action) + Send + Sync>);
 
 impl ActionCallback {
     pub fn call(&self, action: Action) {
@@ -30,7 +29,7 @@ impl ActionCallback {
 pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
     // Start empty, let Join actions populate players
     let initial_state = GameLogic::new_game(vec![], 12345);
-    let (state, set_state) = create_signal(initial_state.clone());
+    let (state, set_state) = signal(initial_state.clone());
 
     // Channel for sending messages to WebSocket
     let (tx, mut rx) = mpsc::channel::<String>(100);
@@ -41,13 +40,13 @@ pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
         pending_events: VecDeque<PlayerEvent>,
     }
 
-    let internal = Rc::new(RefCell::new(InternalState {
+    let internal = Arc::new(Mutex::new(InternalState {
         verified_state: initial_state.clone(),
         pending_events: VecDeque::new(),
     }));
 
     // Connection Status Signal
-    let (is_connected, set_connected) = create_signal(false);
+    let (is_connected, set_connected) = signal(false);
 
     // Spawn WebSocket Task
     let internal_ws = internal.clone();
@@ -70,7 +69,6 @@ pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
             Ok(ws) => ws,
             Err(e) => {
                 leptos::logging::error!("Failed to connect: {:?}", e);
-                // We can't update signal easily here if we return, but we can log.
                 return;
             }
         };
@@ -128,7 +126,7 @@ pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
                         Some(Ok(Message::Text(text))) => {
                              match serde_json::from_str::<ServerMessage>(&text) {
                                 Ok(ServerMessage::Event { sequence_id, data }) => {
-                                    let mut guard = internal_ws.borrow_mut();
+                                    let mut guard = internal_ws.lock().unwrap();
 
                                     if let Ok(event) = serde_json::from_value::<PlayerEvent>(data) {
                                         leptos::logging::log!("Recv Seq: {}", sequence_id);
@@ -178,14 +176,14 @@ pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
                                         }
                                     }
                                 }
-                                Ok(ServerMessage::Welcome { room_id }) => {
-                                    leptos::logging::log!("Welcome to {}", room_id);
+                                Ok(ServerMessage::Welcome { room_id: _ }) => {
+                                    // leptos::logging::log!("Welcome to {}", room_id);
                                 }
                                 Ok(ServerMessage::SyncRequest { requestor_id }) => {
                                     if requestor_id != pid_ws {
-                                        let guard = internal_ws.borrow();
+                                        let guard = internal_ws.lock().unwrap();
                                         if guard.verified_state.sequence_id > 0 {
-                                            leptos::logging::log!("Providing Sync State");
+                                            // leptos::logging::log!("Providing Sync State");
                                             let sync_action = PlayerEvent {
                                                 id: Uuid::new_v4(),
                                                 player_id: pid_ws.clone(),
@@ -202,7 +200,7 @@ pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
                                     }
                                 }
                                 Ok(ServerMessage::Error { msg }) => {
-                                    leptos::logging::error!("Server Error: {}", msg);
+                                    leptos::logging::error!("Server Error: {:?}", msg);
                                 }
                                 Err(e) => {
                                     leptos::logging::error!("Parse error: {:?}", e);
@@ -229,10 +227,10 @@ pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
     // Action Callback
     let internal_action = internal.clone();
     let pid_action = player_id.clone();
-    let tx_cell = RefCell::new(tx); // Wrap sender in RefCell
+    let tx_cell = Arc::new(Mutex::new(tx)); // Clone tx for action callback
 
-    let perform_action = ActionCallback(Rc::new(move |action: Action| {
-        let mut guard = internal_action.borrow_mut();
+    let perform_action = ActionCallback(Arc::new(move |action: Action| {
+        let mut guard = internal_action.lock().unwrap();
 
         // 1. Optimistic Apply to CURRENT Predicted State
         let mut current_predicted = guard.verified_state.clone();
@@ -263,7 +261,8 @@ pub fn provide_game_context(room_id: String, player_id: String) -> GameContext {
                 };
 
                 let _ = tx_cell
-                    .borrow_mut()
+                    .lock()
+                    .unwrap()
                     .try_send(serde_json::to_string(&msg).unwrap());
             }
             Err(e) => {

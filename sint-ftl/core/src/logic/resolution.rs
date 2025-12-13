@@ -98,7 +98,7 @@ pub fn resolve_hazards(state: &mut GameState) {
                 >= threshold
             {
                 for &neighbor in &room.neighbors {
-                    if rng.gen_bool(0.5) {
+                    if rng.random_bool(0.5) {
                         fire_spreads.push(neighbor);
                     }
                 }
@@ -143,7 +143,7 @@ pub fn resolve_hazards(state: &mut GameState) {
         }
     }
 
-    state.rng_seed = rng.gen();
+    state.rng_seed = rng.random();
 }
 
 pub fn resolve_proposal_queue(state: &mut GameState, simulation: bool) {

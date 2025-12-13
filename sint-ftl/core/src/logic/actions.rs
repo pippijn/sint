@@ -12,7 +12,7 @@ fn deterministic_uuid(state: &mut GameState) -> Uuid {
     let mut rng = StdRng::seed_from_u64(state.rng_seed);
     let mut bytes = [0u8; 16];
     rng.fill(&mut bytes);
-    state.rng_seed = rng.gen();
+    state.rng_seed = rng.random();
 
     // Set UUID v4 bits manually to ensure it looks valid
     bytes[6] = (bytes[6] & 0x0f) | 0x40; // Version 4
@@ -356,8 +356,8 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
                 // Generate telegraph normally
                 let mut rng = StdRng::seed_from_u64(state.rng_seed);
                 // 2d6 distribution (2-12). 11-12 is a miss.
-                let roll = rng.gen_range(1..=6) + rng.gen_range(1..=6);
-                state.rng_seed = rng.gen();
+                let roll = rng.random_range(1..=6) + rng.random_range(1..=6);
+                state.rng_seed = rng.random();
 
                 let mut attack = if let Some(sys) = SystemType::from_u32(roll) {
                     let room_id = find_room_with_system_in_map(&state.map, sys).unwrap_or(0);

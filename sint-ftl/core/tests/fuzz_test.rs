@@ -1,9 +1,9 @@
-use rand::{seq::SliceRandom, thread_rng};
+use rand::{prelude::IndexedRandom, rng};
 use sint_core::{logic::actions::get_valid_actions, GameLogic, GamePhase};
 
 #[test]
 fn test_fuzz_random_walk() {
-    let mut rng = thread_rng();
+    let mut rng = rng();
     // Use a fixed seed for reproducibility of the initial state,
     // but the walk itself is randomized by thread_rng.
     let mut state = GameLogic::new_game(vec!["P1".to_owned(), "P2".to_owned()], 12345);

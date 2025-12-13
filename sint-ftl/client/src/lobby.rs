@@ -1,5 +1,6 @@
 use gloo_net::http::Request;
-use leptos::*;
+use leptos::either::Either;
+use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -10,32 +11,29 @@ struct RoomList {
 #[component]
 pub fn LobbyBrowser() -> impl IntoView {
     // Identity State
-    let (player_name, set_player_name) = create_signal(
+    let (player_name, set_player_name) = signal(
         // Default random name
         format!("Player_{}", &uuid::Uuid::new_v4().to_string()[..5]),
     );
 
     // New Room State
-    let (new_room_name, set_new_room_name) = create_signal("Room_A".to_owned());
+    let (new_room_name, set_new_room_name) = signal("Room_A".to_owned());
 
     // Fetch Rooms
-    let rooms_resource = create_resource(
-        || (),
-        move |_| async move {
-            let url = "/api/rooms";
+    let rooms_resource = LocalResource::new(move || async move {
+        let url = "/api/rooms";
 
-            match Request::get(url).send().await {
-                Ok(resp) => {
-                    if resp.ok() {
-                        resp.json::<RoomList>().await.ok()
-                    } else {
-                        None
-                    }
+        match Request::get(url).send().await {
+            Ok(resp) => {
+                if resp.ok() {
+                    resp.json::<RoomList>().await.ok()
+                } else {
+                    None
                 }
-                Err(_) => None,
             }
-        },
-    );
+            Err(_) => None,
+        }
+    });
 
     let join_game = move |room: String| {
         let p = player_name.get();
@@ -92,36 +90,40 @@ pub fn LobbyBrowser() -> impl IntoView {
                                     match data {
                                         Some(list) => {
                                             if list.rooms.is_empty() {
-                                                view! {
-                                                    <div style="color: #888;">"No active games found."</div>
-                                                }
-                                                    .into_view()
+                                                Either::Left(
+                                                    view! {
+                                                        <div style="color: #888;">"No active games found."</div>
+                                                    },
+                                                )
                                             } else {
-                                                list.rooms
-                                                    .into_iter()
-                                                    .map(|r| {
-                                                        let r_clone = r.clone();
-                                                        view! {
-                                                            <div style="margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; background: #333; padding: 8px; border-radius: 4px;">
-                                                                <span>{r.clone()}</span>
-                                                                <button
-                                                                    on:click=move |_| join_game(r_clone.clone())
-                                                                    style="padding: 4px 10px; background: #2196f3; color: white; border: none; border-radius: 4px; cursor: pointer;"
-                                                                >
-                                                                    "JOIN"
-                                                                </button>
-                                                            </div>
-                                                        }
-                                                    })
-                                                    .collect::<Vec<_>>()
-                                                    .into_view()
+                                                Either::Right(
+                                                    list
+                                                        .rooms
+                                                        .into_iter()
+                                                        .map(|r| {
+                                                            let r_clone = r.clone();
+                                                            view! {
+                                                                <div style="margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; background: #333; padding: 8px; border-radius: 4px;">
+                                                                    <span>{r.clone()}</span>
+                                                                    <button
+                                                                        on:click=move |_| join_game(r_clone.clone())
+                                                                        style="padding: 4px 10px; background: #2196f3; color: white; border: none; border-radius: 4px; cursor: pointer;"
+                                                                    >
+                                                                        "JOIN"
+                                                                    </button>
+                                                                </div>
+                                                            }
+                                                        })
+                                                        .collect::<Vec<_>>(),
+                                                )
                                             }
                                         }
                                         None => {
-                                            view! {
-                                                <div style="color: #f44336;">"Failed to load rooms."</div>
-                                            }
-                                                .into_view()
+                                            Either::Left(
+                                                view! {
+                                                    <div style="color: #f44336;">"Failed to load rooms."</div>
+                                                },
+                                            )
                                         }
                                     }
                                 })
