@@ -1,6 +1,7 @@
 use crate::driver::GameDriver;
+use crate::scoring::ScoreDetails;
 use crate::scoring::rhea::{RheaScoringWeights, score_rhea};
-use crate::search::{SearchNode, SearchProgress, get_legal_actions, get_state_signature};
+use crate::search::{SearchNode, SearchProgress, get_state_signature, get_valid_actions};
 use rand::prelude::*;
 use rand::rngs::StdRng;
 use rayon::prelude::*;
@@ -23,7 +24,7 @@ pub struct RHEAConfig {
 #[derive(Clone)]
 struct Individual {
     actions: Vec<(PlayerId, GameAction)>,
-    score: f64,
+    score: ScoreDetails,
 }
 
 pub fn rhea_search<F>(
@@ -49,7 +50,7 @@ where
         state: current_state.clone(),
         parent: None,
         last_action: None,
-        score: 0.0,
+        score: ScoreDetails::default(),
         signature: get_state_signature(&current_state),
     }));
 
@@ -75,7 +76,7 @@ where
             {
                 cb(SearchProgress {
                     step: steps_taken,
-                    best_score: last_node.score,
+                    best_score: last_node.score.total,
                     hull: current_state.hull_integrity,
                     boss_hp: current_state.enemy.hp,
                     is_done: true,
@@ -122,14 +123,14 @@ where
 
             // Parallel Evaluation
             population.par_iter_mut().enumerate().for_each(|(i, ind)| {
-                if ind.score == 0.0 {
+                if ind.score.total == 0.0 {
                     let mut rng = StdRng::seed_from_u64(config.seed + eval_seed_base + i as u64);
                     ind.score = evaluate_individual(ind, &current_state, config, weights, &mut rng);
                 }
             });
 
             // Sort
-            population.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
+            population.sort_by(|a, b| b.score.total.partial_cmp(&a.score.total).unwrap());
 
             // OPTIMIZATION: If this is the last generation or time is up,
             // do NOT produce offspring, as they won't be evaluated or used.
@@ -155,11 +156,15 @@ where
                     // Tournament
                     let p1 = &pop_ref[rng.random_range(0..pop_ref.len())];
                     let p2 = &pop_ref[rng.random_range(0..pop_ref.len())];
-                    let parent = if p1.score > p2.score { p1 } else { p2 };
+                    let parent = if p1.score.total > p2.score.total {
+                        p1
+                    } else {
+                        p2
+                    };
 
                     let mut child = parent.clone();
                     mutate(&mut child, config, &mut rng);
-                    child.score = 0.0;
+                    child.score = ScoreDetails::default();
                     child
                 })
                 .collect();
@@ -178,7 +183,7 @@ where
         {
             cb(SearchProgress {
                 step: steps_taken,
-                best_score: best_ind.score,
+                best_score: best_ind.score.total,
                 hull: current_state.hull_integrity,
                 boss_hp: current_state.enemy.hp,
                 is_done: false,
@@ -190,7 +195,7 @@ where
             println!(
                 "RHEA Step {}: Best Score {:.1} | Round {} | Hull {} | Boss {} | Plan {}",
                 steps_taken,
-                best_ind.score,
+                best_ind.score.total,
                 current_state.turn_count,
                 current_state.hull_integrity,
                 current_state.enemy.hp,
@@ -201,6 +206,51 @@ where
         if best_ind.actions.is_empty() {
             if config.verbose {
                 println!("⚠️ RHEA found no valid actions. Stopping.");
+                println!(
+                    "Final State: Round {}, Phase {:?}",
+                    current_state.turn_count, current_state.phase
+                );
+                for p in current_state.players.values() {
+                    println!(
+                        "  Player {}: HP {}, AP {}, Ready {}",
+                        p.id, p.hp, p.ap, p.is_ready
+                    );
+                }
+                let legal = get_valid_actions(&current_state);
+                println!("  Legal Actions count: {}", legal.len());
+                for (pid, act) in &legal {
+                    println!("    -> {}: {:?}", pid, act);
+                }
+                if legal.is_empty() {
+                    // Try to see if it's because of get_valid_actions filter
+                    let players: Vec<_> = current_state.players.values().collect();
+                    if let Some(p) = players.into_iter().find(|p| !p.is_ready && p.ap > 0) {
+                        println!("  Found player who is not ready and has AP: {}", p.id);
+                        let all_valid =
+                            sint_core::logic::actions::get_valid_actions(&current_state, &p.id);
+                        println!("  All valid actions (unfiltered): {:?}", all_valid);
+                    } else {
+                        println!("  No player found who is not ready and has AP > 0");
+                        let unready: Vec<_> = current_state
+                            .players
+                            .values()
+                            .filter(|p| !p.is_ready)
+                            .collect();
+                        println!(
+                            "  Unready players: {:?}",
+                            unready.iter().map(|p| &p.id).collect::<Vec<_>>()
+                        );
+                        let has_ap: Vec<_> = current_state
+                            .players
+                            .values()
+                            .filter(|p| p.ap > 0)
+                            .collect();
+                        println!(
+                            "  Players with AP: {:?}",
+                            has_ap.iter().map(|p| &p.id).collect::<Vec<_>>()
+                        );
+                    }
+                }
             }
             break;
         }
@@ -232,7 +282,7 @@ where
                 }
                 let seed_ind = Individual {
                     actions: seed_actions,
-                    score: 0.0,
+                    score: ScoreDetails::default(),
                 };
 
                 let mut new_pop = Vec::with_capacity(config.population_size);
@@ -251,7 +301,7 @@ where
                         config.seed + mutant_seed_base + new_pop.len() as u64,
                     );
                     mutate(&mut mutant, config, &mut rng);
-                    mutant.score = 0.0;
+                    mutant.score = ScoreDetails::default();
                     new_pop.push(mutant);
                 }
 
@@ -292,10 +342,8 @@ fn generate_random_individual(state: &GameState, horizon: usize, rng: &mut StdRn
         if sim_state.phase == GamePhase::GameOver || sim_state.phase == GamePhase::Victory {
             break;
         }
-        let mut driver = GameDriver {
-            state: sim_state.clone(),
-        };
-        let legal = get_legal_actions(&driver.state);
+        let mut driver = GameDriver::new(sim_state.clone());
+        let legal = get_valid_actions(&driver.state);
         if legal.is_empty() {
             break;
         }
@@ -310,7 +358,7 @@ fn generate_random_individual(state: &GameState, horizon: usize, rng: &mut StdRn
     }
     Individual {
         actions,
-        score: 0.0,
+        score: ScoreDetails::default(),
     }
 }
 
@@ -320,10 +368,8 @@ fn evaluate_individual(
     config: &RHEAConfig,
     weights: &RheaScoringWeights,
     rng: &mut impl Rng,
-) -> f64 {
-    let mut driver = GameDriver {
-        state: start_state.clone(),
-    };
+) -> ScoreDetails {
+    let mut driver = GameDriver::new(start_state.clone());
 
     // Repair/Simulation
     let mut repaired_actions = Vec::new();
@@ -338,7 +384,7 @@ fn evaluate_individual(
         let mut effective_action = (pid.clone(), act.clone());
         let mut success = false;
 
-        let legal = get_legal_actions(&driver.state);
+        let legal = get_valid_actions(&driver.state);
         if legal.is_empty() {
             break;
         }
@@ -354,7 +400,7 @@ fn evaluate_individual(
             // Repair: Pick a random valid action
             let (new_pid, new_act) = legal.choose(rng).unwrap();
             if driver.apply(new_pid, new_act.clone()).is_ok() {
-                effective_action = (new_pid.clone(), new_act.clone());
+                effective_action = (new_pid.to_string(), new_act.clone());
                 success = true;
             }
         }
@@ -374,13 +420,13 @@ fn evaluate_individual(
         if driver.state.phase == GamePhase::GameOver || driver.state.phase == GamePhase::Victory {
             break;
         }
-        let legal = get_legal_actions(&driver.state);
+        let legal = get_valid_actions(&driver.state);
         if legal.is_empty() {
             break;
         }
         let (pid, act) = legal.choose(rng).unwrap();
         if driver.apply(pid, act.clone()).is_ok() {
-            ind.actions.push((pid.clone(), act.clone()));
+            ind.actions.push((pid.to_string(), act.clone()));
         } else {
             break;
         }

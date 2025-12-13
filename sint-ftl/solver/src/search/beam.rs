@@ -1,4 +1,5 @@
 use crate::driver::GameDriver;
+use crate::scoring::ScoreDetails;
 use crate::scoring::beam::{BeamScoringWeights, calculate_score};
 use crate::search::{SearchNode, SearchProgress, get_state_signature};
 use rayon::prelude::*;
@@ -106,7 +107,7 @@ where
         state: initial_driver.state,
         parent: None,
         last_action: None,
-        score: 0.0,
+        score: ScoreDetails::default(),
         signature: start_sig,
     })];
 
@@ -133,7 +134,7 @@ where
                     best_partial = Some(best_in_beam.clone());
                 } else if best_in_beam.state.turn_count == current_best.state.turn_count {
                     // If turn count is same, keep the better score
-                    if best_in_beam.score > current_best.score {
+                    if best_in_beam.score.total > current_best.score.total {
                         best_partial = Some(best_in_beam.clone());
                     }
                 }
@@ -145,7 +146,7 @@ where
             if let Some(cb) = &progress_callback {
                 cb(SearchProgress {
                     step,
-                    best_score: best_in_beam.score,
+                    best_score: best_in_beam.score.total,
                     hull: best_in_beam.state.hull_integrity,
                     boss_hp: best_in_beam.state.enemy.hp,
                     is_done: false,
@@ -174,7 +175,7 @@ where
             if let Some(cb) = &progress_callback {
                 cb(SearchProgress {
                     step,
-                    best_score: win.score,
+                    best_score: win.score.total,
                     hull: win.state.hull_integrity,
                     boss_hp: win.state.enemy.hp,
                     is_done: true,
@@ -202,18 +203,19 @@ where
                 if total_ap < max_ap {
                     continue;
                 }
-                if total_ap == max_ap && n.score <= max_score {
+                if total_ap == max_ap && n.score.total <= max_score {
                     continue;
                 }
             }
-            visited.insert(sig, (total_ap, n.score));
+            visited.insert(sig, (total_ap, n.score.total));
             unique_nodes.insert(sig, n.clone());
         }
 
         let mut sorted_nodes: Vec<Arc<SearchNode>> = unique_nodes.into_values().collect();
         sorted_nodes.par_sort_by(|a, b| {
             b.score
-                .partial_cmp(&a.score)
+                .total
+                .partial_cmp(&a.score.total)
                 .unwrap()
                 .then_with(|| a.signature.cmp(&b.signature))
         });
@@ -224,7 +226,7 @@ where
             println!(
                 "Step {} (Last Valid): Best Score {:.1} | Round {} | Hull {} | Boss {} | Beam {}",
                 round_num,
-                best.score,
+                best.score.total,
                 best.state.turn_count,
                 best.state.hull_integrity,
                 best.state.enemy.hp,
@@ -255,17 +257,19 @@ where
         }
         beam = sorted_nodes;
 
-        if config.verbose && !beam.is_empty() && (step % 10 == 0 || step == config.steps - 1) {
-            let best = &beam[0];
-            println!(
-                "Step {}: Best Score {:.1} | Round {} | Hull {} | Boss {} | Beam {}",
-                step,
-                best.score,
-                best.state.turn_count,
-                best.state.hull_integrity,
-                best.state.enemy.hp,
-                beam.len()
-            );
+        if let Some(cb) = beam.first() {
+            if config.verbose && step % 10 == 0 {
+                println!(
+                    "Step {}: Best Score {:.1} | Round {} | Hull {} | Boss {} | Beam {}",
+                    step,
+                    cb.score.total,
+                    cb.state.turn_count,
+                    cb.state.hull_integrity,
+                    cb.state.enemy.hp,
+                    beam.len()
+                );
+                println!("  Score Breakdown: {}", cb.score.format_short());
+            }
         }
     }
 

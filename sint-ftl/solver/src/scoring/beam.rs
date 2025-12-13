@@ -1,3 +1,4 @@
+use super::ScoreDetails;
 use sint_core::logic::{cards::get_behavior, find_room_with_system};
 use sint_core::types::{
     CardId, CardSentiment, GameAction, GamePhase, GameState, HazardType, ItemType, MAX_HULL,
@@ -17,6 +18,7 @@ pub struct BeamScoringWeights {
 
     // Hazards
     pub fire_penalty_base: f64,
+    pub fire_token_penalty: f64,
     pub water_penalty: f64,
 
     // Game State
@@ -110,72 +112,73 @@ pub struct BeamScoringWeights {
 impl Default for BeamScoringWeights {
     fn default() -> Self {
         Self {
-            hull_integrity: 8000.0,     // Reduced from 10000.0 to accept more risk
-            hull_delta_penalty: 5000.0, // Increased from 2000.0 to penalize damage more
-            enemy_hp: 25000.0,          // High priority: KILL THE BOSS (Increased from 15000.0)
-            player_hp: 200.0,
-            ap_balance: 100.0, // High value on AP = Don't waste turns
+            hull_integrity: 1000.0,
+            hull_delta_penalty: 200.0,
+            enemy_hp: 2500.0,
+            player_hp: 20.0,
+            ap_balance: 10.0,
 
-            // Hazards - significantly increased penalties
-            fire_penalty_base: 10000.0, // Reduced from 15000.0
-            water_penalty: 1000.0,
+            // Hazards
+            fire_penalty_base: 1000.0,
+            fire_token_penalty: 200.0,
+            water_penalty: 100.0,
 
             // Situations & Threats
-            active_situation_penalty: 80000.0, // WAS 50000.0. Situations kill runs.
-            threat_player_penalty: 100.0,      // Reduced to allow calculated risks
-            threat_system_penalty: 2000.0,
-            death_penalty: 50000.0,
+            active_situation_penalty: 5000.0,
+            threat_player_penalty: 10.0,
+            threat_system_penalty: 200.0,
+            death_penalty: 5000.0,
 
             // Roles
-            station_keeping_reward: 2000.0, // Reduced from 3000.0 to encourage flexibility
-            gunner_base_reward: 600.0,      // STAY AT THE CANNONS
-            gunner_per_ammo: 1000.0,        // LOAD THE CANNONS (High priority)
-            gunner_working_bonus: 50.0,
-            gunner_distance_factor: 500.0, // Extreme pull to cannons
+            station_keeping_reward: 500.0,
+            gunner_base_reward: 60.0,
+            gunner_per_ammo: 100.0,
+            gunner_working_bonus: 5.0,
+            gunner_distance_factor: 50.0,
 
-            firefighter_base_reward: 5000.0, // Increased from 2000.0
-            firefighter_distance_factor: 50.0, // Increased from 10.0
+            firefighter_base_reward: 800.0,
+            firefighter_distance_factor: 10.0,
 
-            healing_reward: 2000.0, // Increased to prioritize survival (was 500)
-            sickbay_distance_factor: 50.0,
+            healing_reward: 500.0,
+            sickbay_distance_factor: 10.0,
 
-            backtracking_penalty: 200.0, // WAS 50.0. Prevent infinite loops (Slippery Deck).
-            commitment_bonus: 500.0,     // Reward for consistency
+            backtracking_penalty: 20.0,
+            commitment_bonus: 50.0,
 
-            solution_solver_reward: 60000.0, // WAS 40000.0. Solving problems is key.
-            solution_distance_factor: 100.0,
-            situation_logistics_reward: 25000.0, // WAS 5000.0. GO GET THE ITEM.
-            situation_resolved_reward: 30000.0,  // New: Big payout for finishing the job
-            system_importance_multiplier: 2.0,   // Critical systems are 2x more important
+            solution_solver_reward: 6000.0,
+            solution_distance_factor: 10.0,
+            situation_logistics_reward: 2500.0,
+            situation_resolved_reward: 3000.0,
+            system_importance_multiplier: 2.0,
 
-            ammo_stockpile_reward: 5000.0, // Encourage dumping ammo in Cannons (Huge)
-            loose_ammo_reward: 200.0,      // Every nut on the map is hope
-            hazard_proximity_reward: 50.0,
-            situation_exposure_penalty: 1000.0,
-            system_disabled_penalty: 50000.0, // WAS 25000.0. Broken guns = Death.
-            shooting_reward: 22000.0,         // Increased from 20000.0 to finish bosses
+            ammo_stockpile_reward: 500.0,
+            loose_ammo_reward: 20.0,
+            hazard_proximity_reward: 5.0,
+            situation_exposure_penalty: 100.0,
+            system_disabled_penalty: 5000.0,
+            shooting_reward: 2200.0,
 
-            scavenger_reward: 500.0,
-            repair_proximity_reward: 1000.0,
-            cargo_repair_incentive: 25.0,
-            cargo_repair_proximity_reward: 1.0, // New
+            scavenger_reward: 50.0,
+            repair_proximity_reward: 100.0,
+            cargo_repair_incentive: 2.5,
+            cargo_repair_proximity_reward: 0.1,
 
-            boss_level_reward: 20000.0,
-            turn_penalty: 12000.0, // Increased from 5000.0 to prevent stalling
-            step_penalty: 100.0,   // WAS 5.0. Prevent free-action loops.
+            boss_level_reward: 2000.0,
+            turn_penalty: 500.0,
+            step_penalty: 10.0,
 
             checkmate_threshold: 20.0,
-            checkmate_multiplier: 8.0,
-            checkmate_max_mult: 100.0, // Cap the reward to prevent suicidal aggression
+            checkmate_multiplier: 16.0,
+            checkmate_max_mult: 100.0,
 
             // Critical State
-            critical_hull_threshold: 16.0,
-            critical_hull_penalty_base: 150_000.0,
-            critical_hull_penalty_per_hp: 50_000.0,
+            critical_hull_threshold: 10.0,
+            critical_hull_penalty_base: 15000.0,
+            critical_hull_penalty_per_hp: 5000.0,
             critical_fire_threshold: 2,
-            critical_fire_penalty_per_token: 25_000.0,
-            critical_system_hazard_penalty: 50_000.0, // Major penalty
-            critical_survival_mult: 0.1,
+            critical_fire_penalty_per_token: 2500.0,
+            critical_system_hazard_penalty: 5000.0,
+            critical_survival_mult: 0.4,
             critical_threat_mult: 5.0,
 
             // Exponents
@@ -240,9 +243,9 @@ pub fn calculate_score(
     current: &GameState,
     history: &[&(PlayerId, GameAction)],
     weights: &BeamScoringWeights,
-) -> f64 {
-    let mut score = score_static(current, history, weights);
-    score += score_transition(parent, current, weights);
+) -> ScoreDetails {
+    let mut details = score_static(current, history, weights);
+    details += score_transition(parent, current, weights);
 
     // Commitment Bonus: Reward moving towards hazards
     if let Some((last_pid, last_act)) = history.last()
@@ -266,12 +269,13 @@ pub fn calculate_score(
             let new_dist = min_distance(current, new_room, &target_rooms);
 
             if new_dist < old_dist {
-                score += weights.commitment_bonus;
+                details.logistics += weights.commitment_bonus;
+                details.total += weights.commitment_bonus;
             }
         }
     }
 
-    score
+    details
 }
 
 /// Calculates a score for a single state snapshot.
@@ -280,18 +284,30 @@ pub fn score_static(
     state: &GameState,
     history: &[&(PlayerId, GameAction)],
     weights: &BeamScoringWeights,
-) -> f64 {
+) -> ScoreDetails {
+    let mut details = ScoreDetails::default();
+
     // Terminal States
+    // Terminal States: Increase magnitude to ensure separation from regular score swings.
     if state.phase == GamePhase::Victory {
-        return 1_000_000.0 + (state.hull_integrity as f64 * 1000.0);
+        details.vitals = 100_000_000.0 + (state.hull_integrity as f64 * 10000.0);
+        details.total = details.vitals;
+        return details;
     }
     // SUICIDE PREVENTION: Death must be worse than any living hell.
-    // Previous penalties reached -17M, so Death must be -1B.
     if state.phase == GamePhase::GameOver || state.hull_integrity <= 0 {
-        return -1_000_000_000.0;
+        details.total = -1_000_000_000.0;
+        return details;
     }
 
-    // PROJECTED DAMAGE: Fires hurt hull at end of round. Count them now.
+    // PROJECTED DAMAGE: One hull damage per room on fire at end of round.
+    let rooms_on_fire = state
+        .map
+        .rooms
+        .values()
+        .filter(|r| r.hazards.contains(&HazardType::Fire))
+        .count();
+
     let fire_count_total: usize = state
         .map
         .rooms
@@ -299,32 +315,45 @@ pub fn score_static(
         .map(|r| r.hazards.iter().filter(|h| **h == HazardType::Fire).count())
         .sum();
 
-    let projected_hull = state.hull_integrity - fire_count_total as i32;
+    let projected_hull = state.hull_integrity - rooms_on_fire as i32;
     // If fires will kill us this round, it's over.
     if projected_hull <= 0 {
-        return -1_000_000_000.0;
+        details.total = -1_000_000_000.0;
+        return details;
     }
 
-    let mut score = 0.0;
-    // Use PROJECTED hull for critical status
-    let is_critical = (projected_hull as f64) <= weights.critical_hull_threshold;
+    // Use PROJECTED hull for scaling
+    let missing_hull_percent =
+        ((MAX_HULL as f64 - projected_hull as f64) / MAX_HULL as f64).max(0.0);
 
-    // Penalty scaling based on hull integrity: lower hull = higher penalties for everything else
+    // Continuous Multipliers:
+    // survival_multiplier: 1.0 at full health, down to critical_survival_mult at 0 health.
+    let survival_multiplier = 1.0 - (missing_hull_percent * (1.0 - weights.critical_survival_mult));
+
+    // hazard_multiplier: 1.0 at full health, up to 1.0 / critical_survival_mult at 0 health.
+    // DAMPENED: Use a lower ceiling for the hazard multiplier to prevent -100M scores.
+    let max_hazard_ceiling = 4.0;
+    let hazard_multiplier = 1.0 + (missing_hull_percent * (max_hazard_ceiling - 1.0));
+
+    // Penalty scaling based on hull integrity: lower hull = higher penalties for everything else.
+    // Use PROJECTED hull.
     let hull_penalty_scaler =
         (MAX_HULL as f64 / (projected_hull as f64).max(1.0)).powf(weights.hull_penalty_scaling);
 
-    let threat_mult = if is_critical {
-        weights.critical_threat_mult
-    } else {
-        1.0
-    } * hull_penalty_scaler;
+    // threat_mult: Scale threat penalties smoothly, but don't stack hull_penalty_scaler here yet.
+    let threat_mult = 1.0 + (missing_hull_percent * (weights.critical_threat_mult - 1.0));
+
+    // Use a threshold only for the 'panic' additive penalty
+    let is_critical = (projected_hull as f64) <= weights.critical_hull_threshold;
 
     // --- Checkmate Heuristic ---
     let mut checkmate_mult = 1.0;
+    let mut is_checkmate = false;
     if (state.enemy.hp as f64) <= weights.checkmate_threshold && state.enemy.hp > 0 {
         let progress = weights.checkmate_threshold / (state.enemy.hp as f64);
         checkmate_mult = (progress.powf(weights.checkmate_exponent) * weights.checkmate_multiplier)
             .min(weights.checkmate_max_mult);
+        is_checkmate = true;
     }
 
     // --- Critical State Heuristic ---
@@ -332,31 +361,32 @@ pub fn score_static(
     // Survival is absolute. Do not reduce panic based on enemy health.
 
     if is_critical {
-        let mut panic_score = -weights.critical_hull_penalty_base;
+        let mut panic_penalty = weights.critical_hull_penalty_base;
         let deficit = (weights.critical_hull_threshold + 1.0 - projected_hull as f64).max(0.0);
-        panic_score -= deficit.powf(weights.panic_hull_exponent)
+        panic_penalty += deficit.powf(weights.panic_hull_exponent)
             * weights.critical_hull_penalty_per_hp
             * hull_penalty_scaler;
 
-        score += panic_score;
+        details.panic -= panic_penalty;
     }
 
     if fire_count_total >= weights.critical_fire_threshold {
         // Massive penalty for uncontrolled fire
         let excess_fire =
             (fire_count_total as f64 - weights.critical_fire_threshold as f64 + 1.0).max(1.0);
-        score -= excess_fire.powf(weights.panic_fire_exponent)
+        let fire_panic = excess_fire.powf(weights.panic_fire_exponent)
             * weights.critical_fire_penalty_per_token
             * hull_penalty_scaler;
+        details.panic -= fire_panic;
     }
 
     // --- 1. Vital Stats & Progression ---
     // Non-linear Hull Penalty: Penalize missing hull exponentially (Square of missing health)
     // Use PROJECTED hull
     let missing_hull = (MAX_HULL as f64 - projected_hull as f64).max(0.0);
-    score -= missing_hull.powf(weights.hull_exponent) * weights.hull_integrity;
+    details.vitals -= missing_hull.powf(weights.hull_exponent) * weights.hull_integrity;
 
-    score += state.boss_level as f64 * weights.boss_level_reward;
+    details.progression += state.boss_level as f64 * weights.boss_level_reward;
 
     // Bloodlust: If enemy is low, increase reward for damage
     let enemy_hp_percent = if state.enemy.max_hp > 0 {
@@ -366,13 +396,18 @@ pub fn score_static(
     };
     let bloodlust_mult = if enemy_hp_percent < 0.5 { 1.5 } else { 1.0 };
 
-    score += (state.enemy.max_hp as f64 - state.enemy.hp as f64)
+    details.offense += (state.enemy.max_hp as f64 - state.enemy.hp as f64)
         * weights.enemy_hp
         * checkmate_mult
-        * bloodlust_mult;
+        * bloodlust_mult
+        * (if is_checkmate {
+            1.0
+        } else {
+            survival_multiplier
+        });
 
-    score -= state.turn_count as f64 * weights.turn_penalty;
-    score -= history.len() as f64 * weights.step_penalty;
+    details.progression -= state.turn_count as f64 * weights.turn_penalty;
+    details.progression -= history.len() as f64 * weights.step_penalty;
 
     // --- 2. Hazards ---
     let mut fire_rooms = HashSet::new();
@@ -399,15 +434,19 @@ pub fn score_static(
     // Cubic Fire Penalty: Make firefighting > repairing
     // Non-Linear Fire Penalty based on Hull Risk (Inverse Power Function)
     // Use PROJECTED hull to feel the fear.
-    let missing_hull_percent =
-        ((MAX_HULL as f64 - projected_hull as f64) / MAX_HULL as f64).max(0.0);
     let hull_risk_mult = 1.0 + (missing_hull_percent * 10.0).powf(2.5);
 
-    score -= (fire_rooms.len() as f64).powf(weights.fire_exponent)
+    details.hazards -= (fire_rooms.len() as f64).powf(weights.fire_exponent)
         * weights.fire_penalty_base
         * hull_risk_mult
-        * threat_mult; // Apply threat multiplier (which includes hull_penalty_scaler)
-    score -= water_count as f64 * weights.water_penalty;
+        * hazard_multiplier;
+
+    // Fire Token Penalty: Quadratic penalty for total fire tokens to reflect spreading risk.
+    // Use hull_penalty_scaler for general urgency, but not doubled with hazard_multiplier.
+    details.hazards -=
+        (fire_count as f64).powf(2.0) * weights.fire_token_penalty * hull_penalty_scaler;
+
+    details.hazards -= water_count as f64 * weights.water_penalty * hull_penalty_scaler;
 
     // -- System Disabled --
     for room in state.map.rooms.values() {
@@ -423,14 +462,14 @@ pub fn score_static(
 
             // Penalty for the system being currently disabled
             if has_disabling_hazard {
-                score -= weights.system_disabled_penalty
+                details.hazards -= weights.system_disabled_penalty
                     * weights.system_importance_multiplier
                     * hull_penalty_scaler;
             }
 
             // New: Penalty for ANY hazard in a critical room (Danger Zone)
             // Even if not disabled yet (e.g. fire just started), we want to clear it ASAP.
-            score -= weights.critical_system_hazard_penalty
+            details.hazards -= weights.critical_system_hazard_penalty
                 * (room.hazards.len() as f64)
                 * weights.system_importance_multiplier
                 * hull_penalty_scaler;
@@ -457,13 +496,13 @@ pub fn score_static(
         t_set.insert(cid);
         for p in state.players.values() {
             if p.room_id == cid {
-                score += dynamic_incentive;
+                details.vitals += dynamic_incentive;
             }
             // New: Proximity Reward (Move towards Cargo when damaged)
             if urgency > 0.0 {
                 let dist = min_distance(state, p.room_id, &t_set);
                 if dist != 999 {
-                    score += (20.0 - dist as f64).max(0.0)
+                    details.vitals += (20.0 - dist as f64).max(0.0)
                         * weights.cargo_repair_proximity_reward
                         * urgency;
                 }
@@ -498,7 +537,9 @@ pub fn score_static(
         .filter(|c| get_behavior(c.id).get_sentiment() == CardSentiment::Negative)
         .count();
 
-    score -= (negative_situations as f64).powf(1.5) * weights.active_situation_penalty;
+    details.situations -= (negative_situations as f64).powf(1.5)
+        * weights.active_situation_penalty
+        * hazard_multiplier;
 
     for card in &state.active_situations {
         if card.id == CardId::Overheating {
@@ -511,7 +552,8 @@ pub fn score_static(
             }
             if let Some(eid) = engine_id {
                 let count = state.players.values().filter(|p| p.room_id == eid).count();
-                score -= count as f64 * weights.situation_exposure_penalty;
+                details.situations -=
+                    count as f64 * weights.situation_exposure_penalty * hazard_multiplier;
             }
         }
     }
@@ -533,19 +575,21 @@ pub fn score_static(
             let hull_urgency_mult =
                 1.0 + (MAX_HULL as f64 - state.hull_integrity as f64).powf(1.2) / 10.0;
             if is_severe {
-                score += weights.threat_severe_reward * hull_urgency_mult; // High value for mitigating a real threat
+                details.threats +=
+                    weights.threat_severe_reward * hull_urgency_mult * survival_multiplier; // High value for mitigating a real threat
             } else {
-                score += weights.threat_mitigated_reward; // Small value for safety
+                details.threats += weights.threat_mitigated_reward; // Small value for safety
             }
 
             // Defensive Posture Heuristic: Reward safety when critical
-            if state.hull_integrity < 15 {
-                score += 10000.0;
-            }
+            details.threats += 5000.0 * missing_hull_percent * hazard_multiplier;
         } else {
             // Not protected - Apply penalties
             if players_in_target > 0 {
-                score -= players_in_target as f64 * weights.threat_player_penalty * threat_mult;
+                details.threats -= players_in_target as f64
+                    * weights.threat_player_penalty
+                    * threat_mult
+                    * hazard_multiplier;
             }
 
             if let Some(sys) = attack.target_system
@@ -554,15 +598,18 @@ pub fn score_static(
                     SystemType::Engine | SystemType::Cannons | SystemType::Bridge
                 )
             {
-                score -= weights.threat_system_penalty * threat_mult;
+                details.threats -= weights.threat_system_penalty * threat_mult * hazard_multiplier;
             }
             // General hull risk
-            score -= weights.threat_system_penalty * weights.threat_hull_risk_mult * threat_mult;
+            details.threats -= weights.threat_system_penalty
+                * weights.threat_hull_risk_mult
+                * threat_mult
+                * hazard_multiplier;
         }
     } else {
         // No attack coming, but shields up? Wasted AP mostly, but small safety bonus
         if protected {
-            score -= weights.threat_shield_waste_penalty;
+            details.threats -= weights.threat_shield_waste_penalty;
         }
     }
 
@@ -600,12 +647,12 @@ pub fn score_static(
 
     for p in state.players.values() {
         if p.hp <= 0 {
-            score -= weights.death_penalty;
+            details.vitals -= weights.death_penalty;
             continue;
         }
 
-        score += p.hp as f64 * weights.player_hp;
-        score += p.ap as f64 * weights.ap_balance;
+        details.vitals += p.hp as f64 * weights.player_hp;
+        details.logistics += p.ap as f64 * weights.ap_balance;
 
         let peppernuts = p
             .inventory
@@ -652,7 +699,7 @@ pub fn score_static(
         if let Some(target) = assigned_room
             && p.room_id == target
         {
-            score += weights.station_keeping_reward;
+            details.logistics += weights.station_keeping_reward;
         }
         // Removed distance penalty to prevent interference with temporary tasks
 
@@ -661,9 +708,10 @@ pub fn score_static(
             let urgency = (3 - p.hp).pow(2) as f64;
             let dist = min_distance(state, p.room_id, &sickbay_rooms);
             if dist == 0 {
-                score += weights.healing_reward * urgency;
+                details.vitals += weights.healing_reward * urgency;
             } else {
-                score += (20.0 - dist as f64).max(0.0) * weights.sickbay_distance_factor * urgency;
+                details.vitals +=
+                    (20.0 - dist as f64).max(0.0) * weights.sickbay_distance_factor * urgency;
             }
         }
 
@@ -700,7 +748,7 @@ pub fn score_static(
             if has_wheelbarrow && peppernuts < 5 {
                 gunner_score *= weights.gunner_wheelbarrow_penalty;
             }
-            score += gunner_score;
+            details.logistics += gunner_score;
         }
 
         // -- Role: Emergency (Fire & Repair) & Global Coverage --
@@ -730,18 +778,18 @@ pub fn score_static(
             // --- Individual Role Logic ---
             let has_fire = room.hazards.contains(&HazardType::Fire);
 
-            let is_critical = matches!(
+            let is_critical_room = matches!(
                 room.system,
                 Some(SystemType::Engine) | Some(SystemType::Cannons) | Some(SystemType::Bridge)
             );
 
             if d < best_target_dist {
                 best_target_dist = d;
-                is_critical_target = is_critical;
+                is_critical_target = is_critical_room;
                 best_target_is_fire = has_fire;
             } else if d == best_target_dist {
                 // Tie-breaker: Critical system wins
-                if is_critical && !is_critical_target {
+                if is_critical_room && !is_critical_target {
                     is_critical_target = true;
                     best_target_is_fire = has_fire;
                 }
@@ -749,22 +797,23 @@ pub fn score_static(
         }
 
         if best_target_dist != 999 {
-            // Panic Multiplier: If we are critical, firefighting is GOD.
-            // If hull is projected to be low, we MUST extinguish.
-            let panic_mult = if is_critical { 20.0 } else { 1.0 };
+            // Panic Multiplier: Scale firefighting importance from 1x to 10x as damage increases.
+            let panic_mult = 1.0 + (missing_hull_percent * 9.0);
 
             if best_target_dist == 0 {
-                emergency_score += weights.firefighter_base_reward * panic_mult;
+                emergency_score += weights.firefighter_base_reward * panic_mult * hazard_multiplier;
             } else {
                 emergency_score += (20.0 - best_target_dist as f64).max(0.0)
                     * weights.firefighter_distance_factor
-                    * panic_mult;
+                    * panic_mult
+                    * hazard_multiplier;
             }
 
             // Critical Bonus (was "Targeted Repair")
             if is_critical_target {
-                emergency_score +=
-                    (20.0 - best_target_dist as f64).max(0.0) * weights.repair_proximity_reward;
+                emergency_score += (20.0 - best_target_dist as f64).max(0.0)
+                    * weights.repair_proximity_reward
+                    * hazard_multiplier;
             }
 
             // Extinguisher Bonus
@@ -772,7 +821,7 @@ pub fn score_static(
                 emergency_score *= 1.5;
             }
 
-            score += emergency_score;
+            details.hazards += emergency_score;
         }
 
         // -- Role: Scavenger (Ammo Gathering) --
@@ -788,16 +837,17 @@ pub fn score_static(
             if has_wheelbarrow {
                 scavenger_score *= weights.baker_wheelbarrow_mult;
             }
-            score += scavenger_score;
+            details.logistics += scavenger_score;
         }
     }
 
     // --- Apply Global Hazard Coverage Reward ---
     for (_, min_d) in hazard_min_dists {
         if (min_d as f64) < weights.hazard_proximity_range {
-            score += (weights.hazard_proximity_range - min_d as f64)
+            details.hazards += (weights.hazard_proximity_range - min_d as f64)
                 * weights.hazard_proximity_reward
-                * fire_urgency_mult;
+                * fire_urgency_mult
+                * hazard_multiplier;
         }
     }
 
@@ -845,15 +895,17 @@ pub fn score_static(
                     let best_n_d = all_distances.get(req_n - 1).cloned().unwrap_or(999);
 
                     if best_q_d == 0 && best_n_d == 0 {
-                        score += weights.solution_solver_reward;
+                        details.situations += weights.solution_solver_reward * survival_multiplier;
                     } else {
                         // Pull the qualified person
-                        score +=
-                            (20.0 - best_q_d as f64).max(0.0) * weights.solution_distance_factor;
+                        details.situations += (20.0 - best_q_d as f64).max(0.0)
+                            * weights.solution_distance_factor
+                            * survival_multiplier;
                         // Pull the N-th person
                         if req_n > 1 && best_n_d != 999 {
-                            score += (20.0 - best_n_d as f64).max(0.0)
-                                * weights.solution_distance_factor;
+                            details.situations += (20.0 - best_n_d as f64).max(0.0)
+                                * weights.solution_distance_factor
+                                * survival_multiplier;
                         }
                     }
                 }
@@ -886,8 +938,9 @@ pub fn score_static(
                             }
                         }
                         if min_source_dist != 999 {
-                            score += (20.0 - min_source_dist as f64).max(0.0)
-                                * weights.situation_logistics_reward;
+                            details.situations += (20.0 - min_source_dist as f64).max(0.0)
+                                * weights.situation_logistics_reward
+                                * survival_multiplier;
                         }
                     }
                 }
@@ -904,11 +957,11 @@ pub fn score_static(
             .count();
 
         // General loose ammo reward
-        score += nuts as f64 * weights.loose_ammo_reward;
+        details.logistics += nuts as f64 * weights.loose_ammo_reward;
 
         if room.system == Some(SystemType::Cannons) {
             // Massive reward for having ammo at Cannons
-            score += nuts as f64 * weights.ammo_stockpile_reward;
+            details.logistics += nuts as f64 * weights.ammo_stockpile_reward;
         }
     }
 
@@ -918,7 +971,12 @@ pub fn score_static(
     for (idx, item) in history.iter().enumerate() {
         let (pid, act) = *item;
         if matches!(act, GameAction::Shoot) {
-            score += weights.shooting_reward;
+            details.offense += weights.shooting_reward
+                * (if is_checkmate {
+                    1.0
+                } else {
+                    survival_multiplier
+                });
         }
 
         if let GameAction::Move { to_room } = act {
@@ -969,21 +1027,35 @@ pub fn score_static(
                     }
                 }
                 if !useful {
-                    score -= weights.backtracking_penalty;
+                    details.anti_oscillation -= weights.backtracking_penalty;
                 }
             }
         }
     }
 
-    score
+    details.total = details.vitals
+        + details.hazards
+        + details.offense
+        + details.panic
+        + details.logistics
+        + details.situations
+        + details.threats
+        + details.progression
+        + details.anti_oscillation;
+
+    details
 }
 
 /// Calculates the score delta based on the transition from parent to current state.
-fn score_transition(parent: &GameState, current: &GameState, weights: &BeamScoringWeights) -> f64 {
-    let mut score = 0.0;
+fn score_transition(
+    parent: &GameState,
+    current: &GameState,
+    weights: &BeamScoringWeights,
+) -> ScoreDetails {
+    let mut details = ScoreDetails::default();
     // Hull Delta Penalty: Penalize the ACT of losing hull
     let hull_loss = (parent.hull_integrity as f64 - current.hull_integrity as f64).max(0.0);
-    score -= hull_loss * weights.hull_delta_penalty;
+    details.vitals -= hull_loss * weights.hull_delta_penalty;
 
     // Situation Resolved Reward
     // If count decreased, we likely solved something.
@@ -999,10 +1071,11 @@ fn score_transition(parent: &GameState, current: &GameState, weights: &BeamScori
         .count();
 
     if current_neg < parent_neg {
-        score += weights.situation_resolved_reward;
+        details.situations += weights.situation_resolved_reward;
     }
 
-    score
+    details.total = details.vitals + details.situations;
+    details
 }
 
 /// Accumulator for trajectory scoring.

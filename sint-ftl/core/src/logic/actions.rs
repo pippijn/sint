@@ -550,6 +550,10 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
     // This correctly updates room_id, inventory, etc. based on the queued actions.
     resolution::resolve_proposal_queue(&mut projected_state, true);
 
+    // CRITICAL FIX: Restore proposal_queue to projected_state so card validation
+    // (like Seasick or Sugar Rush) can see what has already been proposed.
+    projected_state.proposal_queue = state.proposal_queue.clone();
+
     let mut actions = Vec::new();
 
     // Always allowed (technically)

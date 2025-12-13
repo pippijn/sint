@@ -1,22 +1,18 @@
-pub mod beam;
-pub mod rhea;
-
-use sint_core::{
-    logic::actions::get_valid_actions,
-    types::{Action, GameAction, GameState, PlayerId},
-};
+use crate::scoring::ScoreDetails;
+use sint_core::types::{GameAction, GameState, PlayerId};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-pub fn get_legal_actions(state: &GameState) -> Vec<(PlayerId, GameAction)> {
-    let players: Vec<_> = state.players.values().collect();
-    // Deterministic active player selection
-    if let Some(p) = players.into_iter().find(|p| !p.is_ready && p.ap > 0) {
-        let legal_wrappers = get_valid_actions(state, &p.id);
-        let mut valid = Vec::new();
-        for w in legal_wrappers {
-            if let Action::Game(act) = w {
-                // Filter out non-strategic actions like Chat/Undo
+pub mod beam;
+pub mod rhea;
+
+pub fn get_valid_actions(state: &GameState) -> Vec<(PlayerId, GameAction)> {
+    let mut valid = Vec::new();
+    // Deterministic active player selection: First player who is not ready and has AP
+    if let Some(p) = state.players.values().find(|p| !p.is_ready && p.ap > 0) {
+        let actions = sint_core::logic::actions::get_valid_actions(state, &p.id);
+        for action in actions {
+            if let sint_core::types::Action::Game(act) = action {
                 if matches!(
                     act,
                     GameAction::Chat { .. }
@@ -38,7 +34,7 @@ pub struct SearchNode {
     pub state: GameState,
     pub parent: Option<Arc<SearchNode>>,
     pub last_action: Option<(PlayerId, GameAction)>,
-    pub score: f64,
+    pub score: ScoreDetails,
     pub signature: u64,
 }
 
@@ -69,16 +65,26 @@ impl SearchNode {
 
 impl PartialEq for SearchNode {
     fn eq(&self, other: &Self) -> bool {
-        self.score == other.score
-            && self.state.turn_count == other.state.turn_count
-            && self.state.phase == other.state.phase
-            && self.state.hull_integrity == other.state.hull_integrity
+        self.score.total == other.score.total
     }
 }
+
+impl PartialOrd for SearchNode {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.score.total.partial_cmp(&other.score.total)
+    }
+}
+
 impl Eq for SearchNode {}
+
+impl Ord for SearchNode {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).unwrap_or(std::cmp::Ordering::Equal)
+    }
+}
 impl std::hash::Hash for SearchNode {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        ((self.score * 1000.0) as i64).hash(state);
+        ((self.score.total * 1000.0) as i64).hash(state);
         self.state.turn_count.hash(state);
         self.state.phase.hash(state);
         self.state.hull_integrity.hash(state);
