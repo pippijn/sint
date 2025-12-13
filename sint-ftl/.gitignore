@@ -1,4 +1,3 @@
 /.venv
-/solve_*.txt
 /target
 __pycache__

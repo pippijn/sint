@@ -18,13 +18,13 @@ Run the solver with sufficient steps. **Always invoke the script directly, do no
 
 **Single Seed:**
 ```bash
-scripts/run_solve.py --steps 3000 --seeds 12345 --output-dir .
+scripts/run_solve.py --steps 3000 --seeds 12345 --output-dir trajectories
 ```
 
 **Multiple Seeds (Parallel):**
 This verifies robustness across different RNG states.
 ```bash
-scripts/run_solve.py --steps 3000 --seeds 12345,54321,99999 --parallel --output-dir .
+scripts/run_solve.py --steps 3000 --seeds 12345,54321,99999 --parallel --output-dir trajectories
 ```
 
 *   *Check:* Did it finish? Did it win? If it won, can we optimize for speed (fewer rounds)?
@@ -33,7 +33,7 @@ scripts/run_solve.py --steps 3000 --seeds 12345,54321,99999 --parallel --output-
 If the result is unsatisfactory (or if optimizing for speed), invoke the `codebase_investigator`.
 
 *   **Tool:** `codebase_investigator`
-*   **Prompt:** Use the "Standard Prompt Template" from `docs/optimize/investigator_playbook.md`, replacing `{TRAJECTORY_FILE}` with the actual filename (e.g., `solve_12345.txt`).
+*   **Prompt:** Use the "Standard Prompt Template" from `docs/optimize/investigator_playbook.md`, replacing `{TRAJECTORY_FILE}` with the actual filename (e.g., `trajectories/solve_12345.txt`).
 
 ### 3. Interpret & Implement
 Read the investigator's report. Look for:

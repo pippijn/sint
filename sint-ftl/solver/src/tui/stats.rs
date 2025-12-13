@@ -13,6 +13,8 @@ pub struct StatsWidget {
     pub score: f64,
     pub duration: Duration,
     pub is_done: bool,
+    pub shields_active: bool,
+    pub evasion_active: bool,
 }
 
 impl Widget for StatsWidget {
@@ -22,14 +24,26 @@ impl Widget for StatsWidget {
         } else {
             "SEARCHING..."
         };
+
+        let defenses = if self.shields_active && self.evasion_active {
+            " [SHIELDS+EVASION]"
+        } else if self.shields_active {
+            " [SHIELDS]"
+        } else if self.evasion_active {
+            " [EVASION]"
+        } else {
+            ""
+        };
+
         let stats_text = format!(
-            "Solver TUI | Step: {} | Hull: {} | Boss: {} | Score: {:.0} | Time: {:.1}s | {}",
+            "Solver TUI | Step: {} | Hull: {} | Boss: {} | Score: {:.0} | Time: {:.1}s | {}{}",
             self.step,
             self.hull,
             self.boss_hp,
             self.score,
             self.duration.as_secs_f64(),
-            status_txt
+            status_txt,
+            defenses
         );
 
         let color = if self.is_done {

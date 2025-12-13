@@ -39,6 +39,16 @@ pub struct SearchNode {
     pub signature: u64,
 }
 
+#[derive(Clone, Debug)]
+pub struct SearchProgress {
+    pub step: usize,
+    pub best_score: f64,
+    pub hull: i32,
+    pub boss_hp: i32,
+    pub is_done: bool,
+    pub current_best_node: Option<Arc<SearchNode>>,
+}
+
 impl SearchNode {
     pub fn get_history(&self) -> Vec<&(PlayerId, GameAction)> {
         let mut history = Vec::new();

@@ -1,6 +1,6 @@
 use crate::driver::GameDriver;
 use crate::scoring::beam::{calculate_score, BeamScoringWeights};
-use crate::search::{get_state_signature, SearchNode};
+use crate::search::{get_state_signature, SearchNode, SearchProgress};
 use rayon::prelude::*;
 use sint_core::logic::GameLogic;
 use sint_core::types::{Action, GameAction, GamePhase};
@@ -71,16 +71,6 @@ impl DebugContext {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct SearchProgress {
-    pub step: usize,
-    pub best_score: f64,
-    pub hull: i32,
-    pub boss_hp: i32,
-    pub is_done: bool,
-    pub current_best_node: Option<Arc<SearchNode>>,
-}
-
 pub fn beam_search<F>(
     config: &BeamSearchConfig,
     weights: &BeamScoringWeights,
@@ -145,18 +135,16 @@ where
                 best_partial = Some(best_in_beam.clone());
             }
 
-            // Report progress every 10 steps or if done
+            // Report progress every step
             if let Some(cb) = &progress_callback {
-                if step % 10 == 0 {
-                    cb(SearchProgress {
-                        step,
-                        best_score: best_in_beam.score,
-                        hull: best_in_beam.state.hull_integrity,
-                        boss_hp: best_in_beam.state.enemy.hp,
-                        is_done: false,
-                        current_best_node: Some(best_in_beam.clone()),
-                    });
-                }
+                cb(SearchProgress {
+                    step,
+                    best_score: best_in_beam.score,
+                    hull: best_in_beam.state.hull_integrity,
+                    boss_hp: best_in_beam.state.enemy.hp,
+                    is_done: false,
+                    current_best_node: Some(best_in_beam.clone()),
+                });
             }
         }
 

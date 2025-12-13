@@ -1,5 +1,6 @@
 use sint_solver::scoring::rhea::RheaScoringWeights;
 use sint_solver::search::rhea::{rhea_search, RHEAConfig};
+use sint_solver::search::SearchProgress;
 use std::time::Instant;
 
 #[test]
@@ -15,7 +16,7 @@ fn test_rhea_smoke() {
         verbose: false,
     };
     let weights = RheaScoringWeights::default();
-    let result = rhea_search(&config, &weights);
+    let result = rhea_search(&config, &weights, None::<fn(SearchProgress)>);
     assert!(result.is_some());
     let node = result.unwrap();
     assert!(!node.get_history().is_empty());
@@ -35,8 +36,10 @@ fn test_rhea_determinism() {
     };
     let weights = RheaScoringWeights::default();
 
-    let result1 = rhea_search(&config, &weights).expect("RHEA failed run 1");
-    let result2 = rhea_search(&config, &weights).expect("RHEA failed run 2");
+    let result1 =
+        rhea_search(&config, &weights, None::<fn(SearchProgress)>).expect("RHEA failed run 1");
+    let result2 =
+        rhea_search(&config, &weights, None::<fn(SearchProgress)>).expect("RHEA failed run 2");
 
     assert_eq!(
         result1.signature, result2.signature,
@@ -76,8 +79,10 @@ fn test_rhea_seed_sensitivity() {
     };
     let weights = RheaScoringWeights::default();
 
-    let result1 = rhea_search(&config1, &weights).expect("RHEA failed run 1");
-    let result2 = rhea_search(&config2, &weights).expect("RHEA failed run 2");
+    let result1 =
+        rhea_search(&config1, &weights, None::<fn(SearchProgress)>).expect("RHEA failed run 1");
+    let result2 =
+        rhea_search(&config2, &weights, None::<fn(SearchProgress)>).expect("RHEA failed run 2");
 
     // It is possible they end up in same state if moves are forced, but unlikely with enough steps/generations.
     // If they are exactly the same, this test might be flaky if the game is too deterministic.
@@ -105,7 +110,7 @@ fn test_rhea_time_limit() {
     let weights = RheaScoringWeights::default();
 
     let start = Instant::now();
-    let result = rhea_search(&config, &weights);
+    let result = rhea_search(&config, &weights, None::<fn(SearchProgress)>);
     let duration = start.elapsed();
 
     assert!(result.is_some());

@@ -1,18 +1,20 @@
-use wasm_bindgen_test::*;
-use leptos::prelude::*;
 use leptos::mount::mount_to_body;
+use leptos::prelude::*;
 use leptos_router::components::Router;
 use sint_client::App;
+use wasm_bindgen_test::*;
 
 wasm_bindgen_test_configure!(run_in_browser);
 
 #[wasm_bindgen_test]
 fn test_app_starts_with_router() {
     // This should not panic
-    mount_to_body(|| view! {
-        <Router>
-            <App />
-        </Router>
+    mount_to_body(|| {
+        view! {
+            <Router>
+                <App />
+            </Router>
+        }
     });
 }
 

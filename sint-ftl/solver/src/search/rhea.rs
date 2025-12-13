@@ -1,6 +1,6 @@
 use crate::driver::GameDriver;
 use crate::scoring::rhea::{score_rhea, RheaScoringWeights};
-use crate::search::{get_legal_actions, get_state_signature, SearchNode};
+use crate::search::{get_legal_actions, get_state_signature, SearchNode, SearchProgress};
 use rand::prelude::*;
 use rand::rngs::StdRng;
 use rayon::prelude::*;
@@ -26,7 +26,14 @@ struct Individual {
     score: f64,
 }
 
-pub fn rhea_search(config: &RHEAConfig, weights: &RheaScoringWeights) -> Option<SearchNode> {
+pub fn rhea_search<F>(
+    config: &RHEAConfig,
+    weights: &RheaScoringWeights,
+    progress_callback: Option<F>,
+) -> Option<SearchNode>
+where
+    F: Fn(SearchProgress) + Sync + Send,
+{
     let player_ids: Vec<String> = (0..config.players).map(|i| format!("P{}", i + 1)).collect();
     let initial_state = GameLogic::new_game(player_ids, config.seed);
 
@@ -62,6 +69,19 @@ pub fn rhea_search(config: &RHEAConfig, weights: &RheaScoringWeights) -> Option<
     loop {
         // Game Loop
         if current_state.phase == GamePhase::GameOver || current_state.phase == GamePhase::Victory {
+            // Report final success/failure
+            if let Some(cb) = &progress_callback {
+                if let Some(last_node) = &search_node_chain {
+                    cb(SearchProgress {
+                        step: steps_taken,
+                        best_score: last_node.score,
+                        hull: current_state.hull_integrity,
+                        boss_hp: current_state.enemy.hp,
+                        is_done: true,
+                        current_best_node: Some(last_node.clone()),
+                    });
+                }
+            }
             break;
         }
         if start_time.elapsed() > time_limit {
@@ -152,6 +172,20 @@ pub fn rhea_search(config: &RHEAConfig, weights: &RheaScoringWeights) -> Option<
         // 3. Select Best
         // Population is already sorted from the end of the loop (or initialization)
         let best_ind = &population[0];
+
+        // Report Progress
+        if let Some(cb) = &progress_callback {
+            if let Some(last_node) = &search_node_chain {
+                cb(SearchProgress {
+                    step: steps_taken,
+                    best_score: best_ind.score,
+                    hull: current_state.hull_integrity,
+                    boss_hp: current_state.enemy.hp,
+                    is_done: false,
+                    current_best_node: Some(last_node.clone()), // This is technically the node *before* the action we are about to pick, but good enough for context.
+                });
+            }
+        }
 
         if config.verbose && (steps_taken % 10 == 0 || steps_taken == config.max_steps) {
             println!(

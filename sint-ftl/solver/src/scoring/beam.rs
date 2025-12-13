@@ -40,12 +40,14 @@ pub struct BeamScoringWeights {
 
     // Anti-Oscillation
     pub backtracking_penalty: f64,
+    pub commitment_bonus: f64, // New: Reward for continuing a task
 
     // Situation Solving
     pub solution_solver_reward: f64,
     pub solution_distance_factor: f64,
     pub situation_logistics_reward: f64, // New: Reward for getting items needed for situations
     pub situation_resolved_reward: f64,  // New: Reward for the act of solving
+    pub system_importance_multiplier: f64, // New: Multiplier for critical systems
 
     // Logistics
     pub ammo_stockpile_reward: f64,
@@ -105,14 +107,14 @@ pub struct BeamScoringWeights {
 impl Default for BeamScoringWeights {
     fn default() -> Self {
         Self {
-            hull_integrity: 8000.0, // Critical: Hull is Life (Increased to prioritize survival)
+            hull_integrity: 10000.0,    // Reduced from 12000.0 to accept some damage
             hull_delta_penalty: 2000.0, // Reduced from 20000.0 to prevent paralysis
-            enemy_hp: 15000.0,      // High priority: KILL THE BOSS
+            enemy_hp: 25000.0,          // High priority: KILL THE BOSS (Increased from 15000.0)
             player_hp: 200.0,
             ap_balance: 50.0, // High value on AP = Don't waste turns
 
             // Hazards - significantly increased penalties
-            fire_penalty_base: 12000.0, // Burn, baby, burn (but don't)
+            fire_penalty_base: 10000.0, // Reduced from 15000.0
             water_penalty: 1000.0,
 
             // Situations & Threats
@@ -135,18 +137,20 @@ impl Default for BeamScoringWeights {
             sickbay_distance_factor: 50.0,
 
             backtracking_penalty: 200.0, // WAS 50.0. Prevent infinite loops (Slippery Deck).
+            commitment_bonus: 500.0,     // Reward for consistency
 
             solution_solver_reward: 60000.0, // WAS 40000.0. Solving problems is key.
             solution_distance_factor: 100.0,
             situation_logistics_reward: 25000.0, // WAS 5000.0. GO GET THE ITEM.
             situation_resolved_reward: 30000.0,  // New: Big payout for finishing the job
+            system_importance_multiplier: 2.0,   // Critical systems are 2x more important
 
             ammo_stockpile_reward: 5000.0, // Encourage dumping ammo in Cannons (Huge)
             loose_ammo_reward: 200.0,      // Every nut on the map is hope
             hazard_proximity_reward: 50.0,
             situation_exposure_penalty: 1000.0,
             system_disabled_penalty: 50000.0, // WAS 25000.0. Broken guns = Death.
-            shooting_reward: 6500.0, // Increased from 250.0 to offset ammo cost (5000+1000)
+            shooting_reward: 8000.0,          // Increased from 6500.0
 
             scavenger_reward: 500.0,
             repair_proximity_reward: 1000.0,
@@ -154,7 +158,7 @@ impl Default for BeamScoringWeights {
             cargo_repair_proximity_reward: 1.0, // New
 
             boss_level_reward: 20000.0,
-            turn_penalty: 2000.0, // Increased to prevent stalling
+            turn_penalty: 5000.0, // Increased from 2500.0 to prevent stalling
             step_penalty: 20.0,   // WAS 5.0. Prevent free-action loops.
 
             checkmate_threshold: 15.0,
@@ -162,7 +166,7 @@ impl Default for BeamScoringWeights {
 
             // Critical State
             critical_hull_threshold: 12.0,
-            critical_hull_penalty_base: 100_000.0,
+            critical_hull_penalty_base: 150_000.0,
             critical_hull_penalty_per_hp: 50_000.0,
             critical_fire_threshold: 2,
             critical_fire_penalty_per_token: 25_000.0,
@@ -233,6 +237,32 @@ pub fn calculate_score(
 ) -> f64 {
     let mut score = score_static(current, history, weights);
     score += score_transition(parent, current, weights);
+
+    // Commitment Bonus: Reward moving towards hazards
+    if let Some((last_pid, last_act)) = history.last() {
+        if matches!(last_act, GameAction::Move { .. }) {
+            let old_room = parent.players.get(last_pid).unwrap().room_id;
+            let new_room = current.players.get(last_pid).unwrap().room_id;
+
+            // Identify targets (Fires)
+            let mut target_rooms = HashSet::new();
+            for r in current.map.rooms.values() {
+                if r.hazards.contains(&HazardType::Fire) {
+                    target_rooms.insert(r.id);
+                }
+            }
+
+            if !target_rooms.is_empty() {
+                let old_dist = min_distance(parent, old_room, &target_rooms);
+                let new_dist = min_distance(current, new_room, &target_rooms);
+
+                if new_dist < old_dist {
+                    score += weights.commitment_bonus;
+                }
+            }
+        }
+    }
+
     score
 }
 
@@ -315,11 +345,18 @@ pub fn score_static(
     };
     let bloodlust_mult = if enemy_hp_percent < 0.5 { 1.5 } else { 1.0 };
 
+    // KAMIKAZE MODE: If checkmate is possible (Boss low), ignore survival instincts.
+    let effective_survival_mult = if checkmate_mult > 1.0 {
+        1.0
+    } else {
+        survival_mult
+    };
+
     score += (state.enemy.max_hp as f64 - state.enemy.hp as f64)
         * weights.enemy_hp
         * checkmate_mult
         * bloodlust_mult
-        * survival_mult; // Apply survival multiplier to deprioritize offense when dying
+        * effective_survival_mult;
 
     score -= state.turn_count as f64 * weights.turn_penalty;
     score -= history.len() as f64 * weights.step_penalty;
@@ -370,12 +407,15 @@ pub fn score_static(
 
                     // Penalty for the system being currently disabled
                     if has_disabling_hazard {
-                        score -= weights.system_disabled_penalty;
+                        score -=
+                            weights.system_disabled_penalty * weights.system_importance_multiplier;
                     }
 
                     // New: Penalty for ANY hazard in a critical room (Danger Zone)
                     // Even if not disabled yet (e.g. fire just started), we want to clear it ASAP.
-                    score -= weights.critical_system_hazard_penalty * (room.hazards.len() as f64);
+                    score -= weights.critical_system_hazard_penalty
+                        * (room.hazards.len() as f64)
+                        * weights.system_importance_multiplier;
                 }
             }
         }
@@ -581,9 +621,24 @@ pub fn score_static(
         }
 
         // Dynamic Role Override: Fire Panic
-        // If the ship is burning significantly, forget your post and grab a bucket.
-        if fire_count_total >= weights.critical_fire_threshold {
-            assigned_room = None;
+        // If there is ANY fire, only Gunners stick to their posts (unless fire is in Cannons).
+        // Everyone else becomes a firefighter.
+        if fire_count_total > 0 {
+            if matches!(p.id.as_str(), "P5" | "P6") {
+                // Gunners only leave if it's really bad or fire is IN the cannons
+                if fire_count_total >= weights.critical_fire_threshold
+                    || state
+                        .map
+                        .rooms
+                        .get(&6)
+                        .map_or(false, |r| r.hazards.contains(&HazardType::Fire))
+                {
+                    assigned_room = None;
+                }
+            } else {
+                // Everyone else: Drop everything and help.
+                assigned_room = None;
+            }
         }
 
         if let Some(target) = assigned_room {

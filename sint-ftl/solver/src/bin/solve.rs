@@ -13,11 +13,12 @@ use sint_core::logic::GameLogic;
 use sint_solver::replay;
 use sint_solver::scoring::beam::BeamScoringWeights;
 use sint_solver::scoring::rhea::RheaScoringWeights;
-use sint_solver::search::beam::{beam_search, BeamSearchConfig, SearchProgress};
+use sint_solver::search::beam::{beam_search, BeamSearchConfig};
 use sint_solver::search::rhea::{rhea_search, RHEAConfig};
-use sint_solver::search::SearchNode;
+use sint_solver::search::{SearchNode, SearchProgress};
 use sint_solver::tui::{
-    log::LogWidget, map::MapWidget, players::PlayersWidget, stats::StatsWidget,
+    log::LogWidget, map::MapWidget, players::PlayersWidget, situations::SituationsWidget,
+    stats::StatsWidget,
 };
 use std::fs::File;
 use std::io::{self, Write};
@@ -157,7 +158,7 @@ fn run_cli(args: Args) {
                 time_limit: args.time_limit,
                 verbose: true,
             };
-            rhea_search(&config, &weights)
+            rhea_search(&config, &weights, None::<fn(SearchProgress)>)
         }
     };
 
@@ -230,7 +231,7 @@ fn run_tui(args: Args) -> Result<(), Box<dyn std::error::Error>> {
                     time_limit: solver_args.time_limit,
                     verbose: false,
                 };
-                rhea_search(&config, &weights)
+                rhea_search(&config, &weights, Some(callback))
             }
         };
 
@@ -240,30 +241,30 @@ fn run_tui(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     });
 
     let tick_rate = Duration::from_millis(100);
-    let mut last_tick = Instant::now();
+    let mut last_update = Instant::now();
 
-    loop {
+    'mainloop: loop {
         terminal.draw(|f| ui(f, &app))?;
 
-        let timeout = if app.done {
-            Duration::from_secs(60) // Wait for user input (e.g. 'q'), stop spinning
-        } else {
-            tick_rate
-                .checked_sub(last_tick.elapsed())
-                .unwrap_or_else(|| Duration::from_secs(0))
-        };
+        // Rate Limit & Input Handling: Wait until tick_rate has passed
+        let mut time_remaining = tick_rate
+            .checked_sub(last_update.elapsed())
+            .unwrap_or(Duration::from_secs(0));
 
-        if crossterm::event::poll(timeout)? {
-            if let Event::Key(key) = crossterm::event::read()? {
-                if let KeyCode::Char('q') = key.code {
-                    break;
+        while time_remaining > Duration::from_secs(0) {
+            if crossterm::event::poll(time_remaining)? {
+                if let Event::Key(key) = crossterm::event::read()? {
+                    if let KeyCode::Char('q') = key.code {
+                        break 'mainloop;
+                    }
                 }
             }
+            time_remaining = tick_rate
+                .checked_sub(last_update.elapsed())
+                .unwrap_or(Duration::from_secs(0));
         }
 
-        if last_tick.elapsed() >= tick_rate {
-            last_tick = Instant::now();
-        }
+        last_update = Instant::now();
 
         while let Ok(p) = rx.try_recv() {
             if p.is_done && !app.done {
@@ -297,11 +298,24 @@ fn ui(f: &mut Frame, app: &SolverApp) {
         )
         .split(f.area());
 
+    // Data prep
+    let current_node = app
+        .progress
+        .as_ref()
+        .and_then(|p| p.current_best_node.as_ref());
+    let current_state = current_node.map(|n| &n.state);
+
     // Stats Widget
     let (step, hull, boss, score) = if let Some(p) = &app.progress {
         (p.step, p.hull, p.boss_hp, p.best_score)
     } else {
         (0, 0, 0, 0.0)
+    };
+
+    let (shields, evasion) = if let Some(s) = current_state {
+        (s.shields_active, s.evasion_active)
+    } else {
+        (false, false)
     };
 
     let duration = app
@@ -315,10 +329,12 @@ fn ui(f: &mut Frame, app: &SolverApp) {
         score,
         duration,
         is_done: app.done,
+        shields_active: shields,
+        evasion_active: evasion,
     };
     f.render_widget(stats, chunks[0]);
 
-    // Content: Map + Sidebar (Players + Log)
+    // Content: Map + Sidebar (Players + Situations + Log)
     let main_chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(60), Constraint::Percentage(40)].as_ref())
@@ -326,15 +342,15 @@ fn ui(f: &mut Frame, app: &SolverApp) {
 
     let side_chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(10), Constraint::Min(0)].as_ref())
+        .constraints(
+            [
+                Constraint::Length(10), // Players
+                Constraint::Length(8),  // Situations
+                Constraint::Min(0),     // Log
+            ]
+            .as_ref(),
+        )
         .split(main_chunks[1]);
-
-    // Data prep
-    let current_node = app
-        .progress
-        .as_ref()
-        .and_then(|p| p.current_best_node.as_ref());
-    let current_state = current_node.map(|n| &n.state);
 
     // Map Widget (Left)
     let map = MapWidget {
@@ -348,7 +364,13 @@ fn ui(f: &mut Frame, app: &SolverApp) {
     };
     f.render_widget(players, side_chunks[0]);
 
+    // Situations Widget (Middle Right)
+    let situations = SituationsWidget {
+        state: current_state,
+    };
+    f.render_widget(situations, side_chunks[1]);
+
     // Log Widget (Bottom Right)
     let log = LogWidget { current_node };
-    f.render_widget(log, side_chunks[1]);
+    f.render_widget(log, side_chunks[2]);
 }

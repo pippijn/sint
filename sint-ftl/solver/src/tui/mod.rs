@@ -3,6 +3,7 @@ use ratatui::style::Color;
 pub mod log;
 pub mod map;
 pub mod players;
+pub mod situations;
 pub mod stats;
 
 pub fn get_player_emoji(id: &str) -> &'static str {

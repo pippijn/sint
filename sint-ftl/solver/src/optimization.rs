@@ -1,7 +1,8 @@
 use crate::scoring::beam::BeamScoringWeights;
 use crate::scoring::rhea::RheaScoringWeights;
-use crate::search::beam::{beam_search, BeamSearchConfig, SearchProgress};
+use crate::search::beam::{beam_search, BeamSearchConfig};
 use crate::search::rhea::{rhea_search, RHEAConfig};
+use crate::search::SearchProgress;
 use rand::prelude::*;
 use rayon::prelude::*;
 use sint_core::types::GamePhase;
@@ -336,7 +337,7 @@ where
                         time_limit: 5,
                         verbose: false,
                     };
-                    rhea_search(&search_config, &weights) // RHEA doesn't support progress callback yet
+                    rhea_search(&search_config, &weights, cb)
                 }
             };
 

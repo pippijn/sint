@@ -19,7 +19,7 @@ use sint_solver::optimization::{
 };
 use sint_solver::scoring::beam::BeamScoringWeights;
 use sint_solver::scoring::rhea::RheaScoringWeights;
-use sint_solver::search::beam::SearchProgress;
+use sint_solver::search::SearchProgress;
 use std::{
     io,
     sync::mpsc,
