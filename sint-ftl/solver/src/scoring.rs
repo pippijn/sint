@@ -8,6 +8,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 pub struct ScoringWeights {
     // Vital Stats
     pub hull_integrity: f64,
+    pub hull_delta_penalty: f64,
     pub enemy_hp: f64,
     pub player_hp: f64,
     pub ap_balance: f64,
@@ -57,10 +58,11 @@ pub struct ScoringWeights {
     // Progression
     pub boss_level_reward: f64,
     pub turn_penalty: f64,
+    pub step_penalty: f64,
 
     // Checkmate
     pub checkmate_threshold: f64,
-    pub checkmate_reward: f64,
+    pub checkmate_multiplier: f64,
 
     // Critical State / Panic
     pub critical_hull_threshold: f64,
@@ -73,6 +75,7 @@ pub struct ScoringWeights {
     pub hull_exponent: f64,
     pub fire_exponent: f64,
     pub cargo_repair_exponent: f64,
+    pub hull_risk_exponent: f64,
 
     // Multipliers & Ranges
     pub fire_urgency_mult: f64,
@@ -93,16 +96,17 @@ impl Default for ScoringWeights {
     fn default() -> Self {
         Self {
             hull_integrity: 8000.0, // Critical: Hull is Life (Increased to prioritize survival)
+            hull_delta_penalty: 20000.0, // Immediate penalty for taking damage in a step
             enemy_hp: 15000.0,      // High priority: KILL THE BOSS
             player_hp: 200.0,
             ap_balance: 50.0, // High value on AP = Don't waste turns
 
             // Hazards - significantly increased penalties
-            fire_penalty_base: 15000.0, // Burn, baby, burn (but don't)
+            fire_penalty_base: 5000.0, // Burn, baby, burn (but don't)
             water_penalty: 1000.0,
 
             // Situations & Threats
-            active_situation_penalty: 5000.0, // WAS 500.0 - HUGE increase. Situations kill runs.
+            active_situation_penalty: 8000.0, // WAS 5000.0 - HUGE increase. Situations kill runs.
             threat_player_penalty: 100.0,     // Reduced to allow calculated risks
             threat_system_penalty: 2000.0,
             death_penalty: 50000.0,
@@ -122,7 +126,7 @@ impl Default for ScoringWeights {
 
             backtracking_penalty: 50.0,
 
-            solution_solver_reward: 5000.0, // WAS 1000.0. Solving problems is as important as avoiding damage.
+            solution_solver_reward: 20000.0, // WAS 5000.0. Solving problems is as important as avoiding damage.
             solution_distance_factor: 100.0,
 
             ammo_stockpile_reward: 5000.0, // Encourage dumping ammo in Cannons (Huge)
@@ -137,10 +141,11 @@ impl Default for ScoringWeights {
             cargo_repair_incentive: 50.0,
 
             boss_level_reward: 20000.0,
-            turn_penalty: 50.0, // Increased to prevent stalling
+            turn_penalty: 100.0, // Increased to prevent stalling
+            step_penalty: 5.0, // Penalize dithering/free actions
 
             checkmate_threshold: 15.0,
-            checkmate_reward: 50000.0,
+            checkmate_multiplier: 2.5,
 
             // Critical State
             critical_hull_threshold: 5.0,
@@ -153,6 +158,7 @@ impl Default for ScoringWeights {
             hull_exponent: 2.0,
             fire_exponent: 3.0,
             cargo_repair_exponent: 1.5,
+            hull_risk_exponent: 1.1,
 
             // Multipliers
             fire_urgency_mult: 5.0,
@@ -199,9 +205,22 @@ fn min_distance(state: &GameState, start: RoomId, targets: &HashSet<RoomId>) -> 
     999
 }
 
+/// Calculates the total score for a search node, combining static state evaluation
+/// and transition penalties/rewards (e.g., hull loss).
+pub fn calculate_score(
+    parent: &GameState,
+    current: &GameState,
+    history: &[(PlayerId, GameAction)],
+    weights: &ScoringWeights,
+) -> f64 {
+    let mut score = score_static(current, history, weights);
+    score += score_transition(parent, current, weights);
+    score
+}
+
 /// Calculates a score for a single state snapshot.
 /// Higher is better.
-pub fn score_state(
+fn score_static(
     state: &GameState,
     history: &[(PlayerId, GameAction)],
     weights: &ScoringWeights,
@@ -217,10 +236,9 @@ pub fn score_state(
     let mut score = 0.0;
 
     // --- Checkmate Heuristic ---
-    // If victory is close, ignore everything else and KILL IT.
+    let mut checkmate_mult = 1.0;
     if (state.enemy.hp as f64) <= weights.checkmate_threshold && state.enemy.hp > 0 {
-        let finish_him = weights.checkmate_threshold - state.enemy.hp as f64;
-        score += finish_him * weights.checkmate_reward;
+        checkmate_mult = weights.checkmate_multiplier;
     }
 
     // --- Critical State Heuristic ---
@@ -256,8 +274,9 @@ pub fn score_state(
     score -= missing_hull.powf(weights.hull_exponent) * weights.hull_integrity;
 
     score += state.boss_level as f64 * weights.boss_level_reward;
-    score += (state.enemy.max_hp - state.enemy.hp) as f64 * weights.enemy_hp;
+    score += (state.enemy.max_hp - state.enemy.hp) as f64 * weights.enemy_hp * checkmate_mult;
     score -= state.turn_count as f64 * weights.turn_penalty;
+    score -= history.len() as f64 * weights.step_penalty;
 
     // --- 2. Hazards ---
     let mut fire_rooms = HashSet::new();
@@ -282,7 +301,8 @@ pub fn score_state(
     }
 
     // Cubic Fire Penalty: Make firefighting > repairing
-    score -= (fire_count as f64).powf(weights.fire_exponent) * weights.fire_penalty_base;
+    let hull_risk_factor = 1.0 + (MAX_HULL as f64 - state.hull_integrity as f64).max(0.0).powf(weights.hull_risk_exponent);
+    score -= (fire_count as f64).powf(weights.fire_exponent) * weights.fire_penalty_base * hull_risk_factor;
     score -= water_count as f64 * weights.water_penalty;
 
     // -- System Disabled --
@@ -327,7 +347,7 @@ pub fn score_state(
     }
 
     // -- Hazard Proximity Setup --
-    let mut hazardous_rooms = fire_rooms.clone();
+    let mut hazardous_rooms = fire_rooms;
     for room in state.map.rooms.values() {
         if room.hazards.contains(&HazardType::Water) {
             hazardous_rooms.insert(room.id);
@@ -435,7 +455,7 @@ pub fn score_state(
     }
 
     // Pre-calculate ammo sources
-    let mut ammo_sources = nut_locations.clone();
+    let mut ammo_sources = nut_locations;
     for k in &kitchen_rooms {
         ammo_sources.insert(*k);
     }
@@ -744,6 +764,19 @@ pub fn score_state(
         }
     }
 
+    score
+}
+
+/// Calculates the score delta based on the transition from parent to current state.
+fn score_transition(
+    parent: &GameState,
+    current: &GameState,
+    weights: &ScoringWeights,
+) -> f64 {
+    let mut score = 0.0;
+    // Hull Delta Penalty: Penalize the ACT of losing hull
+    let hull_loss = (parent.hull_integrity as f64 - current.hull_integrity as f64).max(0.0);
+    score -= hull_loss * weights.hull_delta_penalty;
     score
 }
 

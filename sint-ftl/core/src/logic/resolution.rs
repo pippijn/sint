@@ -6,7 +6,7 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 
 pub fn resolve_enemy_attack(state: &mut GameState) {
     // 1. Handle Fog Bank (Hidden Attack) or Normal Attack via Hooks
-    let mut attack_opt = state.enemy.next_attack.clone();
+    let mut attack_opt = state.enemy.next_attack.take();
 
     if let Some(ref mut attack) = attack_opt {
         // Collect IDs to avoid borrow issues while mutating state in hook
@@ -72,11 +72,12 @@ pub fn resolve_hazards(state: &mut GameState) {
     let mut rng = StdRng::seed_from_u64(state.rng_seed);
 
     // Deterministic Iteration: BTreeMap gives sorted keys
-    let room_ids: Vec<u32> = state.map.rooms.keys().cloned().collect();
+    let room_ids: Vec<u32> = state.map.rooms.keys().collect();
 
-    // 1. Damage Players & Hull
+    // 1. Process Hazards (Fire spreads, Water leaks)
     for room_id in &room_ids {
-        let room = &state.map.rooms[room_id];
+        let room = &state.map.rooms[*room_id];
+
         let has_fire = room.hazards.contains(&HazardType::Fire);
 
         if has_fire {
@@ -146,8 +147,7 @@ pub fn resolve_hazards(state: &mut GameState) {
 }
 
 pub fn resolve_proposal_queue(state: &mut GameState, simulation: bool) {
-    let queue = state.proposal_queue.clone();
-    state.proposal_queue.clear();
+    let queue = std::mem::take(&mut state.proposal_queue);
 
     for proposal in queue {
         let player_id = &proposal.player_id;

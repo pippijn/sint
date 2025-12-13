@@ -87,8 +87,7 @@ impl VerificationResult {
         }
 
         out.push_str("Map State:\n");
-        let mut room_ids: Vec<u32> = state.map.rooms.keys().cloned().collect();
-        room_ids.sort();
+        let room_ids: Vec<u32> = state.map.rooms.keys().collect();
         for rid in &room_ids {
             if let Some(room) = state.map.rooms.get(rid) {
                 let sys = room
@@ -108,8 +107,7 @@ impl VerificationResult {
         }
 
         out.push_str("Players:\n");
-        let mut pids: Vec<String> = state.players.keys().cloned().collect();
-        pids.sort();
+        let pids: Vec<String> = state.players.keys().cloned().collect();
         for p_id in pids {
             if let Some(p) = state.players.get(&p_id) {
                 let inv_str: String = p.inventory.iter().map(get_item_emoji).collect();

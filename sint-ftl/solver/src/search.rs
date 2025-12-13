@@ -1,5 +1,5 @@
 use crate::driver::GameDriver;
-use crate::scoring::{score_state, ScoringWeights};
+use crate::scoring::{calculate_score, ScoringWeights};
 use rayon::prelude::*;
 use sint_core::logic::GameLogic;
 use sint_core::types::{Action, GameAction, GamePhase, GameState, PlayerId};
@@ -328,8 +328,7 @@ fn expand_node(
     }
 
     // Identify active player (Deterministic order: P1, P2, ...)
-    let mut players: Vec<_> = state.players.values().collect();
-    players.sort_by_key(|p| &p.id);
+    let players: Vec<_> = state.players.values().collect();
     let active_player = players.into_iter().find(|p| !p.is_ready && p.ap > 0);
 
     // Prepare log entry
@@ -375,7 +374,8 @@ fn expand_node(
                         Ok(_) => {
                             let mut current_history = node.history.clone();
                             current_history.push((p.id.clone(), act.clone()));
-                            let score = score_state(&driver.state, &current_history, weights);
+                            let score = calculate_score(&node.state, &driver.state, &current_history, weights);
+
                             let signature = get_state_signature(&driver.state);
                             results.push(SearchNode {
                                 state: driver.state,

@@ -10,7 +10,7 @@ impl CardBehavior for ListingCard {
         Card {
             id: CardId::Listing,
             title: "Listing Ship".to_owned(),
-            description: "Walking is easy (0 AP), but working is hard (2x Cost).".to_owned(),
+            description: "Gravity is weird. +5 AP/Round. Move is 1 AP. Others 2x Cost.".to_owned(),
             card_type: CardType::Situation,
             options: vec![],
             solution: Some(CardSolution {
@@ -23,6 +23,12 @@ impl CardBehavior for ListingCard {
         }
     }
 
+    fn on_round_start(&self, state: &mut GameState) {
+        for p in state.players.values_mut() {
+            p.ap += 5;
+        }
+    }
+
     fn modify_action_cost(
         &self,
         _state: &GameState,
@@ -30,9 +36,8 @@ impl CardBehavior for ListingCard {
         action: &GameAction,
         base_cost: i32,
     ) -> i32 {
-        // Walking is FREE (0 AP). Actions cost DOUBLE (2 AP).
         match action {
-            GameAction::Move { .. } => 0,
+            GameAction::Move { .. } => base_cost, // Standard cost (1)
             _ => {
                 if base_cost > 0 {
                     base_cost * 2

@@ -207,8 +207,7 @@ fn format_planning_context(state: &GameState) -> String {
     let mut fire_rooms = Vec::new();
     let mut water_rooms = Vec::new();
 
-    let mut room_ids: Vec<u32> = state.map.rooms.keys().cloned().collect();
-    room_ids.sort();
+    let room_ids: Vec<u32> = state.map.rooms.keys().collect();
 
     for rid in room_ids {
         if let Some(room) = state.map.rooms.get(&rid) {
@@ -241,8 +240,7 @@ fn format_planning_context(state: &GameState) -> String {
 
     // 4. Players
     let mut players_info = Vec::new();
-    let mut pids: Vec<String> = state.players.keys().cloned().collect();
-    pids.sort();
+    let pids: Vec<String> = state.players.keys().cloned().collect();
     for pid in pids {
         if let Some(p) = state.players.get(&pid) {
             let inv_str = if p.inventory.is_empty() {

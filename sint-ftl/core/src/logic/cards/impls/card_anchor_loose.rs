@@ -29,7 +29,7 @@ impl CardBehavior for AnchorLooseCard {
         // Place 1 Water token on random spot.
         let mut rng = StdRng::seed_from_u64(state.rng_seed);
 
-        let room_keys: Vec<u32> = state.map.rooms.keys().cloned().collect();
+        let room_keys: Vec<u32> = state.map.rooms.keys().collect();
         if !room_keys.is_empty() {
             let idx = rng.gen_range(0..room_keys.len());
             let target = room_keys[idx];

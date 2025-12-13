@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use uuid::Uuid;
 
+use crate::small_map::SmallMap;
+
 // --- ID Aliases ---
 pub type PlayerId = String;
 pub type RoomId = u32;
@@ -90,7 +92,7 @@ pub enum GamePhase {
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct GameMap {
-    pub rooms: BTreeMap<RoomId, Room>,
+    pub rooms: SmallMap<RoomId, Room>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
