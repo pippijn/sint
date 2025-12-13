@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 wasm-bindgen-futures = "0.4"
-uuid = { version = "1.0", features = ["v4", "serde", "js"] }
+uuid = { version = "1.19", features = ["v4", "serde", "js"] }
 leptos = { version = "0.6", features = ["csr"] }
 leptos_router = { version = "0.6", features = ["csr"] }
 sint-core = { path = "../core" }
