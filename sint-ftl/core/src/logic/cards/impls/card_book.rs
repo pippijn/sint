@@ -18,7 +18,7 @@ impl CardBehavior for TheBookCard {
             title: "The Book".to_owned(),
             description: "Mission: Storage -> Bridge. Reward: Skip Enemy Attack.".to_owned(),
             card_type: CardType::Timebomb { rounds_left: 3 },
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: Some(SystemType::Bridge),
                 ap_cost: 1,

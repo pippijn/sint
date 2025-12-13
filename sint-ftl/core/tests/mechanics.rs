@@ -416,3 +416,23 @@ fn test_full_sync_import() {
 
     assert_eq!(synced.turn_count, 100);
 }
+
+#[test]
+fn test_fainted_player_cannot_act() {
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
+    state.phase = GamePhase::TacticalPlanning;
+
+    if let Some(p) = state.players.get_mut("P1") {
+        p.status.push(PlayerStatus::Fainted);
+    }
+
+    let res = GameLogic::apply_action(state.clone(), "P1", Action::Game(GameAction::Pass), None);
+    assert!(res.is_err(), "Fainted player should not be able to Pass");
+
+    let actions = sint_core::logic::actions::get_valid_actions(&state, "P1");
+    // Should only contain Chat
+    let has_move = actions
+        .iter()
+        .any(|a| matches!(a, Action::Game(GameAction::Move { .. })));
+    assert!(!has_move, "Fainted player should not have Move action");
+}

@@ -13,7 +13,7 @@ impl CardBehavior for SeagullAttackCard {
             title: "Seagull Attack".to_owned(),
             description: "Birds attacking ammo. Cannot Move while holding Peppernuts.".to_owned(),
             card_type: CardType::Situation,
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: Some(SystemType::Bow),
                 ap_cost: 1,

@@ -16,7 +16,7 @@ impl CardBehavior for SingASongCard {
             title: "Sing a Song".to_owned(),
             description: "Morale boost! Removes 2 Fire/Water tokens.".to_owned(),
             card_type: CardType::Flash,
-            options: vec![],
+            options: vec![].into(),
             solution: None,
             affected_player: None,
         }

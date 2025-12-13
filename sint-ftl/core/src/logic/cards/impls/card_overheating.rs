@@ -12,7 +12,7 @@ impl CardBehavior for OverheatingCard {
             title: "Overheating".to_owned(),
             description: "End turn in Engine -> Lose 1 AP next round.".to_owned(),
             card_type: CardType::Situation,
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: Some(SystemType::Engine),
                 ap_cost: 1,

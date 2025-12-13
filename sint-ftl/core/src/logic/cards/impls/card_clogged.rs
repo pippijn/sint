@@ -13,7 +13,7 @@ impl CardBehavior for CloggedPipeCard {
             title: "Clogged Pipe".to_owned(),
             description: "Kitchen is disabled.".to_owned(),
             card_type: CardType::Situation,
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: Some(SystemType::Kitchen),
                 ap_cost: 1,

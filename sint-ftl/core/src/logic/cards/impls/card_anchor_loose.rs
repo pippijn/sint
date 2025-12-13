@@ -13,7 +13,7 @@ impl CardBehavior for AnchorLooseCard {
             title: "Anchor Loose".to_owned(),
             description: "Start of round: 1 Water token on random spot.".to_owned(),
             card_type: CardType::Situation,
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: None, // Any room
                 ap_cost: 1,

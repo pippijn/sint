@@ -13,7 +13,7 @@ impl CardBehavior for JammedCannonCard {
             title: "Jammed Cannon".to_owned(),
             description: "Cannons are disabled.".to_owned(),
             card_type: CardType::Situation,
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: Some(SystemType::Cannons),
                 ap_cost: 1,

@@ -160,7 +160,7 @@ fn test_game_over_after_mutiny() {
         title: "Mutiny".to_owned(),
         description: "-10 Hull".to_owned(),
         card_type: CardType::Timebomb { rounds_left: 1 },
-        options: vec![],
+        options: vec![].into(),
         solution: None,
         affected_player: None,
     };

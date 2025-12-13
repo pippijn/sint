@@ -12,7 +12,7 @@ impl CardBehavior for RudderlessCard {
             title: "Rudderless".to_owned(),
             description: "Hard Hits. Enemy damage tokens +1.".to_owned(),
             card_type: CardType::Situation,
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: Some(SystemType::Bridge),
                 ap_cost: 1,

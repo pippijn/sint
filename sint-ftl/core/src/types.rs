@@ -1,5 +1,6 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
 use std::collections::BTreeMap;
 use uuid::Uuid;
 
@@ -61,10 +62,12 @@ pub struct GameState {
     pub is_resting: bool,
 
     /// Proposed Actions (for Tactical Planning phase)
-    pub proposal_queue: Vec<ProposedAction>,
+    #[schemars(with = "Vec<ProposedAction>")]
+    pub proposal_queue: SmallVec<[ProposedAction; 8]>,
 
     /// Active "Situation" cards
-    pub active_situations: Vec<Card>,
+    #[schemars(with = "Vec<Card>")]
+    pub active_situations: SmallVec<[Card; 4]>,
 
     /// The card drawn this turn (Flash or Situation) for display in MorningReport
     pub latest_event: Option<Card>,
@@ -100,9 +103,12 @@ pub struct Room {
     pub id: RoomId,
     pub name: String,
     pub system: Option<SystemType>,
-    pub hazards: Vec<HazardType>,
-    pub items: Vec<ItemType>,
-    pub neighbors: Vec<RoomId>,
+    #[schemars(with = "Vec<HazardType>")]
+    pub hazards: SmallVec<[HazardType; 4]>,
+    #[schemars(with = "Vec<ItemType>")]
+    pub items: SmallVec<[ItemType; 4]>,
+    #[schemars(with = "Vec<RoomId>")]
+    pub neighbors: SmallVec<[RoomId; 8]>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Hash)]
@@ -175,8 +181,10 @@ pub struct Player {
     pub room_id: RoomId,
     pub hp: i32, // Max 3
     pub ap: i32, // Max 2
-    pub inventory: Vec<ItemType>,
-    pub status: Vec<PlayerStatus>,
+    #[schemars(with = "Vec<ItemType>")]
+    pub inventory: SmallVec<[ItemType; 5]>,
+    #[schemars(with = "Vec<PlayerStatus>")]
+    pub status: SmallVec<[PlayerStatus; 2]>,
     /// Has this player voted "Ready" for the current proposal batch?
     pub is_ready: bool,
 }
@@ -381,7 +389,8 @@ pub struct Card {
     pub description: String,
     pub card_type: CardType,
     /// If the card offers a choice (Dilemma)
-    pub options: Vec<CardOption>,
+    #[schemars(with = "Vec<CardOption>")]
+    pub options: SmallVec<[CardOption; 2]>,
     /// Solution for Situations/Timebombs
     pub solution: Option<CardSolution>,
     /// The player targeted or affected by this card (e.g. The Reader)

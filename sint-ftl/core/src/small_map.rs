@@ -1,5 +1,6 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use smallvec::SmallVec;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;

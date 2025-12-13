@@ -12,7 +12,7 @@ impl CardBehavior for AttackWaveCard {
             title: "Attack Wave".to_owned(),
             description: "Enemy attacks twice this round!".to_owned(),
             card_type: CardType::Situation,
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: None, // Any room
                 ap_cost: 1,

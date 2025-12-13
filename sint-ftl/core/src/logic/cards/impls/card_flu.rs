@@ -12,7 +12,7 @@ impl CardBehavior for FluWaveCard {
             title: "Flu Wave".to_owned(),
             description: "Boom: Every player has only 1 AP next round.".to_owned(),
             card_type: CardType::Timebomb { rounds_left: 3 },
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: Some(SystemType::Sickbay),
                 ap_cost: 1,

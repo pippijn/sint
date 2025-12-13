@@ -172,7 +172,7 @@ fn test_interact_situation_context() {
         title: "Sticky Floor".to_owned(),
         description: "Test".to_owned(),
         card_type: CardType::Situation,
-        options: vec![],
+        options: vec![].into(),
         solution: Some(CardSolution {
             target_system: Some(SystemType::Kitchen),
             ap_cost: 1,

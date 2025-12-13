@@ -12,7 +12,7 @@ impl CardBehavior for WheelClampCard {
             title: "Wheel Clamp".to_owned(),
             description: "Ship turns. Players shift to (Room ID + 1).".to_owned(),
             card_type: CardType::Situation,
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: Some(SystemType::Bridge),
                 ap_cost: 1,

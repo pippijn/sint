@@ -17,7 +17,7 @@ impl CardBehavior for RecipeCard {
             description: "Mission: Go to The Bow. Reward: Super Peppernuts (Ignores Inv Limit)."
                 .to_owned(),
             card_type: CardType::Timebomb { rounds_left: 3 },
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: Some(SystemType::Bow),
                 ap_cost: 1,

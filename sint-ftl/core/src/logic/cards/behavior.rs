@@ -130,7 +130,7 @@ impl CardBehavior for NoOpBehavior {
             title: "Unknown Card".to_owned(),
             description: "Missing implementation.".to_owned(),
             card_type: CardType::Situation,
-            options: vec![],
+            options: vec![].into(),
             solution: None,
             affected_player: None,
         }

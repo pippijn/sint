@@ -12,7 +12,7 @@ impl CardBehavior for StickyFloorCard {
             title: "Sticky Floor".to_owned(),
             description: "Moving into the Kitchen costs +1 AP.".to_owned(),
             card_type: CardType::Situation,
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: Some(SystemType::Kitchen),
                 ap_cost: 1,

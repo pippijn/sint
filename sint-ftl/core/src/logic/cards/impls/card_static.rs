@@ -13,7 +13,7 @@ impl CardBehavior for StaticNoiseCard {
             title: "Static Noise".to_owned(),
             description: "Radio interference. Chat restricted to Emoji Only.".to_owned(),
             card_type: CardType::Situation,
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: Some(SystemType::Bridge),
                 ap_cost: 1,

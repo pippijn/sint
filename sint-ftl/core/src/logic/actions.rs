@@ -59,8 +59,8 @@ fn apply_meta_action(
                     room_id: start_room,
                     hp: 3,
                     ap: 2,
-                    inventory: vec![],
-                    status: vec![],
+                    inventory: vec![].into(),
+                    status: vec![].into(),
                     is_ready: false,
                 },
             );
@@ -143,6 +143,19 @@ fn apply_game_action(
     }
 
     // Phase Restriction: Gameplay actions only in TacticalPlanning
+    if let Some(p) = state.players.get(player_id)
+        && p.status.contains(&PlayerStatus::Fainted)
+    {
+        match action {
+            GameAction::Chat { .. } | GameAction::VoteReady { .. } => {}
+            _ => {
+                return Err(GameError::InvalidAction(
+                    "You are fainted and cannot act!".to_owned(),
+                ));
+            }
+        }
+    }
+
     if state.phase != GamePhase::TacticalPlanning {
         match action {
             GameAction::Chat { .. } | GameAction::VoteReady { .. } => {}
@@ -576,6 +589,10 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
         None => return actions,
     };
 
+    if p.status.contains(&PlayerStatus::Fainted) {
+        return actions;
+    }
+
     // Use projected position and AP
     if let Some(room) = projected_state.map.rooms.get(&p.room_id) {
         // Move
@@ -685,6 +702,37 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
                     }
                 }
                 seen_items.push(*item);
+            }
+        }
+
+        // Inventory Actions (Drop/Throw)
+        for idx in 0..p.inventory.len() {
+            // 1. Drop (Free)
+            actions.push(Action::Game(GameAction::Drop { item_index: idx }));
+
+            // 2. Throw (Costs 1 AP)
+            let throw_cost = action_cost(
+                &projected_state,
+                player_id,
+                &GameAction::Throw {
+                    target_player: "".to_owned(),
+                    item_index: idx,
+                },
+            );
+            if p.ap >= throw_cost {
+                for other_p in projected_state.players.values() {
+                    if other_p.id == *player_id {
+                        continue;
+                    }
+
+                    // Adjacency check for Throw (Same or adjacent room)
+                    if room.neighbors.contains(&other_p.room_id) || other_p.room_id == p.room_id {
+                        actions.push(Action::Game(GameAction::Throw {
+                            target_player: other_p.id.clone(),
+                            item_index: idx,
+                        }));
+                    }
+                }
             }
         }
 

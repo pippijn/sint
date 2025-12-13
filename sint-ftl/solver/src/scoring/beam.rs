@@ -110,8 +110,8 @@ pub struct BeamScoringWeights {
 impl Default for BeamScoringWeights {
     fn default() -> Self {
         Self {
-            hull_integrity: 8000.0,    // Reduced from 10000.0 to accept more risk
-            hull_delta_penalty: 2000.0, // Reduced from 20000.0 to prevent paralysis
+            hull_integrity: 8000.0,     // Reduced from 10000.0 to accept more risk
+            hull_delta_penalty: 5000.0, // Increased from 2000.0 to penalize damage more
             enemy_hp: 25000.0,          // High priority: KILL THE BOSS (Increased from 15000.0)
             player_hp: 200.0,
             ap_balance: 100.0, // High value on AP = Don't waste turns
@@ -165,11 +165,11 @@ impl Default for BeamScoringWeights {
             step_penalty: 100.0,   // WAS 5.0. Prevent free-action loops.
 
             checkmate_threshold: 20.0,
-            checkmate_multiplier: 10.0,
+            checkmate_multiplier: 8.0,
             checkmate_max_mult: 100.0, // Cap the reward to prevent suicidal aggression
 
             // Critical State
-            critical_hull_threshold: 14.0,
+            critical_hull_threshold: 16.0,
             critical_hull_penalty_base: 150_000.0,
             critical_hull_penalty_per_hp: 50_000.0,
             critical_fire_threshold: 2,

@@ -69,7 +69,7 @@ fn test_afternoon_nap_blocks_actions() {
         title: "Nap".to_owned(),
         description: "Reader sleeps".to_owned(),
         card_type: CardType::Situation,
-        options: vec![],
+        options: vec![].into(),
         solution: None,
         affected_player: Some("P1".to_owned()),
     };
@@ -101,7 +101,7 @@ fn test_wailing_alarm_blocks_bonus_actions() {
         title: "Alarm".to_owned(),
         description: "No Shields".to_owned(),
         card_type: CardType::Situation,
-        options: vec![],
+        options: vec![].into(),
         solution: None,
         affected_player: None,
     };
@@ -131,7 +131,7 @@ fn test_monster_dough_trigger() {
         title: "Dough".to_owned(),
         description: "Boom 3 turns".to_owned(),
         card_type: CardType::Timebomb { rounds_left: 1 },
-        options: vec![],
+        options: vec![].into(),
         solution: None,
         affected_player: None,
     };
@@ -204,7 +204,7 @@ fn test_flu_wave_ap_reduction() {
         title: "Flu".to_owned(),
         description: "AP -1".to_owned(),
         card_type: CardType::Timebomb { rounds_left: 1 },
-        options: vec![],
+        options: vec![].into(),
         solution: None,
         affected_player: None,
     };
@@ -284,7 +284,7 @@ fn test_man_overboard_death() {
         title: "Man Overboard".to_owned(),
         description: "Die".to_owned(),
         card_type: CardType::Timebomb { rounds_left: 1 },
-        options: vec![],
+        options: vec![].into(),
         solution: None,
         affected_player: None,
     };
@@ -364,7 +364,7 @@ fn test_overheating_ap_loss() {
         title: "Heat".to_owned(),
         description: "AP -1 if in Engine".to_owned(),
         card_type: CardType::Situation,
-        options: vec![],
+        options: vec![].into(),
         solution: None,
         affected_player: None,
     };
@@ -410,7 +410,7 @@ fn test_rudderless_damage() {
         title: "Rudderless".to_owned(),
         description: "+1 Dmg".to_owned(),
         card_type: CardType::Situation,
-        options: vec![],
+        options: vec![].into(),
         solution: None,
         affected_player: None,
     };
@@ -430,7 +430,7 @@ fn test_seagull_attack_block_move() {
         title: "Seagull".to_owned(),
         description: "No move with nut".to_owned(),
         card_type: CardType::Situation,
-        options: vec![],
+        options: vec![].into(),
         solution: None,
         affected_player: None,
     };
@@ -469,7 +469,7 @@ fn test_seasick_restriction() {
         title: "Seasick".to_owned(),
         description: "Either Walk or Act".to_owned(),
         card_type: CardType::Situation,
-        options: vec![],
+        options: vec![].into(),
         solution: None,
         affected_player: None,
     };
@@ -582,7 +582,7 @@ fn test_shoe_setting_skip_turn() {
         title: "Shoe".to_owned(),
         description: "Skip turn".to_owned(),
         card_type: CardType::Timebomb { rounds_left: 0 },
-        options: vec![],
+        options: vec![].into(),
         solution: None,
         affected_player: None,
     };
@@ -644,7 +644,7 @@ fn test_slippery_deck() {
         title: "Slippery".to_owned(),
         description: "Move 0, Act +1".to_owned(),
         card_type: CardType::Situation,
-        options: vec![],
+        options: vec![].into(),
         solution: None,
         affected_player: None,
     };
@@ -665,7 +665,7 @@ fn test_sticky_floor() {
         title: "Sticky".to_owned(),
         description: "Move to Kitchen +1".to_owned(),
         card_type: CardType::Situation,
-        options: vec![],
+        options: vec![].into(),
         solution: None,
         affected_player: None,
     };
@@ -689,7 +689,7 @@ fn test_sugar_rush() {
         title: "Sugar".to_owned(),
         description: "Move 0, No Shoot".to_owned(),
         card_type: CardType::Situation,
-        options: vec![],
+        options: vec![].into(),
         solution: None,
         affected_player: None,
     };
@@ -716,7 +716,7 @@ fn test_can_solve_wailing_alarm_logic() {
         title: "Alarm".to_owned(),
         description: "Test".to_owned(),
         card_type: CardType::Situation,
-        options: vec![],
+        options: vec![].into(),
         solution: Some(CardSolution {
             target_system: None, // Any room
             ap_cost: 1,
@@ -945,7 +945,7 @@ fn test_afternoon_nap_multiple_players() {
 
         card_type: CardType::Situation,
 
-        options: vec![],
+        options: vec![].into(),
 
         solution: None,
 
@@ -963,7 +963,7 @@ fn test_afternoon_nap_multiple_players() {
 
         card_type: CardType::Situation,
 
-        options: vec![],
+        options: vec![].into(),
 
         solution: None,
 

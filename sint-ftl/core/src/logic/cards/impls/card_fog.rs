@@ -15,7 +15,7 @@ impl CardBehavior for FogBankCard {
             title: "Fog Bank".to_owned(),
             description: "Cannot see Enemy Intent (Telegraph disabled).".to_owned(),
             card_type: CardType::Situation,
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: Some(SystemType::Bow),
                 ap_cost: 2,

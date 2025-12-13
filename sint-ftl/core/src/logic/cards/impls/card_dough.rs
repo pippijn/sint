@@ -13,7 +13,7 @@ impl CardBehavior for MonsterDoughCard {
             title: "Monster Dough".to_owned(),
             description: "Boom: Kitchen is unusable.".to_owned(),
             card_type: CardType::Timebomb { rounds_left: 3 },
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: Some(SystemType::Kitchen),
                 ap_cost: 1,

@@ -20,7 +20,7 @@ impl CardBehavior for SugarRushCard {
             description: "Move 5 rooms extra for free. Cannons prohibited. Lasts 3 rounds."
                 .to_owned(),
             card_type: CardType::Timebomb { rounds_left: 3 },
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: Some(SystemType::Kitchen),
                 ap_cost: 1,

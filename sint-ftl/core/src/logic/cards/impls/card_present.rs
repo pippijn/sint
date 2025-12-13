@@ -16,7 +16,7 @@ impl CardBehavior for PresentCard {
             title: "Present".to_owned(),
             description: "Choose your gift: Repair 3 Tokens.".to_owned(),
             card_type: CardType::Flash,
-            options: vec![],
+            options: vec![].into(),
             solution: None,
             affected_player: None,
         }

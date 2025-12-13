@@ -12,7 +12,7 @@ impl CardBehavior for StrongHeadwindCard {
             title: "Strong Headwind".to_owned(),
             description: "Cannons are inaccurate. Hit Threshold is 5+.".to_owned(),
             card_type: CardType::Situation,
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: Some(SystemType::Bridge),
                 ap_cost: 1,

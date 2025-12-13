@@ -13,7 +13,7 @@ impl CardBehavior for AnchorStuckCard {
             title: "Anchor Stuck".to_owned(),
             description: "Evasion action (Engine) is disabled.".to_owned(),
             card_type: CardType::Situation,
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: Some(SystemType::Bow),
                 ap_cost: 1,

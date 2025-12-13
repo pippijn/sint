@@ -13,7 +13,7 @@ impl CardBehavior for NoLightCard {
             title: "No Light?".to_owned(),
             description: "Shooting prohibited. The cannons don't work.".to_owned(),
             card_type: CardType::Situation,
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: Some(SystemType::Cargo),
                 ap_cost: 1,

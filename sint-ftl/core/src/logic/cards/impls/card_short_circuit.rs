@@ -12,7 +12,7 @@ impl CardBehavior for ShortCircuitCard {
             title: "Short Circuit".to_owned(),
             description: "Spawn 1 Fire in the Engine Room.".to_owned(),
             card_type: CardType::Flash,
-            options: vec![],
+            options: vec![].into(),
             solution: None,
             affected_player: None,
         }

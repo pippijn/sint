@@ -13,7 +13,7 @@ impl CardBehavior for BlockadeCard {
             title: "Blockade".to_owned(),
             description: "Door to Cannons is closed.".to_owned(),
             card_type: CardType::Situation,
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: None, // Any room (usually adjacent to Cannons to solve?)
                 ap_cost: 1,

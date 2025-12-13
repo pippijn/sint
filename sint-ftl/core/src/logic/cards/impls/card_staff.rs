@@ -18,7 +18,7 @@ impl CardBehavior for TheStaffCard {
             title: "The Staff".to_owned(),
             description: "Mission: Dormitory -> Bridge. Reward: Magical Recovery.".to_owned(),
             card_type: CardType::Timebomb { rounds_left: 3 },
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: Some(SystemType::Bridge),
                 ap_cost: 1,

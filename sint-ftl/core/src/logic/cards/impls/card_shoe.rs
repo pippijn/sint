@@ -12,7 +12,7 @@ impl CardBehavior for ShoeSettingCard {
             title: "Shoe Setting".to_owned(),
             description: "Boom: All players lose their next turn.".to_owned(),
             card_type: CardType::Timebomb { rounds_left: 3 },
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: Some(SystemType::Engine),
                 ap_cost: 1,

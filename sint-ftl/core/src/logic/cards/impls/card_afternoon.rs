@@ -13,7 +13,7 @@ impl CardBehavior for AfternoonNapCard {
             title: "Afternoon Nap".to_owned(),
             description: "The Reader falls asleep. Cannot spend AP.".to_owned(),
             card_type: CardType::Situation,
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: None, // Any room (Interacting wakes them up?)
                 ap_cost: 1,

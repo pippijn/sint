@@ -16,7 +16,7 @@ impl CardBehavior for LuckyDipCard {
             title: "Lucky Dip".to_owned(),
             description: "Tool Swap! All players pass their Special Item to the left.".to_owned(),
             card_type: CardType::Flash,
-            options: vec![],
+            options: vec![].into(),
             solution: None,
             affected_player: None,
         }

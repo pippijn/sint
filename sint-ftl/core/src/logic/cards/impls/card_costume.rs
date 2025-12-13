@@ -16,7 +16,7 @@ impl CardBehavior for CostumePartyCard {
             title: "Costume Party".to_owned(),
             description: "Players swap positions (Cyclic shift).".to_owned(),
             card_type: CardType::Flash,
-            options: vec![],
+            options: vec![].into(),
             solution: None,
             affected_player: None,
         }

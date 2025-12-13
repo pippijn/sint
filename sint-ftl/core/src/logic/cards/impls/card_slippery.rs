@@ -20,7 +20,7 @@ impl CardBehavior for SlipperyDeckCard {
                 "Soap everywhere. Moving into Hallways costs 0 AP. Other actions cost +1 AP. Lasts 3 rounds."
                     .to_owned(),
             card_type: CardType::Timebomb { rounds_left: 3 },
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: Some(SystemType::Engine),
                 ap_cost: 1,

@@ -12,7 +12,7 @@ impl CardBehavior for LeakCard {
             title: "Leak!".to_owned(),
             description: "Spawn 1 Water in the Cargo Room.".to_owned(),
             card_type: CardType::Flash,
-            options: vec![],
+            options: vec![].into(),
             solution: None,
             affected_player: None,
         }

@@ -16,7 +16,7 @@ impl CardBehavior for PeppernutRainCard {
             title: "Peppernut Rain".to_owned(),
             description: "+2 Peppernuts dropped in every occupied room.".to_owned(),
             card_type: CardType::Flash,
-            options: vec![],
+            options: vec![].into(),
             solution: None,
             affected_player: None,
         }

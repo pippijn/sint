@@ -12,7 +12,7 @@ impl CardBehavior for HighWavesCard {
             title: "High Waves".to_owned(),
             description: "All players are pushed 1 Room towards the Engine.".to_owned(),
             card_type: CardType::Flash,
-            options: vec![],
+            options: vec![].into(),
             solution: None,
             affected_player: None,
         }

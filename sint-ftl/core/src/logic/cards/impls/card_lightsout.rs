@@ -12,7 +12,7 @@ impl CardBehavior for LightsOutCard {
             title: "Lights Out".to_owned(),
             description: "Walking costs DOUBLE (2 AP).".to_owned(),
             card_type: CardType::Situation,
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: Some(SystemType::Engine),
                 ap_cost: 1,

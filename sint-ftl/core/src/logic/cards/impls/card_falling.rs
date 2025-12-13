@@ -12,7 +12,7 @@ impl CardBehavior for FallingGiftCard {
             title: "Falling Gift".to_owned(),
             description: "Leak in Cargo. +2 Peppernuts in Cargo.".to_owned(),
             card_type: CardType::Flash,
-            options: vec![],
+            options: vec![].into(),
             solution: None,
             affected_player: None,
         }

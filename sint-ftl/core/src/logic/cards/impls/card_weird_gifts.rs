@@ -12,7 +12,7 @@ impl CardBehavior for WeirdGiftsCard {
             title: "Weird Gifts".to_owned(),
             description: "Boom: 3 Fire in Cargo, 1 Fire in Sickbay.".to_owned(),
             card_type: CardType::Timebomb { rounds_left: 3 },
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: Some(SystemType::Cargo),
                 ap_cost: 1,

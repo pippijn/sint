@@ -12,7 +12,7 @@ impl CardBehavior for BigLeakCard {
             title: "The Big Leak".to_owned(),
             description: "Flooding. Start of round: 1 Water in Cargo.".to_owned(),
             card_type: CardType::Situation,
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: Some(SystemType::Cargo),
                 ap_cost: 1,

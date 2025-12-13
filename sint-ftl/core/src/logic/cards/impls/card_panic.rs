@@ -12,7 +12,7 @@ impl CardBehavior for PanicCard {
             title: "Panic!".to_owned(),
             description: "Everyone runs away screaming to Dormitory.".to_owned(),
             card_type: CardType::Flash,
-            options: vec![],
+            options: vec![].into(),
             solution: None,
             affected_player: None,
         }

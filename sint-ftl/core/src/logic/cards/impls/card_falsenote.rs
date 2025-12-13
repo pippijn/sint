@@ -15,7 +15,7 @@ impl CardBehavior for FalseNoteCard {
             title: "False Note".to_owned(),
             description: "Everyone in Cannons flees to the nearest Empty Room.".to_owned(),
             card_type: CardType::Flash,
-            options: vec![],
+            options: vec![].into(),
             solution: None,
             affected_player: None,
         }

@@ -12,7 +12,7 @@ impl CardBehavior for MicePlagueCard {
             title: "Mice Plague".to_owned(),
             description: "At end of round, lose 2 Peppernuts from Storage.".to_owned(),
             card_type: CardType::Situation,
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: Some(SystemType::Storage),
                 ap_cost: 1,

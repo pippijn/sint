@@ -12,7 +12,7 @@ impl CardBehavior for AmerigoCard {
             title: "Amerigo".to_owned(),
             description: "Hungry Horse in Storage. Eats 1 Peppernut per round.".to_owned(),
             card_type: CardType::Situation,
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: Some(SystemType::Storage),
                 ap_cost: 1,

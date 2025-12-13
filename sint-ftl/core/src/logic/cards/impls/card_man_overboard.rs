@@ -13,7 +13,7 @@ impl CardBehavior for ManOverboardCard {
             title: "Man Overboard!".to_owned(),
             description: "Target Player (Random) is removed from play.".to_owned(),
             card_type: CardType::Timebomb { rounds_left: 2 },
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: Some(SystemType::Bow),
                 ap_cost: 1,

@@ -19,7 +19,7 @@ impl CardBehavior for GoldenNutCard {
             title: "Golden Nut".to_owned(),
             description: "Mission: Go to Storage. Reward: Auto Hit.".to_owned(),
             card_type: CardType::Timebomb { rounds_left: 3 },
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: Some(SystemType::Storage),
                 ap_cost: 1,

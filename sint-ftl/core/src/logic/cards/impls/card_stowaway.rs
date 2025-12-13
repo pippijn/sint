@@ -12,7 +12,7 @@ impl CardBehavior for StowawayCard {
             title: "The Stowaway".to_owned(),
             description: "Boom: All players lose all peppernuts.".to_owned(),
             card_type: CardType::Timebomb { rounds_left: 3 },
-            options: vec![],
+            options: vec![].into(),
             solution: Some(CardSolution {
                 target_system: Some(SystemType::Dormitory),
                 ap_cost: 1,

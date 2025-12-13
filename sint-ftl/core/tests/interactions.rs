@@ -19,7 +19,7 @@ fn test_multiple_situation_cards_stack_effects() {
         title: "Flu Wave".to_owned(),
         description: "".to_owned(),
         card_type: CardType::Timebomb { rounds_left: 0 }, // Make it trigger
-        options: vec![],
+        options: vec![].into(),
         solution: None,
         affected_player: None,
     };
@@ -28,7 +28,7 @@ fn test_multiple_situation_cards_stack_effects() {
         title: "Overheating".to_owned(),
         description: "".to_owned(),
         card_type: CardType::Situation,
-        options: vec![],
+        options: vec![].into(),
         solution: None,
         affected_player: None,
     };
@@ -85,7 +85,7 @@ fn test_hazard_blocks_card_effect() {
         title: "Seagull Attack".to_owned(),
         description: "".to_owned(),
         card_type: CardType::Situation,
-        options: vec![],
+        options: vec![].into(),
         solution: None,
         affected_player: None,
     });

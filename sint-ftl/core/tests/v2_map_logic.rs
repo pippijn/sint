@@ -22,7 +22,7 @@ fn test_v2_star_topology() {
         let spoke = state.map.rooms.get(&i).unwrap();
         assert_eq!(
             spoke.neighbors,
-            vec![hub_id],
+            smallvec::SmallVec::<[u32; 8]>::from_slice(&[hub_id]),
             "Spoke {} should only connect to Hub",
             i
         );
