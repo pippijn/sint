@@ -1,10 +1,11 @@
 use super::ScoreDetails;
+use sint_core::logic::pathfinding::MapDistances;
 use sint_core::logic::{cards::get_behavior, find_room_with_system};
 use sint_core::types::{
     CardId, CardSentiment, GameAction, GamePhase, GameState, HazardType, ItemType, MAX_HULL,
     PlayerId, RoomId, SystemType,
 };
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 
 /// Hyperparameters for the scoring function.
 #[derive(Debug, Clone)]
@@ -77,6 +78,7 @@ pub struct BeamScoringWeights {
     pub cargo_repair_incentive: f64,
     pub cargo_repair_proximity_reward: f64, // New: Reward for moving towards Cargo
 
+    pub situation_exponent: f64, // New
     // Progression
     pub boss_level_reward: f64,
     pub turn_penalty: f64,
@@ -121,7 +123,7 @@ pub struct BeamScoringWeights {
 impl Default for BeamScoringWeights {
     fn default() -> Self {
         Self {
-            hull_integrity: 5000.0,
+            hull_integrity: 10000.0,
             hull_delta_penalty: 100.0,
             enemy_hp: 2500.0,
             player_hp: 20.0,
@@ -129,7 +131,7 @@ impl Default for BeamScoringWeights {
 
             // Hazards
             fire_penalty_base: 15000.0,
-            fire_token_penalty: 500.0,
+            fire_token_penalty: 5000.0,
             water_penalty: 100.0,
 
             // Situations & Threats
@@ -139,9 +141,9 @@ impl Default for BeamScoringWeights {
             death_penalty: 5000.0,
 
             // Roles
-            station_keeping_reward: 300.0,
-            gunner_base_reward: 60.0,
-            gunner_per_ammo: 100.0,
+            station_keeping_reward: 10000.0,
+            gunner_base_reward: 2000.0,
+            gunner_per_ammo: 2000.0,
             gunner_working_bonus: 5.0,
             gunner_distance_factor: 50.0,
 
@@ -154,39 +156,40 @@ impl Default for BeamScoringWeights {
             backtracking_penalty: 20.0,
             commitment_bonus: 50.0,
 
-            solution_solver_reward: 6000.0,
+            solution_solver_reward: 20000.0,
             solution_distance_factor: 10.0,
             situation_logistics_reward: 2500.0,
-            situation_resolved_reward: 30000.0,
+            situation_resolved_reward: 100000.0,
             system_importance_multiplier: 2.0,
             boss_killing_blow_reward: 10000000.0,
-            inaction_penalty: 500.0,
+            inaction_penalty: 1000.0,
 
-            ammo_stockpile_reward: 500.0,
+            ammo_stockpile_reward: 100.0,
             loose_ammo_reward: 20.0,
             hazard_proximity_reward: 5.0,
             situation_exposure_penalty: 100.0,
             system_disabled_penalty: 5000.0,
-            shooting_reward: 100.0,
+            shooting_reward: 20000.0,
 
             scavenger_reward: 50.0,
             repair_proximity_reward: 100.0,
-            cargo_repair_incentive: 2.5,
-            cargo_repair_proximity_reward: 0.1,
+            cargo_repair_incentive: 10.0,
+            cargo_repair_proximity_reward: 5.0,
             item_juggling_penalty: 1000.0,
+            situation_exponent: 2.0,
 
             boss_level_reward: 2000.0,
             turn_penalty: 500.0,
             step_penalty: 10.0,
 
-            checkmate_threshold: 40.0,
+            checkmate_threshold: 15.0,
             checkmate_multiplier: 100.0,
             checkmate_max_mult: 500.0,
 
             // Critical State
-            critical_hull_threshold: 6.0,
+            critical_hull_threshold: 4.0,
             critical_hull_penalty_base: 20000.0,
-            critical_hull_penalty_per_hp: 3000.0,
+            critical_hull_penalty_per_hp: 10000.0,
             critical_fire_threshold: 2,
             critical_fire_penalty_per_token: 2000.0,
             critical_system_hazard_penalty: 4000.0,
@@ -195,7 +198,7 @@ impl Default for BeamScoringWeights {
             critical_threat_mult: 5.0,
 
             // Exponents
-            hull_exponent: 2.2,
+            hull_exponent: 1.2,
             fire_exponent: 2.0,
             cargo_repair_exponent: 1.5,
             hull_risk_exponent: 1.1,
@@ -224,35 +227,6 @@ impl Default for BeamScoringWeights {
         }
     }
 }
-/// Calculates the minimum distance from start_room to any room in `targets`.
-/// Returns 999 if unreachable.
-fn min_distance(state: &GameState, start: RoomId, targets: &HashSet<RoomId>) -> u32 {
-    if targets.contains(&start) {
-        return 0;
-    }
-
-    let mut queue = VecDeque::new();
-    queue.push_back((start, 0));
-    let mut visited = HashSet::new();
-    visited.insert(start);
-
-    while let Some((current, dist)) = queue.pop_front() {
-        if targets.contains(&current) {
-            return dist;
-        }
-
-        if let Some(room) = state.map.rooms.get(&current) {
-            for &neighbor in &room.neighbors {
-                if !visited.contains(&neighbor) {
-                    visited.insert(neighbor);
-                    queue.push_back((neighbor, dist + 1));
-                }
-            }
-        }
-    }
-    999
-}
-
 /// Calculates the total score for a search node, combining static state evaluation
 /// and transition penalties/rewards (e.g., hull loss).
 pub fn calculate_score(
@@ -260,8 +234,9 @@ pub fn calculate_score(
     current: &GameState,
     history: &[&(PlayerId, GameAction)],
     weights: &BeamScoringWeights,
+    distances: &MapDistances,
 ) -> ScoreDetails {
-    let mut details = score_static(current, history, weights);
+    let mut details = score_static(current, history, weights, distances);
     details += score_transition(parent, current, weights);
 
     // Commitment Bonus: Reward moving towards hazards
@@ -282,8 +257,8 @@ pub fn calculate_score(
         }
 
         if !target_rooms.is_empty() {
-            let old_dist = min_distance(parent, old_room, &target_rooms);
-            let new_dist = min_distance(current, new_room, &target_rooms);
+            let old_dist = distances.min_distance(old_room, &target_rooms);
+            let new_dist = distances.min_distance(new_room, &target_rooms);
 
             if new_dist < old_dist {
                 details.logistics += weights.commitment_bonus;
@@ -301,6 +276,7 @@ pub fn score_static(
     state: &GameState,
     history: &[&(PlayerId, GameAction)],
     weights: &BeamScoringWeights,
+    distances: &MapDistances,
 ) -> ScoreDetails {
     let mut details = ScoreDetails::default();
 
@@ -318,11 +294,19 @@ pub fn score_static(
     }
 
     // PROJECTED DAMAGE: One hull damage per room on fire at end of round.
+    // Enhanced: Account for potential fire spread if a room has 2+ fire tokens.
     let rooms_on_fire = state
         .map
         .rooms
         .values()
         .filter(|r| r.hazards.contains(&HazardType::Fire))
+        .count();
+
+    let fire_spread_sources = state
+        .map
+        .rooms
+        .values()
+        .filter(|r| r.hazards.iter().filter(|h| **h == HazardType::Fire).count() >= 2)
         .count();
 
     let fire_count_total: usize = state
@@ -332,7 +316,20 @@ pub fn score_static(
         .map(|r| r.hazards.iter().filter(|h| **h == HazardType::Fire).count())
         .sum();
 
-    let projected_hull = state.hull_integrity - rooms_on_fire as i32;
+    // PROJECTED DAMAGE: One hull damage per room on fire at end of round.
+    // If Overheating is active, damage is per fire TOKEN.
+    let is_overheating = state
+        .active_situations
+        .iter()
+        .any(|c| c.id == CardId::Overheating);
+    let fire_damage = if is_overheating {
+        fire_count_total
+    } else {
+        rooms_on_fire
+    };
+
+    let projected_hull =
+        state.hull_integrity - fire_damage as i32 - (fire_spread_sources as f64 * 0.5) as i32;
     // If fires will kill us this round, it's over.
     if projected_hull <= 0 {
         details.total = -1_000_000_000.0;
@@ -380,6 +377,15 @@ pub fn score_static(
         let progress = weights.checkmate_threshold / (state.enemy.hp as f64);
         checkmate_mult = (progress.powf(weights.checkmate_exponent) * weights.checkmate_multiplier)
             .min(weights.checkmate_max_mult);
+
+        // Survival Override: If we are in critical condition, dampen bloodlust unless the boss is almost dead.
+        if is_critical {
+            if state.enemy.hp > 10 {
+                checkmate_mult = 1.0;
+            } else {
+                // Do NOT dampen if the boss is at 10 HP or less. Finishing the boss IS survival.
+            }
+        }
     }
 
     // --- Critical State Heuristic ---
@@ -557,7 +563,7 @@ pub fn score_static(
             }
             // New: Proximity Reward (Move towards Cargo when damaged)
             if urgency > 0.0 {
-                let dist = min_distance(state, p.room_id, &t_set);
+                let dist = distances.min_distance(p.room_id, &t_set);
                 if dist != 999 {
                     details.vitals += (20.0 - dist as f64).max(0.0)
                         * weights.cargo_repair_proximity_reward
@@ -594,7 +600,7 @@ pub fn score_static(
         .filter(|c| get_behavior(c.id).get_sentiment() == CardSentiment::Negative)
         .count();
 
-    details.situations -= (negative_situations as f64).powf(1.5)
+    details.situations -= (negative_situations as f64).powf(weights.situation_exponent)
         * weights.active_situation_penalty
         * hazard_multiplier;
 
@@ -763,7 +769,7 @@ pub fn score_static(
         // -- Role: Healer --
         if p.hp < 3 {
             let urgency = (3 - p.hp).pow(2) as f64;
-            let dist = min_distance(state, p.room_id, &sickbay_rooms);
+            let dist = distances.min_distance(p.room_id, &sickbay_rooms);
             if dist == 0 {
                 details.vitals += weights.healing_reward * urgency;
             } else {
@@ -776,7 +782,7 @@ pub fn score_static(
         // P5/P6 are strictly Gunners via Station Keeping, but generic logic applies too.
         if peppernuts > 0 {
             let mut gunner_score = 0.0;
-            let dist = min_distance(state, p.room_id, &cannon_rooms);
+            let dist = distances.min_distance(p.room_id, &cannon_rooms);
 
             // Distance heuristic: Pull players with ammo to cannons
             // Note: Not multiplied by peppernuts to prevent hoarding abuse
@@ -823,7 +829,7 @@ pub fn score_static(
             // Calculate distance to this hazard for THIS player
             let mut t_set = HashSet::new();
             t_set.insert(hid);
-            let d = min_distance(state, p.room_id, &t_set);
+            let d = distances.min_distance(p.room_id, &t_set);
 
             // Update Global Hazard Coverage (lowest distance wins)
             if let Some(min_d) = hazard_min_dists.get_mut(&hid)
@@ -891,7 +897,7 @@ pub fn score_static(
             let mut scavenger_score = 0.0;
 
             if !ammo_sources.is_empty() {
-                let d = min_distance(state, p.room_id, &ammo_sources);
+                let d = distances.min_distance(p.room_id, &ammo_sources);
                 scavenger_score += (20.0 - d as f64).max(0.0) * weights.scavenger_reward;
             }
 
@@ -934,7 +940,7 @@ pub fn score_static(
 
                 for p in state.players.values() {
                     if p.hp > 0 {
-                        let d = min_distance(state, p.room_id, &t_set);
+                        let d = distances.min_distance(p.room_id, &t_set);
                         all_distances.push(d);
 
                         // Check Item Requirement
@@ -992,7 +998,7 @@ pub fn score_static(
                         let mut min_source_dist = 999;
                         for p in state.players.values() {
                             if p.hp > 0 {
-                                let d = min_distance(state, p.room_id, &sources);
+                                let d = distances.min_distance(p.room_id, &sources);
                                 if d < min_source_dist {
                                     min_source_dist = d;
                                 }

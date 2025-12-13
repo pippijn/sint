@@ -3,6 +3,7 @@ use crate::scoring::ScoreDetails;
 use crate::scoring::beam::{BeamScoringWeights, calculate_score};
 use crate::search::{SearchNode, SearchProgress, get_state_signature};
 use rayon::prelude::*;
+use sint_core::logic::pathfinding::MapDistances;
 use sint_core::logic::{GameLogic, actions::get_valid_actions};
 use sint_core::types::{Action, GameAction, GamePhase};
 use std::collections::{HashMap, VecDeque};
@@ -91,6 +92,8 @@ where
 
     // Stabilize initial state using Driver
     let initial_driver = GameDriver::new(initial_state);
+
+    let distances = Arc::new(MapDistances::new(&initial_driver.state.map));
 
     if config.verbose {
         println!(
@@ -185,9 +188,19 @@ where
         }
 
         let debug_clone = debug_ctx.clone();
+        let distances_clone = distances.clone();
         let next_nodes: Vec<Arc<SearchNode>> = beam
             .par_iter()
-            .flat_map(|node| expand_node(node.clone(), weights, config, step, &debug_clone))
+            .flat_map(|node| {
+                expand_node(
+                    node.clone(),
+                    weights,
+                    config,
+                    step,
+                    &debug_clone,
+                    &distances_clone,
+                )
+            })
             .collect();
 
         let total_generated = next_nodes.len();
@@ -303,6 +316,7 @@ fn expand_node(
     _config: &BeamSearchConfig,
     step: usize,
     debug: &DebugContext,
+    distances: &MapDistances,
 ) -> Vec<Arc<SearchNode>> {
     let state = &node.state;
 
@@ -357,7 +371,8 @@ fn expand_node(
                     match driver.apply(&p.id, act.clone()) {
                         Ok(_) => {
                             let next_action = (p.id.clone(), act.clone());
-                            let mut current_history = node.get_history();
+                            // Limit lookback for scoring to 48 steps to avoid O(N^2) complexity
+                            let mut current_history = node.get_recent_history(47);
                             current_history.push(&next_action);
 
                             let score = calculate_score(
@@ -365,6 +380,7 @@ fn expand_node(
                                 &driver.state,
                                 &current_history,
                                 weights,
+                                distances,
                             );
 
                             let signature = get_state_signature(&driver.state);

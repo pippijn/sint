@@ -347,13 +347,12 @@ where
 
 fn generate_random_individual(state: &GameState, horizon: usize, rng: &mut StdRng) -> Individual {
     let mut actions = Vec::new();
-    let mut sim_state = state.clone();
+    let mut driver = GameDriver::new(state.clone());
 
     for _ in 0..horizon {
-        if sim_state.phase == GamePhase::GameOver || sim_state.phase == GamePhase::Victory {
+        if driver.state.phase == GamePhase::GameOver || driver.state.phase == GamePhase::Victory {
             break;
         }
-        let mut driver = GameDriver::new(sim_state.clone());
         let legal = get_valid_actions(&driver.state);
         if legal.is_empty() {
             break;
@@ -362,7 +361,6 @@ fn generate_random_individual(state: &GameState, horizon: usize, rng: &mut StdRn
         let (pid, act) = legal.choose(rng).unwrap();
         if driver.apply(pid, act.clone()).is_ok() {
             actions.push((pid.clone(), act.clone()));
-            sim_state = driver.state;
         } else {
             break;
         }
