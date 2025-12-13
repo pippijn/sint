@@ -496,7 +496,131 @@ fn test_seagull_attack_block_move() {
 }
 
 #[test]
-fn test_seasick_restriction() {}
+fn test_seasick_restriction() {
+    let mut state = new_test_game(vec!["P1".to_owned()]);
+    state.phase = GamePhase::TacticalPlanning;
+
+    let card = sint_core::types::Card {
+        id: CardId::Seasick,
+        title: "Seasick".to_owned(),
+        description: "Either Walk or Act".to_owned(),
+        card_type: CardType::Situation,
+        options: vec![],
+        solution: None,
+        affected_player: None,
+    };
+    state.active_situations.push(card);
+
+    let kitchen = sint_core::logic::find_room_with_system_in_map(
+        &state.map,
+        sint_core::types::SystemType::Kitchen,
+    )
+    .unwrap();
+    let bow = sint_core::logic::find_room_with_system_in_map(
+        &state.map,
+        sint_core::types::SystemType::Bow,
+    )
+    .unwrap();
+
+    if let Some(p) = state.players.get_mut("P1") {
+        p.ap = 2;
+        p.room_id = 0; // Hallway
+    }
+
+    // 1. Move then Bake -> Should Fail
+    let state_after_move = GameLogic::apply_action(
+        state.clone(),
+        "P1",
+        Action::Game(GameAction::Move { to_room: bow }),
+        None,
+    )
+    .unwrap();
+    let res = GameLogic::apply_action(state_after_move, "P1", Action::Game(GameAction::Bake), None);
+    assert!(res.is_err(), "Seasick should block Bake after Move");
+
+    // 2. Bake then Move -> Should Fail
+    if let Some(p) = state.players.get_mut("P1") {
+        p.room_id = kitchen;
+    }
+    let state_after_bake =
+        GameLogic::apply_action(state.clone(), "P1", Action::Game(GameAction::Bake), None).unwrap();
+    let res = GameLogic::apply_action(
+        state_after_bake,
+        "P1",
+        Action::Game(GameAction::Move { to_room: 0 }),
+        None,
+    );
+    assert!(res.is_err(), "Seasick should block Move after Bake");
+}
+
+#[test]
+fn test_anchor_stuck_required_players() {
+    let mut state = new_test_game(vec!["P1".to_owned(), "P2".to_owned(), "P3".to_owned()]);
+    state.phase = GamePhase::TacticalPlanning;
+
+    use sint_core::logic::cards::get_behavior;
+    let card = get_behavior(CardId::AnchorStuck).get_struct();
+    state.active_situations.push(card);
+
+    let bow = sint_core::logic::find_room_with_system_in_map(
+        &state.map,
+        sint_core::types::SystemType::Bow,
+    )
+    .unwrap();
+
+    // 1. Only P1 at Bow -> Should Fail
+    if let Some(p) = state.players.get_mut("P1") {
+        p.room_id = bow;
+        p.ap = 2;
+    }
+    if let Some(p) = state.players.get_mut("P2") {
+        p.room_id = 0;
+    }
+    if let Some(p) = state.players.get_mut("P3") {
+        p.room_id = 0;
+    }
+
+    let res1 = GameLogic::apply_action(
+        state.clone(),
+        "P1",
+        Action::Game(GameAction::Interact),
+        None,
+    );
+    assert!(
+        res1.is_err(),
+        "Anchor Stuck should require 3 players, but only 1 is present"
+    );
+
+    // 2. P1 and P2 at Bow -> Should Fail
+    if let Some(p) = state.players.get_mut("P2") {
+        p.room_id = bow;
+    }
+    let res2 = GameLogic::apply_action(
+        state.clone(),
+        "P1",
+        Action::Game(GameAction::Interact),
+        None,
+    );
+    assert!(
+        res2.is_err(),
+        "Anchor Stuck should require 3 players, but only 2 are present"
+    );
+
+    // 3. P1, P2, and P3 at Bow -> Should Succeed
+    if let Some(p) = state.players.get_mut("P3") {
+        p.room_id = bow;
+    }
+    let res3 = GameLogic::apply_action(
+        state.clone(),
+        "P1",
+        Action::Game(GameAction::Interact),
+        None,
+    );
+    assert!(
+        res3.is_ok(),
+        "Anchor Stuck should succeed with 3 players present"
+    );
+}
 
 #[test]
 fn test_shoe_setting_skip_turn() {
@@ -875,8 +999,114 @@ fn test_anchor_loose() {
         .map
         .rooms
         .values()
-        .map(|r| r.hazards.iter().filter(|&&h| h == sint_core::types::HazardType::Water).count())
+        .map(|r| {
+            r.hazards
+                .iter()
+                .filter(|&&h| h == sint_core::types::HazardType::Water)
+                .count()
+        })
         .sum();
 
     assert_eq!(water_count, 1);
+}
+
+#[test]
+fn test_afternoon_nap_multiple_players() {
+    let mut state = new_test_game(vec!["P1".to_owned(), "P2".to_owned()]);
+    state.phase = GamePhase::TacticalPlanning;
+
+    // Card 1: P1 is asleep
+    let card1 = sint_core::types::Card {
+        id: CardId::AfternoonNap,
+        title: "Nap 1".to_owned(),
+        description: "P1 sleeps".to_owned(),
+        card_type: CardType::Situation,
+        options: vec![],
+        solution: None,
+        affected_player: Some("P1".to_owned()),
+    };
+    // Card 2: P2 is asleep
+    let card2 = sint_core::types::Card {
+        id: CardId::AfternoonNap,
+        title: "Nap 2".to_owned(),
+        description: "P2 sleeps".to_owned(),
+        card_type: CardType::Situation,
+        options: vec![],
+        solution: None,
+        affected_player: Some("P2".to_owned()),
+    };
+    state.active_situations.push(card1);
+    state.active_situations.push(card2);
+
+    let res1 = GameLogic::apply_action(state.clone(), "P1", Action::Game(GameAction::Bake), None);
+    assert!(res1.is_err(), "P1 should be blocked by Card 1");
+
+    let res2 = GameLogic::apply_action(state.clone(), "P2", Action::Game(GameAction::Bake), None);
+    assert!(res2.is_err(), "P2 should be blocked by Card 2");
+}
+
+#[test]
+fn test_golden_nut_triggers_rest_round() {
+    let mut state = new_test_game(vec!["P1".to_owned()]);
+    state.phase = GamePhase::TacticalPlanning;
+    state.enemy.hp = 1;
+    state.boss_level = 0;
+
+    use sint_core::logic::cards::get_behavior;
+    let behavior = get_behavior(CardId::GoldenNut);
+    behavior.on_solved(&mut state);
+
+    assert_eq!(state.enemy.hp, 0);
+    assert_eq!(state.enemy.state, sint_core::types::EnemyState::Defeated);
+    assert_eq!(
+        state.boss_level, 0,
+        "Boss level should not increase until rest round ends"
+    );
+}
+
+#[test]
+fn test_blockade_adjacency_requirement() {
+    let mut state = new_test_game(vec!["P1".to_owned()]);
+    state.phase = GamePhase::TacticalPlanning;
+
+    use sint_core::logic::cards::get_behavior;
+    let card = get_behavior(CardId::Blockade).get_struct();
+    state.active_situations.push(card);
+
+    let cannons_id = sint_core::logic::find_room_with_system_in_map(
+        &state.map,
+        sint_core::types::SystemType::Cannons,
+    )
+    .unwrap();
+    let hallway = 0; // Adjacent to Cannons in Star layout
+
+    // 1. P1 in Dormitory (Not adjacent) -> Fail
+    if let Some(p) = state.players.get_mut("P1") {
+        p.room_id = 2; // Dormitory
+        p.ap = 2;
+    }
+    let res1 = GameLogic::apply_action(
+        state.clone(),
+        "P1",
+        Action::Game(GameAction::Interact),
+        None,
+    );
+    assert!(
+        res1.is_err(),
+        "Blockade should not be solvable from Dormitory"
+    );
+
+    // 2. P1 in Hallway (Adjacent) -> Succeed
+    if let Some(p) = state.players.get_mut("P1") {
+        p.room_id = hallway;
+    }
+    // Verify hallway is indeed adjacent to cannons
+    assert!(state.map.rooms[&hallway].neighbors.contains(&cannons_id));
+    let res2 = GameLogic::apply_action(
+        state.clone(),
+        "P1",
+        Action::Game(GameAction::Interact),
+        None,
+    );
+    assert!(res2.is_ok(), "Blockade should be solvable from Hallway");
 }

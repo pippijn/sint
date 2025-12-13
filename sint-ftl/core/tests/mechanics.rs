@@ -47,9 +47,9 @@ fn test_shields_block_damage() {
     let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
-    let engine = sint_core::logic::find_room_with_system_in_map(
+    let bridge = sint_core::logic::find_room_with_system_in_map(
         &state.map,
-        sint_core::types::SystemType::Engine,
+        sint_core::types::SystemType::Bridge,
     )
     .unwrap();
     let kitchen = sint_core::logic::find_room_with_system_in_map(
@@ -58,9 +58,9 @@ fn test_shields_block_damage() {
     )
     .unwrap();
 
-    // P1 in Engine
+    // P1 in Bridge
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = engine;
+        p.room_id = bridge;
         p.ap = 2;
     }
 
@@ -106,9 +106,9 @@ fn test_evasion_blocks_hit() {
     let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
-    let bridge = sint_core::logic::find_room_with_system_in_map(
+    let engine = sint_core::logic::find_room_with_system_in_map(
         &state.map,
-        sint_core::types::SystemType::Bridge,
+        sint_core::types::SystemType::Engine,
     )
     .unwrap();
     let kitchen = sint_core::logic::find_room_with_system_in_map(
@@ -117,9 +117,9 @@ fn test_evasion_blocks_hit() {
     )
     .unwrap();
 
-    // P1 in Bridge
+    // P1 in Engine
     if let Some(p) = state.players.get_mut("P1") {
-        p.room_id = bridge;
+        p.room_id = engine;
         p.ap = 2;
     }
 

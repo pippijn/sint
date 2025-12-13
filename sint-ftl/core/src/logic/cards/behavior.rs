@@ -103,7 +103,14 @@ pub trait CardBehavior: Send + Sync {
             let item_match =
                 sol.item_cost.is_none() || p.inventory.contains(sol.item_cost.as_ref().unwrap());
 
-            room_match && item_match
+            let players_in_room = state
+                .players
+                .values()
+                .filter(|other| other.room_id == p.room_id)
+                .count();
+            let players_match = players_in_room >= sol.required_players as usize;
+
+            room_match && item_match && players_match
         } else {
             false
         }

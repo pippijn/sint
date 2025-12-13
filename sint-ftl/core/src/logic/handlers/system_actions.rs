@@ -172,13 +172,13 @@ impl ActionHandler for RaiseShieldsHandler {
             .get(&p.room_id)
             .ok_or(GameError::RoomNotFound)?;
 
-        if room.system != Some(SystemType::Engine) {
+        if room.system != Some(SystemType::Bridge) {
             let correct_id =
-                crate::logic::find_room_with_system_in_map(&state.map, SystemType::Engine)
+                crate::logic::find_room_with_system_in_map(&state.map, SystemType::Bridge)
                     .map(|id| id.to_string())
                     .unwrap_or("?".to_string());
             return Err(GameError::InvalidAction(format!(
-                "Raise Shields requires Engine (Room {}), but you are in {} ({})",
+                "Raise Shields requires Bridge (Room {}), but you are in {} ({})",
                 correct_id, room.name, room.id
             )));
         }
@@ -219,13 +219,13 @@ impl ActionHandler for EvasiveManeuversHandler {
             .get(&p.room_id)
             .ok_or(GameError::RoomNotFound)?;
 
-        if room.system != Some(SystemType::Bridge) {
+        if room.system != Some(SystemType::Engine) {
             let correct_id =
-                crate::logic::find_room_with_system_in_map(&state.map, SystemType::Bridge)
+                crate::logic::find_room_with_system_in_map(&state.map, SystemType::Engine)
                     .map(|id| id.to_string())
                     .unwrap_or("?".to_string());
             return Err(GameError::InvalidAction(format!(
-                "Evasive Maneuvers requires Bridge (Room {}), but you are in {} ({})",
+                "Evasive Maneuvers requires Engine (Room {}), but you are in {} ({})",
                 correct_id, room.name, room.id
             )));
         }

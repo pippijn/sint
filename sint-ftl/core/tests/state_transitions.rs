@@ -151,3 +151,33 @@ fn test_full_phase_cycle() {
         "AP should be reset for the new turn"
     );
 }
+
+#[test]
+fn test_game_over_after_mutiny() {
+    let mut state = GameLogic::new_game(vec!["p1".to_owned()], 0);
+    state.phase = GamePhase::EnemyAction; // Transition to MorningReport will trigger on_round_end
+    state.hull_integrity = 10; // Mutiny deals 10 damage
+
+    let card = sint_core::types::Card {
+        id: sint_core::types::CardId::Mutiny,
+        title: "Mutiny".to_owned(),
+        description: "-10 Hull".to_owned(),
+        card_type: sint_core::types::CardType::Timebomb { rounds_left: 1 },
+        options: vec![],
+        solution: None,
+        affected_player: None,
+    };
+    state.active_situations.push(card);
+
+    // Vote ready to advance from EnemyAction -> MorningReport
+    state = apply_action(
+        state,
+        "p1",
+        Action::Game(GameAction::VoteReady { ready: true }),
+    )
+    .unwrap();
+
+    // Mutiny triggers, hull -> 0, phase should be GameOver
+    assert_eq!(state.hull_integrity, 0);
+    assert_eq!(state.phase, GamePhase::GameOver);
+}

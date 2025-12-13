@@ -23,7 +23,7 @@ impl CardBehavior for BigLeakCard {
         }
     }
 
-    fn on_round_end(&self, state: &mut GameState) {
+    fn on_round_start(&self, state: &mut GameState) {
         if let Some(room_id) = find_room_with_system(state, SystemType::Cargo)
             && let Some(room) = state.map.rooms.get_mut(&room_id)
         {

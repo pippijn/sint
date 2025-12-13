@@ -56,39 +56,33 @@ impl CardBehavior for AfternoonNapCard {
         player_id: &str,
         action: &GameAction,
     ) -> Result<(), GameError> {
-        // Find the card to see who is affected
-        // Note: If multiple Nap cards existed, this would enforce it for all of them.
-        let card = state
-            .active_situations
-            .iter()
-            .find(|c| c.id == CardId::AfternoonNap);
+        let is_free = matches!(
+            action,
+            GameAction::Chat { .. }
+                | GameAction::VoteReady { .. }
+                | GameAction::Pass
+                | GameAction::Undo { .. }
+        );
 
-        if let Some(c) = card {
-            // If the card has a stored target, use it.
-            // If not (legacy/bug), we might fall back or do nothing.
-            if let Some(target) = &c.affected_player
-                && target == player_id
-            {
-                let is_free = matches!(
-                    action,
-                    GameAction::Chat { .. }
-                        | GameAction::VoteReady { .. }
-                        | GameAction::Pass
-                        | GameAction::Undo { .. }
-                );
+        if is_free {
+            return Ok(());
+        }
 
-                if !is_free {
-                    let name = state
-                        .players
-                        .get(player_id)
-                        .map(|p| p.name.as_str())
-                        .unwrap_or(player_id);
-                    return Err(GameError::InvalidAction(format!(
-                        "The Reader ({}) is asleep and cannot spend AP!",
-                        name
-                    )));
-                }
-            }
+        // Check if ANY Nap card targets THIS player
+        let is_asleep = state.active_situations.iter().any(|c| {
+            c.id == CardId::AfternoonNap && c.affected_player.as_deref() == Some(player_id)
+        });
+
+        if is_asleep {
+            let name = state
+                .players
+                .get(player_id)
+                .map(|p| p.name.as_str())
+                .unwrap_or(player_id);
+            return Err(GameError::InvalidAction(format!(
+                "The Reader ({}) is asleep and cannot spend AP!",
+                name
+            )));
         }
         Ok(())
     }

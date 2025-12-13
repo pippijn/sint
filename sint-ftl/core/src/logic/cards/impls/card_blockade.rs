@@ -48,4 +48,15 @@ impl CardBehavior for BlockadeCard {
         }
         Ok(())
     }
+
+    fn can_solve(&self, state: &GameState, player_id: &str) -> bool {
+        // Must be adjacent to Cannons to solve the blockade
+        if let Some(cannons_id) = find_room_with_system(state, SystemType::Cannons)
+            && let Some(p) = state.players.get(player_id)
+            && let Some(room) = state.map.rooms.get(&p.room_id)
+        {
+            return room.neighbors.contains(&cannons_id);
+        }
+        false
+    }
 }

@@ -480,6 +480,12 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
                     get_behavior(id).on_round_end(&mut state);
                 }
 
+                // Check for Game Over after card effects (e.g. Mutiny damage)
+                if state.hull_integrity <= 0 {
+                    state.phase = GamePhase::GameOver;
+                    return Ok(state);
+                }
+
                 cards::draw_card(&mut state);
 
                 // Round Start Hook (New Round)

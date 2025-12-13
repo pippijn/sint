@@ -111,7 +111,7 @@ impl Default for BeamScoringWeights {
             hull_delta_penalty: 2000.0, // Reduced from 20000.0 to prevent paralysis
             enemy_hp: 25000.0,          // High priority: KILL THE BOSS (Increased from 15000.0)
             player_hp: 200.0,
-            ap_balance: 50.0, // High value on AP = Don't waste turns
+            ap_balance: 100.0, // High value on AP = Don't waste turns
 
             // Hazards - significantly increased penalties
             fire_penalty_base: 10000.0, // Reduced from 15000.0
@@ -158,14 +158,14 @@ impl Default for BeamScoringWeights {
             cargo_repair_proximity_reward: 1.0, // New
 
             boss_level_reward: 20000.0,
-            turn_penalty: 10000.0, // Increased from 5000.0 to prevent stalling
-            step_penalty: 20.0,    // WAS 5.0. Prevent free-action loops.
+            turn_penalty: 12000.0, // Increased from 5000.0 to prevent stalling
+            step_penalty: 100.0,   // WAS 5.0. Prevent free-action loops.
 
-            checkmate_threshold: 15.0,
-            checkmate_multiplier: 10.0,
+            checkmate_threshold: 20.0,
+            checkmate_multiplier: 15.0,
 
             // Critical State
-            critical_hull_threshold: 12.0,
+            critical_hull_threshold: 14.0,
             critical_hull_penalty_base: 150_000.0,
             critical_hull_penalty_per_hp: 50_000.0,
             critical_fire_threshold: 2,
@@ -328,6 +328,11 @@ pub fn score_static(
         let deficit = (weights.critical_hull_threshold + 1.0 - projected_hull as f64).max(0.0);
         panic_score -=
             deficit.powf(weights.panic_hull_exponent) * weights.critical_hull_penalty_per_hp;
+
+        // If we are in Checkmate mode, suppress panic to allow finishing the fight.
+        if checkmate_mult > 1.0 {
+            panic_score *= 0.1;
+        }
 
         score += panic_score;
     }
@@ -612,17 +617,11 @@ pub fn score_static(
         let nut_cap = if has_wheelbarrow { 5 } else { 1 };
 
         // --- NEW: Station Keeping (Assigned Roles) ---
-        // P1: Kitchen (Room 5)
-        // P3: Bridge (Room 7)
-        // P4: Engine (Room 4)
-        // P5, P6: Cannons (Room 6)
-        // P2: Hallway/Roaming (Room 0) - No strict station
-
         let mut assigned_room = match p.id.as_str() {
-            "P1" => Some(5),
-            "P3" => Some(7),
-            "P4" => Some(4),
-            "P5" | "P6" => Some(6),
+            "P1" => sint_core::logic::find_room_with_system(state, SystemType::Kitchen),
+            "P3" => sint_core::logic::find_room_with_system(state, SystemType::Bridge),
+            "P4" => sint_core::logic::find_room_with_system(state, SystemType::Engine),
+            "P5" | "P6" => sint_core::logic::find_room_with_system(state, SystemType::Cannons),
             _ => None,
         };
 
@@ -638,10 +637,8 @@ pub fn score_static(
             if matches!(p.id.as_str(), "P5" | "P6") {
                 // Gunners only leave if it's really bad or fire is IN the cannons
                 if fire_count_total >= weights.critical_fire_threshold
-                    || state
-                        .map
-                        .rooms
-                        .get(&6)
+                    || sint_core::logic::find_room_with_system(state, SystemType::Cannons)
+                        .and_then(|id| state.map.rooms.get(&id))
                         .is_some_and(|r| r.hazards.contains(&HazardType::Fire))
                 {
                     assigned_room = None;
@@ -817,12 +814,18 @@ pub fn score_static(
                 }
             }
             if let Some(tid) = target_room {
-                let mut min_d = 999;
-                let mut someone_has_item = false;
+                let mut qualified_distances = Vec::new();
+                let mut all_distances = Vec::new();
                 let required_item = sol.item_cost.as_ref();
+
+                let mut t_set = HashSet::new();
+                t_set.insert(tid);
 
                 for p in state.players.values() {
                     if p.hp > 0 {
+                        let d = min_distance(state, p.room_id, &t_set);
+                        all_distances.push(d);
+
                         // Check Item Requirement
                         let meets_req = match required_item {
                             Some(item) => p.inventory.contains(item),
@@ -830,23 +833,33 @@ pub fn score_static(
                         };
 
                         if meets_req {
-                            someone_has_item = true;
-                            let mut t_set = HashSet::new();
-                            t_set.insert(tid);
-                            let d = min_distance(state, p.room_id, &t_set);
-                            if d < min_d {
-                                min_d = d;
-                            }
+                            qualified_distances.push(d);
                         }
                     }
                 }
-                if min_d == 0 {
-                    score += weights.solution_solver_reward;
-                } else if min_d != 999 {
-                    score += (20.0 - min_d as f64).max(0.0) * weights.solution_distance_factor;
+                qualified_distances.sort();
+                all_distances.sort();
+
+                if let Some(&best_q_d) = qualified_distances.first() {
+                    let req_n = sol.required_players as usize;
+                    let best_n_d = all_distances.get(req_n - 1).cloned().unwrap_or(999);
+
+                    if best_q_d == 0 && best_n_d == 0 {
+                        score += weights.solution_solver_reward;
+                    } else {
+                        // Pull the qualified person
+                        score +=
+                            (20.0 - best_q_d as f64).max(0.0) * weights.solution_distance_factor;
+                        // Pull the N-th person
+                        if req_n > 1 && best_n_d != 999 {
+                            score += (20.0 - best_n_d as f64).max(0.0)
+                                * weights.solution_distance_factor;
+                        }
+                    }
                 }
 
                 // Logistics: If needed item is missing, reward getting it
+                let someone_has_item = qualified_distances.iter().any(|&d| d != 999);
                 if !someone_has_item && let Some(item) = required_item {
                     let mut sources = HashSet::new();
                     if *item == ItemType::Peppernut {

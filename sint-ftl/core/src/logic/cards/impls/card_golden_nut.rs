@@ -35,10 +35,9 @@ impl CardBehavior for GoldenNutCard {
             timestamp: 0,
         });
 
-        // Check for Boss Death (Duplicated from resolution.rs logic)
+        // Check for Boss Death
         if state.enemy.hp <= 0 {
-            state.boss_level += 1;
-            if state.boss_level >= crate::logic::MAX_BOSS_LEVEL {
+            if state.boss_level >= crate::logic::MAX_BOSS_LEVEL - 1 {
                 state.phase = crate::types::GamePhase::Victory;
                 state.chat_log.push(crate::types::ChatMessage {
                     sender: "SYSTEM".to_owned(),
@@ -46,11 +45,11 @@ impl CardBehavior for GoldenNutCard {
                     timestamp: 0,
                 });
             } else {
-                // Spawn next boss
-                state.enemy = crate::logic::get_boss(state.boss_level);
+                // Mark defeated to trigger rest round in advance_phase
+                state.enemy.state = crate::types::EnemyState::Defeated;
                 state.chat_log.push(crate::types::ChatMessage {
                     sender: "SYSTEM".to_owned(),
-                    text: format!("Enemy Defeated! approaching: {}", state.enemy.name),
+                    text: format!("{} Defeated! Taking a breather...", state.enemy.name),
                     timestamp: 0,
                 });
             }
