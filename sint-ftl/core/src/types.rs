@@ -399,6 +399,14 @@ pub struct CardOption {
     pub effect: EffectType,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Hash, Default)]
+pub enum CardSentiment {
+    #[default]
+    Negative,
+    Neutral,
+    Positive,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Hash)]
 pub enum EffectType {
     None,

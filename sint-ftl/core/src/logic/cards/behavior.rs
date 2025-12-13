@@ -1,11 +1,17 @@
 use crate::{
-    types::{Card, CardId, CardType, GameAction, GameState},
+    types::{Card, CardId, CardSentiment, CardType, GameAction, GameState},
     GameError,
 };
 
 pub trait CardBehavior: Send + Sync {
     /// Returns the static definition of the card (Title, Description, etc.)
     fn get_struct(&self) -> Card;
+
+    /// Returns the sentiment of the card (Positive, Neutral, Negative).
+    /// Default: Negative.
+    fn get_sentiment(&self) -> CardSentiment {
+        CardSentiment::Negative
+    }
 
     /// Modify the AP cost of an action.
     /// Default: return base_cost unmodified.

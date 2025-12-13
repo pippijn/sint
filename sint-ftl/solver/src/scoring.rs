@@ -1,5 +1,7 @@
+use sint_core::logic::cards::get_behavior;
 use sint_core::types::{
-    GameAction, GamePhase, GameState, HazardType, ItemType, PlayerId, RoomId, SystemType, MAX_HULL,
+    CardSentiment, GameAction, GamePhase, GameState, HazardType, ItemType, PlayerId, RoomId,
+    SystemType, MAX_HULL,
 };
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -43,6 +45,7 @@ pub struct ScoringWeights {
     pub solution_solver_reward: f64,
     pub solution_distance_factor: f64,
     pub situation_logistics_reward: f64, // New: Reward for getting items needed for situations
+    pub situation_resolved_reward: f64,  // New: Reward for the act of solving
 
     // Logistics
     pub ammo_stockpile_reward: f64,
@@ -103,11 +106,11 @@ impl Default for ScoringWeights {
             ap_balance: 50.0, // High value on AP = Don't waste turns
 
             // Hazards - significantly increased penalties
-            fire_penalty_base: 5000.0, // Burn, baby, burn (but don't)
+            fire_penalty_base: 8000.0, // Burn, baby, burn (but don't)
             water_penalty: 1000.0,
 
             // Situations & Threats
-            active_situation_penalty: 50000.0, // WAS 8000.0 - HUGE increase. Situations kill runs.
+            active_situation_penalty: 80000.0, // WAS 50000.0. Situations kill runs.
             threat_player_penalty: 100.0,      // Reduced to allow calculated risks
             threat_system_penalty: 2000.0,
             death_penalty: 50000.0,
@@ -127,15 +130,16 @@ impl Default for ScoringWeights {
 
             backtracking_penalty: 200.0, // WAS 50.0. Prevent infinite loops (Slippery Deck).
 
-            solution_solver_reward: 60000.0, // WAS 20000.0. Solving problems is as important as avoiding damage.
+            solution_solver_reward: 40000.0, // WAS 60000.0. Reduced to ensure solving > holding.
             solution_distance_factor: 100.0,
             situation_logistics_reward: 5000.0,
+            situation_resolved_reward: 30000.0, // New: Big payout for finishing the job
 
             ammo_stockpile_reward: 5000.0, // Encourage dumping ammo in Cannons (Huge)
             loose_ammo_reward: 200.0,      // Every nut on the map is hope
             hazard_proximity_reward: 50.0,
             situation_exposure_penalty: 1000.0,
-            system_disabled_penalty: 5000.0,
+            system_disabled_penalty: 25000.0,
             shooting_reward: 250.0, // SHOOT! (Reduced to favor actual damage)
 
             scavenger_reward: 500.0,
@@ -143,8 +147,8 @@ impl Default for ScoringWeights {
             cargo_repair_incentive: 25.0,
 
             boss_level_reward: 20000.0,
-            turn_penalty: 500.0, // Increased to prevent stalling
-            step_penalty: 20.0,  // WAS 5.0. Prevent free-action loops.
+            turn_penalty: 2000.0, // Increased to prevent stalling
+            step_penalty: 20.0,   // WAS 5.0. Prevent free-action loops.
 
             checkmate_threshold: 15.0,
             checkmate_multiplier: 2.5,
@@ -158,7 +162,7 @@ impl Default for ScoringWeights {
 
             // Exponents
             hull_exponent: 1.5,
-            fire_exponent: 3.0,
+            fire_exponent: 2.0,
             cargo_repair_exponent: 1.5,
             hull_risk_exponent: 1.1,
 
@@ -320,7 +324,7 @@ fn score_static(
         + (MAX_HULL as f64 - state.hull_integrity as f64)
             .max(0.0)
             .powf(weights.hull_risk_exponent);
-    score -= (fire_count as f64).powf(weights.fire_exponent)
+    score -= (fire_rooms.len() as f64).powf(weights.fire_exponent)
         * weights.fire_penalty_base
         * hull_risk_factor;
     score -= water_count as f64 * weights.water_penalty;
@@ -387,7 +391,13 @@ fn score_static(
         hazardous_rooms.iter().map(|&id| (id, 999)).collect();
 
     // --- 3. Active Situations ---
-    score -= (state.active_situations.len() as f64).powf(1.5) * weights.active_situation_penalty;
+    let negative_situations = state
+        .active_situations
+        .iter()
+        .filter(|c| get_behavior(c.id).get_sentiment() == CardSentiment::Negative)
+        .count();
+
+    score -= (negative_situations as f64).powf(1.5) * weights.active_situation_penalty;
 
     for card in &state.active_situations {
         if card.id == sint_core::types::CardId::Overheating {
@@ -419,8 +429,10 @@ fn score_static(
         let is_severe = players_in_target > 0 || targets_system;
 
         if protected {
+            let hull_urgency_mult =
+                1.0 + (MAX_HULL as f64 - state.hull_integrity as f64).powf(1.2) / 10.0;
             if is_severe {
-                score += weights.threat_severe_reward; // High value for mitigating a real threat
+                score += weights.threat_severe_reward * hull_urgency_mult; // High value for mitigating a real threat
             } else {
                 score += weights.threat_mitigated_reward; // Small value for safety
             }
@@ -834,6 +846,24 @@ fn score_transition(parent: &GameState, current: &GameState, weights: &ScoringWe
     // Hull Delta Penalty: Penalize the ACT of losing hull
     let hull_loss = (parent.hull_integrity as f64 - current.hull_integrity as f64).max(0.0);
     score -= hull_loss * weights.hull_delta_penalty;
+
+    // Situation Resolved Reward
+    // If count decreased, we likely solved something.
+    let parent_neg = parent
+        .active_situations
+        .iter()
+        .filter(|c| get_behavior(c.id).get_sentiment() == CardSentiment::Negative)
+        .count();
+    let current_neg = current
+        .active_situations
+        .iter()
+        .filter(|c| get_behavior(c.id).get_sentiment() == CardSentiment::Negative)
+        .count();
+
+    if current_neg < parent_neg {
+        score += weights.situation_resolved_reward;
+    }
+
     score
 }
 

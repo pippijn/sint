@@ -1,11 +1,17 @@
 use crate::{
     logic::{cards::behavior::CardBehavior, find_room_with_system},
-    types::{Card, CardId, CardSolution, CardType, GameState, HazardType, SystemType},
+    types::{
+        Card, CardId, CardSentiment, CardSolution, CardType, GameState, HazardType, SystemType,
+    },
 };
 
 pub struct TurboModeCard;
 
 impl CardBehavior for TurboModeCard {
+    fn get_sentiment(&self) -> CardSentiment {
+        CardSentiment::Positive
+    }
+
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::TurboMode,

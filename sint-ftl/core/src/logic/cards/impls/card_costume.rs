@@ -1,11 +1,15 @@
 use crate::{
     logic::cards::behavior::CardBehavior,
-    types::{Card, CardId, CardType, GameState},
+    types::{Card, CardId, CardSentiment, CardType, GameState},
 };
 
 pub struct CostumePartyCard;
 
 impl CardBehavior for CostumePartyCard {
+    fn get_sentiment(&self) -> CardSentiment {
+        CardSentiment::Neutral
+    }
+
     fn get_struct(&self) -> Card {
         Card {
             id: CardId::CostumeParty,
