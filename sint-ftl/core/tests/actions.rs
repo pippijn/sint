@@ -655,7 +655,7 @@ fn test_undo_middle_of_chain() {
     )
     .unwrap();
     assert_eq!(state.players["P1"].ap, 1);
-    let id_move_7 = state.proposal_queue[0].id.clone();
+    let id_move_7 = state.proposal_queue[0].id;
 
     // 2. Queue Move 7 -> 9 (Cost 1) (Room 9 is Bridge, neighbor of 7)
     state = GameLogic::apply_action(

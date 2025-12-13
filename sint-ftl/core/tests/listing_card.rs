@@ -1,6 +1,9 @@
 use sint_core::{
     GameLogic,
-    logic::{actions::action_cost, cards::get_behavior, find_room_with_system_in_map},
+    logic::{
+        actions::action_cost, cards::get_behavior, find_room_with_system_in_map,
+        resolution::process_round_end,
+    },
     types::*,
 };
 
@@ -47,7 +50,7 @@ fn test_listing_card_lifecycle() {
 
     // Advance 3 rounds to check expiry
     // Round 1 End
-    behavior.on_round_end(&mut state);
+    process_round_end(&mut state);
     {
         let c = state
             .active_situations
@@ -60,7 +63,7 @@ fn test_listing_card_lifecycle() {
     }
 
     // Round 2 End
-    behavior.on_round_end(&mut state);
+    process_round_end(&mut state);
     {
         let c = state
             .active_situations
@@ -73,7 +76,7 @@ fn test_listing_card_lifecycle() {
     }
 
     // Round 3 End
-    behavior.on_round_end(&mut state);
+    process_round_end(&mut state);
 
     // Should be gone
     assert!(

@@ -1,5 +1,6 @@
 use sint_core::{
     GameLogic,
+    logic::resolution::process_round_end,
     types::{CardId, GamePhase},
 };
 
@@ -26,11 +27,11 @@ fn test_sugar_rush_lifecycle() {
 
     // Check Lifecycle
     // Round 1
-    behavior.on_round_end(&mut state);
+    process_round_end(&mut state);
     // Round 2
-    behavior.on_round_end(&mut state);
+    process_round_end(&mut state);
     // Round 3
-    behavior.on_round_end(&mut state);
+    process_round_end(&mut state);
 
     // Should be gone
     let still_active = state

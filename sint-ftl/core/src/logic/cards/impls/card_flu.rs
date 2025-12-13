@@ -23,27 +23,6 @@ impl CardBehavior for FluWaveCard {
         }
     }
 
-    fn on_round_end(&self, state: &mut GameState) {
-        let mut triggered = false;
-        for card in state.active_situations.iter_mut() {
-            if card.id == CardId::FluWave
-                && let CardType::Timebomb { rounds_left } = &mut card.card_type
-                && *rounds_left > 0
-            {
-                *rounds_left -= 1;
-                if *rounds_left == 0 {
-                    triggered = true;
-                }
-            }
-        }
-
-        if triggered {
-            // Keep card active (rounds_left=0) to trigger on_round_start effect next turn.
-        } else {
-            // Solved state is handled by Interact action removing the card.
-        }
-    }
-
     fn on_round_start(&self, state: &mut GameState) {
         let mut triggered = false;
         for card in &state.active_situations {

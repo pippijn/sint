@@ -23,24 +23,8 @@ impl CardBehavior for MutinyCard {
         }
     }
 
-    fn on_round_end(&self, state: &mut GameState) {
-        let mut triggered_damage = false;
-
-        for card in state.active_situations.iter_mut() {
-            if card.id == CardId::Mutiny
-                && let CardType::Timebomb { rounds_left } = &mut card.card_type
-                && *rounds_left > 0
-            {
-                *rounds_left -= 1;
-                if *rounds_left == 0 {
-                    triggered_damage = true;
-                }
-            }
-        }
-
-        if triggered_damage {
-            state.hull_integrity -= 10;
-            state.active_situations.retain(|c| c.id != CardId::Mutiny);
-        }
+    fn on_trigger(&self, state: &mut GameState) {
+        state.hull_integrity -= 10;
+        state.active_situations.retain(|c| c.id != CardId::Mutiny);
     }
 }

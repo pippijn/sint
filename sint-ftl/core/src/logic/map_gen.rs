@@ -1,4 +1,3 @@
-use crate::small_map::SmallMap;
 use crate::types::{GameMap, HazardType, ItemType, MapLayout, Room, SystemType};
 
 pub struct RoomDef {
@@ -51,34 +50,32 @@ fn generate_star() -> GameMap {
         (9, RoomDef::new("Storage", Some(SystemType::Storage))),
     ];
 
-    let mut rooms = SmallMap::new();
     let hub_id = 0;
 
-    for (id, def) in definitions {
-        let mut neighbors = vec![];
+    let rooms = definitions
+        .into_iter()
+        .map(|(id, def)| {
+            let neighbors = if id == hub_id {
+                // Hub connects to all other rooms (1..9)
+                (1..=9).collect()
+            } else {
+                // Spoke connects only to Hub
+                vec![hub_id]
+            };
 
-        if id == hub_id {
-            // Hub connects to all other rooms (1..9)
-            for j in 1..=9 {
-                neighbors.push(j);
-            }
-        } else {
-            // Spoke connects only to Hub
-            neighbors.push(hub_id);
-        }
-
-        rooms.insert(
-            id,
-            Room {
+            (
                 id,
-                name: def.name.to_owned(),
-                system: def.system,
-                hazards: def.hazards,
-                items: def.items,
-                neighbors,
-            },
-        );
-    }
+                Room {
+                    id,
+                    name: def.name.to_owned(),
+                    system: def.system,
+                    hazards: def.hazards,
+                    items: def.items,
+                    neighbors,
+                },
+            )
+        })
+        .collect();
 
     GameMap { rooms }
 }
@@ -101,27 +98,28 @@ fn generate_torus() -> GameMap {
         (11, RoomDef::new("Corridor C", None)),
     ];
 
-    let mut rooms = SmallMap::new();
     let count = definitions.len() as u32;
 
-    for (id, def) in definitions {
-        let prev = if id == 0 { count - 1 } else { id - 1 };
-        let next = (id + 1) % count;
+    let rooms = definitions
+        .into_iter()
+        .map(|(id, def)| {
+            let prev = if id == 0 { count - 1 } else { id - 1 };
+            let next = (id + 1) % count;
+            let neighbors = vec![prev, next];
 
-        let neighbors = vec![prev, next];
-
-        rooms.insert(
-            id,
-            Room {
+            (
                 id,
-                name: def.name.to_owned(),
-                system: def.system,
-                hazards: def.hazards,
-                items: def.items,
-                neighbors,
-            },
-        );
-    }
+                Room {
+                    id,
+                    name: def.name.to_owned(),
+                    system: def.system,
+                    hazards: def.hazards,
+                    items: def.items,
+                    neighbors,
+                },
+            )
+        })
+        .collect();
 
     GameMap { rooms }
 }

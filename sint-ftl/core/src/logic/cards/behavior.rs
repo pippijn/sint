@@ -82,6 +82,9 @@ pub trait CardBehavior: Send + Sync {
         Ok(())
     }
 
+    /// Hook called when a Timebomb card's countdown reaches zero.
+    fn on_trigger(&self, _state: &mut GameState) {}
+
     /// Hook called when the card is successfully solved/removed via Interaction.
     fn on_solved(&self, _state: &mut GameState) {}
 

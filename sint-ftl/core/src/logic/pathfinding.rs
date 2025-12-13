@@ -1,5 +1,5 @@
 use crate::types::{GameMap, RoomId};
-use std::collections::{HashSet, VecDeque};
+use std::collections::VecDeque;
 
 pub fn find_path(map: &GameMap, start: RoomId, end: RoomId) -> Option<Vec<RoomId>> {
     if start == end {
@@ -7,30 +7,28 @@ pub fn find_path(map: &GameMap, start: RoomId, end: RoomId) -> Option<Vec<RoomId
     }
 
     let mut queue = VecDeque::new();
-    queue.push_back(vec![start]);
+    queue.push_back(start);
 
-    let mut visited = HashSet::new();
-    visited.insert(start);
+    let mut parents = std::collections::HashMap::new();
+    parents.insert(start, None);
 
-    while let Some(path) = queue.pop_front() {
-        let last = *path.last().unwrap();
-        if last == end {
-            // Return steps excluding start, so [start, next, end] -> [next, end]
-            return Some(path.into_iter().skip(1).collect());
+    while let Some(current) = queue.pop_front() {
+        if current == end {
+            let mut path = Vec::new();
+            let mut curr = end;
+            while let Some(&Some(prev)) = parents.get(&curr) {
+                path.push(curr);
+                curr = prev;
+            }
+            path.reverse();
+            return Some(path);
         }
 
-        // Limit search depth to avoid infinite loops (though graph is small)
-        if path.len() > 10 {
-            continue;
-        }
-
-        if let Some(room) = map.rooms.get(&last) {
+        if let Some(room) = map.rooms.get(&current) {
             for &neighbor in &room.neighbors {
-                if !visited.contains(&neighbor) {
-                    visited.insert(neighbor);
-                    let mut new_path = path.clone();
-                    new_path.push(neighbor);
-                    queue.push_back(new_path);
+                if let std::collections::hash_map::Entry::Vacant(e) = parents.entry(neighbor) {
+                    e.insert(Some(current));
+                    queue.push_back(neighbor);
                 }
             }
         }

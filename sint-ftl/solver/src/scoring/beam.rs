@@ -70,6 +70,7 @@ pub struct BeamScoringWeights {
     // Checkmate
     pub checkmate_threshold: f64,
     pub checkmate_multiplier: f64,
+    pub checkmate_max_mult: f64, // New
 
     // Critical State / Panic
     pub critical_hull_threshold: f64,
@@ -86,8 +87,10 @@ pub struct BeamScoringWeights {
     pub fire_exponent: f64,
     pub cargo_repair_exponent: f64,
     pub hull_risk_exponent: f64,
-    pub panic_fire_exponent: f64, // New
-    pub panic_hull_exponent: f64, // New
+    pub panic_fire_exponent: f64,  // New
+    pub panic_hull_exponent: f64,  // New
+    pub checkmate_exponent: f64,   // New
+    pub hull_penalty_scaling: f64, // New
 
     // Multipliers & Ranges
     pub fire_urgency_mult: f64,
@@ -107,7 +110,7 @@ pub struct BeamScoringWeights {
 impl Default for BeamScoringWeights {
     fn default() -> Self {
         Self {
-            hull_integrity: 10000.0,    // Reduced from 12000.0 to accept some damage
+            hull_integrity: 8000.0,    // Reduced from 10000.0 to accept more risk
             hull_delta_penalty: 2000.0, // Reduced from 20000.0 to prevent paralysis
             enemy_hp: 25000.0,          // High priority: KILL THE BOSS (Increased from 15000.0)
             player_hp: 200.0,
@@ -124,7 +127,7 @@ impl Default for BeamScoringWeights {
             death_penalty: 50000.0,
 
             // Roles
-            station_keeping_reward: 3000.0, // Strict discipline for efficiency
+            station_keeping_reward: 2000.0, // Reduced from 3000.0 to encourage flexibility
             gunner_base_reward: 600.0,      // STAY AT THE CANNONS
             gunner_per_ammo: 1000.0,        // LOAD THE CANNONS (High priority)
             gunner_working_bonus: 50.0,
@@ -150,7 +153,7 @@ impl Default for BeamScoringWeights {
             hazard_proximity_reward: 50.0,
             situation_exposure_penalty: 1000.0,
             system_disabled_penalty: 50000.0, // WAS 25000.0. Broken guns = Death.
-            shooting_reward: 15000.0,         // Increased from 8000.0
+            shooting_reward: 22000.0,         // Increased from 20000.0 to finish bosses
 
             scavenger_reward: 500.0,
             repair_proximity_reward: 1000.0,
@@ -162,7 +165,8 @@ impl Default for BeamScoringWeights {
             step_penalty: 100.0,   // WAS 5.0. Prevent free-action loops.
 
             checkmate_threshold: 20.0,
-            checkmate_multiplier: 15.0,
+            checkmate_multiplier: 10.0,
+            checkmate_max_mult: 100.0, // Cap the reward to prevent suicidal aggression
 
             // Critical State
             critical_hull_threshold: 14.0,
@@ -179,8 +183,10 @@ impl Default for BeamScoringWeights {
             fire_exponent: 2.0,
             cargo_repair_exponent: 1.5,
             hull_risk_exponent: 1.1,
-            panic_fire_exponent: 2.0, // Quadratic panic
-            panic_hull_exponent: 1.5, // Accelerated panic
+            panic_fire_exponent: 2.0,  // Quadratic panic
+            panic_hull_exponent: 1.5,  // Accelerated panic
+            checkmate_exponent: 1.5,   // New
+            hull_penalty_scaling: 1.1, // Reduced from 1.2 to reduce stalling
 
             // Multipliers
             fire_urgency_mult: 5.0,
@@ -302,21 +308,23 @@ pub fn score_static(
     let mut score = 0.0;
     // Use PROJECTED hull for critical status
     let is_critical = (projected_hull as f64) <= weights.critical_hull_threshold;
-    let survival_mult = if is_critical {
-        weights.critical_survival_mult
-    } else {
-        1.0
-    };
+
+    // Penalty scaling based on hull integrity: lower hull = higher penalties for everything else
+    let hull_penalty_scaler =
+        (MAX_HULL as f64 / (projected_hull as f64).max(1.0)).powf(weights.hull_penalty_scaling);
+
     let threat_mult = if is_critical {
         weights.critical_threat_mult
     } else {
         1.0
-    };
+    } * hull_penalty_scaler;
 
     // --- Checkmate Heuristic ---
     let mut checkmate_mult = 1.0;
     if (state.enemy.hp as f64) <= weights.checkmate_threshold && state.enemy.hp > 0 {
-        checkmate_mult = weights.checkmate_multiplier;
+        let progress = weights.checkmate_threshold / (state.enemy.hp as f64);
+        checkmate_mult = (progress.powf(weights.checkmate_exponent) * weights.checkmate_multiplier)
+            .min(weights.checkmate_max_mult);
     }
 
     // --- Critical State Heuristic ---
@@ -326,13 +334,9 @@ pub fn score_static(
     if is_critical {
         let mut panic_score = -weights.critical_hull_penalty_base;
         let deficit = (weights.critical_hull_threshold + 1.0 - projected_hull as f64).max(0.0);
-        panic_score -=
-            deficit.powf(weights.panic_hull_exponent) * weights.critical_hull_penalty_per_hp;
-
-        // If we are in Checkmate mode, suppress panic to allow finishing the fight.
-        if checkmate_mult > 1.0 {
-            panic_score *= 0.1;
-        }
+        panic_score -= deficit.powf(weights.panic_hull_exponent)
+            * weights.critical_hull_penalty_per_hp
+            * hull_penalty_scaler;
 
         score += panic_score;
     }
@@ -341,8 +345,9 @@ pub fn score_static(
         // Massive penalty for uncontrolled fire
         let excess_fire =
             (fire_count_total as f64 - weights.critical_fire_threshold as f64 + 1.0).max(1.0);
-        score -=
-            excess_fire.powf(weights.panic_fire_exponent) * weights.critical_fire_penalty_per_token;
+        score -= excess_fire.powf(weights.panic_fire_exponent)
+            * weights.critical_fire_penalty_per_token
+            * hull_penalty_scaler;
     }
 
     // --- 1. Vital Stats & Progression ---
@@ -361,18 +366,10 @@ pub fn score_static(
     };
     let bloodlust_mult = if enemy_hp_percent < 0.5 { 1.5 } else { 1.0 };
 
-    // KAMIKAZE MODE: If checkmate is possible (Boss low), ignore survival instincts.
-    let effective_survival_mult = if checkmate_mult > 1.0 {
-        1.0
-    } else {
-        survival_mult
-    };
-
     score += (state.enemy.max_hp as f64 - state.enemy.hp as f64)
         * weights.enemy_hp
         * checkmate_mult
-        * bloodlust_mult
-        * effective_survival_mult;
+        * bloodlust_mult;
 
     score -= state.turn_count as f64 * weights.turn_penalty;
     score -= history.len() as f64 * weights.step_penalty;
@@ -409,7 +406,7 @@ pub fn score_static(
     score -= (fire_rooms.len() as f64).powf(weights.fire_exponent)
         * weights.fire_penalty_base
         * hull_risk_mult
-        * threat_mult; // Apply threat multiplier
+        * threat_mult; // Apply threat multiplier (which includes hull_penalty_scaler)
     score -= water_count as f64 * weights.water_penalty;
 
     // -- System Disabled --
@@ -426,14 +423,17 @@ pub fn score_static(
 
             // Penalty for the system being currently disabled
             if has_disabling_hazard {
-                score -= weights.system_disabled_penalty * weights.system_importance_multiplier;
+                score -= weights.system_disabled_penalty
+                    * weights.system_importance_multiplier
+                    * hull_penalty_scaler;
             }
 
             // New: Penalty for ANY hazard in a critical room (Danger Zone)
             // Even if not disabled yet (e.g. fire just started), we want to clear it ASAP.
             score -= weights.critical_system_hazard_penalty
                 * (room.hazards.len() as f64)
-                * weights.system_importance_multiplier;
+                * weights.system_importance_multiplier
+                * hull_penalty_scaler;
         }
     }
 

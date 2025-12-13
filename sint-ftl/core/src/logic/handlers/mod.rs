@@ -31,7 +31,7 @@ pub fn get_handler(action: &GameAction) -> Box<dyn ActionHandler> {
             target_player: target_player.clone(),
         }),
         GameAction::PickUp { item_type } => Box::new(item_actions::PickUpHandler {
-            item_type: item_type.clone(),
+            item_type: *item_type,
         }),
         GameAction::Drop { item_index } => Box::new(item_actions::DropHandler {
             item_index: *item_index,

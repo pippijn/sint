@@ -31,24 +31,10 @@ impl CardBehavior for SlipperyDeckCard {
         }
     }
 
-    fn on_round_end(&self, state: &mut GameState) {
-        let mut expired = false;
-        for card in state.active_situations.iter_mut() {
-            if card.id == CardId::SlipperyDeck
-                && let CardType::Timebomb { rounds_left } = &mut card.card_type
-                && *rounds_left > 0
-            {
-                *rounds_left -= 1;
-                if *rounds_left == 0 {
-                    expired = true;
-                }
-            }
-        }
-        if expired {
-            state
-                .active_situations
-                .retain(|c| c.id != CardId::SlipperyDeck);
-        }
+    fn on_trigger(&self, state: &mut GameState) {
+        state
+            .active_situations
+            .retain(|c| c.id != CardId::SlipperyDeck);
     }
 
     fn modify_action_cost(

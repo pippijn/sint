@@ -153,6 +153,20 @@ where
     }
 }
 
+impl<K, V> FromIterator<(K, V)> for SmallMap<K, V>
+where
+    K: SmallIndex + Serialize,
+    V: JsonSchema,
+{
+    fn from_iter<T: IntoIterator<Item = (K, V)>>(iter: T) -> Self {
+        let mut map = Self::new();
+        for (k, v) in iter {
+            map.insert(k, v);
+        }
+        map
+    }
+}
+
 // Implement Index trait for direct access (panics if missing, like BTreeMap/HashMap)
 impl<K, V> Index<K> for SmallMap<K, V>
 where

@@ -1,6 +1,9 @@
 use sint_core::{
     GameError, GameLogic,
-    logic::{actions::action_cost, cards::get_behavior, find_room_with_system_in_map},
+    logic::{
+        actions::action_cost, cards::get_behavior, find_room_with_system_in_map,
+        resolution::process_round_end,
+    },
     types::*,
 };
 
@@ -48,7 +51,8 @@ fn test_amerigo_eats_peppernuts() {
     }
 
     let behavior = get_behavior(CardId::Amerigo);
-    behavior.on_round_end(&mut state);
+    state.active_situations.push(behavior.get_struct());
+    process_round_end(&mut state);
 
     // Should eat 1
     // Note: Storage starts with 5 items by default + 2 added here = 7. Eating 1 -> 6.
@@ -334,17 +338,6 @@ fn test_mice_plague_eats_nuts() {
     let mut state = new_test_game(vec!["P1".to_owned()]);
     state.phase = GamePhase::MorningReport;
 
-    let card = Card {
-        id: CardId::MicePlague,
-        title: "Mice".to_owned(),
-        description: "Eat nuts".to_owned(),
-        card_type: CardType::Situation,
-        options: vec![],
-        solution: None,
-        affected_player: None,
-    };
-    state.active_situations.push(card);
-
     let storage = find_room_with_system_in_map(&state.map, SystemType::Storage).unwrap();
 
     if let Some(r) = state.map.rooms.get_mut(&storage) {
@@ -355,7 +348,8 @@ fn test_mice_plague_eats_nuts() {
     }
 
     let behavior = get_behavior(CardId::MicePlague);
-    behavior.on_round_end(&mut state);
+    state.active_situations.push(behavior.get_struct());
+    process_round_end(&mut state);
 
     assert_eq!(state.map.rooms[&storage].items.len(), 1);
 }

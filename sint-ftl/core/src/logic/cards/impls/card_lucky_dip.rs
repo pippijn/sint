@@ -57,7 +57,7 @@ impl CardBehavior for LuckyDipCard {
             if let Some(item) = &extracted_items[source_idx]
                 && let Some(p) = state.players.get_mut(pid)
             {
-                p.inventory.push(item.clone());
+                p.inventory.push(*item);
             }
         }
     }

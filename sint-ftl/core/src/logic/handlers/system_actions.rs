@@ -48,9 +48,8 @@ impl ActionHandler for BakeHandler {
         let room_id = p.room_id;
 
         if let Some(room) = state.map.rooms.get_mut(&room_id) {
-            room.items.push(ItemType::Peppernut);
-            room.items.push(ItemType::Peppernut);
-            room.items.push(ItemType::Peppernut);
+            room.items
+                .extend(std::iter::repeat_n(ItemType::Peppernut, 3));
         }
         Ok(())
     }

@@ -111,12 +111,10 @@ pub fn find_room_with_system(state: &GameState, sys: SystemType) -> Option<RoomI
 }
 
 pub fn find_room_with_system_in_map(map: &GameMap, sys: SystemType) -> Option<RoomId> {
-    for room in map.rooms.values() {
-        if room.system == Some(sys) {
-            return Some(room.id);
-        }
-    }
-    None
+    map.rooms
+        .values()
+        .find(|r| r.system == Some(sys))
+        .map(|r| r.id)
 }
 
 pub fn find_empty_rooms(state: &GameState) -> Vec<RoomId> {

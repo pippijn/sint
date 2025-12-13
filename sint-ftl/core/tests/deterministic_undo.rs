@@ -37,11 +37,11 @@ fn test_deterministic_action_ids() {
 
     // Apply on State 1
     let state1_prime = GameLogic::apply_action(state1, "P1", action.clone(), None).unwrap();
-    let id1 = state1_prime.proposal_queue.last().unwrap().id.clone();
+    let id1 = state1_prime.proposal_queue.last().unwrap().id;
 
     // Apply on State 2
     let state2_prime = GameLogic::apply_action(state2, "P1", action.clone(), None).unwrap();
-    let id2 = state2_prime.proposal_queue.last().unwrap().id.clone();
+    let id2 = state2_prime.proposal_queue.last().unwrap().id;
 
     // Assert IDs match
     assert_eq!(id1, id2, "Action IDs must be deterministic");
@@ -59,10 +59,10 @@ fn test_deterministic_action_ids() {
     });
 
     let state1_double = GameLogic::apply_action(state1_prime, "P1", action3.clone(), None).unwrap();
-    let id1_next = state1_double.proposal_queue.last().unwrap().id.clone();
+    let id1_next = state1_double.proposal_queue.last().unwrap().id;
 
     let state2_double = GameLogic::apply_action(state2_prime, "P1", action3.clone(), None).unwrap();
-    let id2_next = state2_double.proposal_queue.last().unwrap().id.clone();
+    let id2_next = state2_double.proposal_queue.last().unwrap().id;
 
     assert_eq!(
         id1_next, id2_next,

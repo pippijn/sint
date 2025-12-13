@@ -24,38 +24,18 @@ impl CardBehavior for ManOverboardCard {
         }
     }
 
-    fn on_activate(&self, _state: &mut GameState) {
-        // Effect triggers when timebomb reaches 0 (in on_round_end).
-    }
-
-    fn on_round_end(&self, state: &mut GameState) {
-        let mut triggered = false;
-
-        for card in state.active_situations.iter_mut() {
-            if card.id == CardId::ManOverboard
-                && let CardType::Timebomb { rounds_left } = &mut card.card_type
-                && *rounds_left > 0
-            {
-                *rounds_left -= 1;
-                if *rounds_left == 0 {
-                    triggered = true;
-                }
-            }
+    fn on_trigger(&self, state: &mut GameState) {
+        // Remove random player
+        let mut rng = StdRng::seed_from_u64(state.rng_seed);
+        let pids: Vec<String> = state.players.keys().cloned().collect();
+        if let Some(victim) = pids.choose(&mut rng) {
+            // Remove player
+            state.players.remove(victim);
         }
+        state.rng_seed = rng.random();
 
-        if triggered {
-            // Remove random player
-            let mut rng = StdRng::seed_from_u64(state.rng_seed);
-            let pids: Vec<String> = state.players.keys().cloned().collect();
-            if let Some(victim) = pids.choose(&mut rng) {
-                // Remove player
-                state.players.remove(victim);
-            }
-            state.rng_seed = rng.random();
-
-            state
-                .active_situations
-                .retain(|c| c.id != CardId::ManOverboard);
-        }
+        state
+            .active_situations
+            .retain(|c| c.id != CardId::ManOverboard);
     }
 }

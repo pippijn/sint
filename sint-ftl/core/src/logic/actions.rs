@@ -472,12 +472,8 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
             }
 
             if !state.is_resting {
-                // Trigger Card End-of-Round Effects (e.g. Timebombs, Mice)
-                let active_ids: Vec<CardId> =
-                    state.active_situations.iter().map(|c| c.id).collect();
-                for id in active_ids {
-                    get_behavior(id).on_round_end(&mut state);
-                }
+                // Trigger Card End-of-Round Effects & Timebombs
+                resolution::process_round_end(&mut state);
 
                 // Check for Game Over after card effects (e.g. Mutiny damage)
                 if state.hull_integrity <= 0 {
@@ -683,14 +679,12 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
                 }
 
                 if can_pickup {
-                    let action = GameAction::PickUp {
-                        item_type: item.clone(),
-                    };
+                    let action = GameAction::PickUp { item_type: *item };
                     if p.ap >= action_cost(&projected_state, player_id, &action) {
                         actions.push(Action::Game(action));
                     }
                 }
-                seen_items.push(item.clone());
+                seen_items.push(*item);
             }
         }
 

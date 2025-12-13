@@ -1,5 +1,5 @@
 use sint_core::{
-    logic::{GameLogic, cards::get_behavior, find_room_with_system},
+    logic::{GameLogic, cards::get_behavior, find_room_with_system, resolution::process_round_end},
     types::*,
 };
 
@@ -70,7 +70,8 @@ fn test_amerigo_diet_restriction() {
     }
 
     let behavior = get_behavior(CardId::Amerigo);
-    behavior.on_round_end(&mut state);
+    state.active_situations.push(behavior.get_struct());
+    process_round_end(&mut state);
 
     let items = &state.map.rooms[&storage_id].items;
     // Should eat Peppernut, leave Extinguisher
@@ -95,7 +96,8 @@ fn test_wheel_clamp_glitch_movement() {
     }
 
     let behavior = get_behavior(CardId::WheelClamp);
-    behavior.on_round_end(&mut state);
+    state.active_situations.push(behavior.get_struct());
+    process_round_end(&mut state);
 
     // Should wrap to Room 0 (Hub)
     let p1 = state.players.get("P1").unwrap();

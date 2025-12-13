@@ -107,12 +107,8 @@ pub fn resolve_hazards(state: &mut GameState) {
     }
 
     // Apply Player Damage separately
-    // Deterministic Iteration: BTreeMap gives sorted keys
-    let player_ids: Vec<String> = state.players.keys().cloned().collect();
-
-    for pid in &player_ids {
-        if let Some(p) = state.players.get_mut(pid)
-            && let Some(room) = state.map.rooms.get(&p.room_id)
+    for p in state.players.values_mut() {
+        if let Some(room) = state.map.rooms.get(&p.room_id)
             && room.hazards.contains(&HazardType::Fire)
         {
             p.hp -= 1;
@@ -143,6 +139,33 @@ pub fn resolve_hazards(state: &mut GameState) {
     }
 
     state.rng_seed = rng.random();
+}
+
+pub fn process_round_end(state: &mut GameState) {
+    // 1. Process Timebombs
+    let mut triggered_ids = Vec::new();
+
+    for card in state.active_situations.iter_mut() {
+        if let CardType::Timebomb { rounds_left } = &mut card.card_type
+            && *rounds_left > 0
+        {
+            *rounds_left -= 1;
+            if *rounds_left == 0 {
+                triggered_ids.push(card.id);
+            }
+        }
+    }
+
+    // 2. Call on_trigger for all that just reached 0
+    for id in triggered_ids {
+        get_behavior(id).on_trigger(state);
+    }
+
+    // 3. Trigger Card End-of-Round Effects (Mice, Amerigo, etc.)
+    let active_ids: Vec<CardId> = state.active_situations.iter().map(|c| c.id).collect();
+    for id in active_ids {
+        get_behavior(id).on_round_end(state);
+    }
 }
 
 pub fn resolve_proposal_queue(state: &mut GameState, simulation: bool) {

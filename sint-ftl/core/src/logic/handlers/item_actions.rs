@@ -62,15 +62,26 @@ impl ActionHandler for PickUpHandler {
         let room_id = p.room_id;
 
         // Remove from room
-        if let Some(room) = state.map.rooms.get_mut(&room_id)
-            && let Some(pos) = room.items.iter().position(|x| *x == self.item_type)
-        {
-            let item = room.items.remove(pos);
-            // Add to inventory (re-borrow player)
-            if let Some(p) = state.players.get_mut(player_id) {
-                p.inventory.push(item);
-            }
-        }
+        let room = state
+            .map
+            .rooms
+            .get_mut(&room_id)
+            .ok_or(GameError::RoomNotFound)?;
+        let pos = room
+            .items
+            .iter()
+            .position(|x| *x == self.item_type)
+            .ok_or_else(|| GameError::InvalidAction("Item disappeared".to_owned()))?;
+        let item = room.items.remove(pos);
+
+        // Add to inventory
+        state
+            .players
+            .get_mut(player_id)
+            .ok_or(GameError::PlayerNotFound)?
+            .inventory
+            .push(item);
+
         Ok(())
     }
 }
@@ -114,18 +125,15 @@ impl ActionHandler for DropHandler {
     ) -> Result<(), GameError> {
         self.validate(state, player_id)?;
 
-        let mut item = None;
-        let mut room_id = 0;
+        let p = state
+            .players
+            .get_mut(player_id)
+            .ok_or(GameError::PlayerNotFound)?;
+        let room_id = p.room_id;
+        let item = p.inventory.remove(self.item_index);
 
-        if let Some(p) = state.players.get_mut(player_id) {
-            room_id = p.room_id;
-            item = Some(p.inventory.remove(self.item_index));
-        }
-
-        if let Some(it) = item
-            && let Some(room) = state.map.rooms.get_mut(&room_id)
-        {
-            room.items.push(it);
+        if let Some(room) = state.map.rooms.get_mut(&room_id) {
+            room.items.push(item);
         }
         Ok(())
     }
@@ -199,16 +207,20 @@ impl ActionHandler for ThrowHandler {
     ) -> Result<(), GameError> {
         self.validate(state, player_id)?;
 
-        let mut item = None;
-        if let Some(p) = state.players.get_mut(player_id) {
-            item = Some(p.inventory.remove(self.item_index));
-        }
+        let item = state
+            .players
+            .get_mut(player_id)
+            .ok_or(GameError::PlayerNotFound)?
+            .inventory
+            .remove(self.item_index);
 
-        if let Some(it) = item
-            && let Some(target) = state.players.get_mut(&self.target_player)
-        {
-            target.inventory.push(it);
-        }
+        state
+            .players
+            .get_mut(&self.target_player)
+            .ok_or(GameError::PlayerNotFound)?
+            .inventory
+            .push(item);
+
         Ok(())
     }
 }

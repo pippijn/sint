@@ -156,7 +156,7 @@ pub enum HazardType {
 }
 
 #[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Hash, PartialOrd, Ord,
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Hash, PartialOrd, Ord,
 )]
 pub enum ItemType {
     Peppernut,
@@ -181,7 +181,7 @@ pub struct Player {
     pub is_ready: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Hash)]
 pub enum PlayerStatus {
     Fainted,
     Silenced,
