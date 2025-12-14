@@ -15,6 +15,7 @@ pub struct RlScoringWeights {
     pub item_pickup_reward: f64,
     pub item_drop_penalty: f64,
     pub shooting_reward: f64,
+    pub defensive_action_reward: f64,
     pub turn_penalty: f64,
     pub step_penalty: f64,
 }
@@ -26,13 +27,14 @@ impl Default for RlScoringWeights {
             defeat_penalty: -200.0,
             boss_damage_reward: 5.0,
             hull_damage_penalty: 10.0,
-            fire_extinguish_reward: 1.0,
-            system_repair_reward: 1.0,
+            fire_extinguish_reward: 1.5,
+            system_repair_reward: 1.5,
             situation_resolve_reward: 5.0,
-            item_pickup_reward: 0.1,
-            item_drop_penalty: 0.2,
-            shooting_reward: 0.2,
-            turn_penalty: 1.0,
+            item_pickup_reward: 0.4,
+            item_drop_penalty: 0.4,
+            shooting_reward: 0.5,
+            defensive_action_reward: 0.5,
+            turn_penalty: 2.0,
             step_penalty: 0.2,
         }
     }
@@ -67,8 +69,25 @@ pub fn score_rl(
     }
 
     // 3. Action-based Rewards (Dense signals from history)
-    if let Some((_pid, sint_core::types::GameAction::Shoot)) = history.last() {
-        details.offense += weights.shooting_reward;
+    if let Some((_pid, action)) = history.last() {
+        match action {
+            sint_core::types::GameAction::Shoot => {
+                details.offense += weights.shooting_reward;
+            }
+            sint_core::types::GameAction::RaiseShields
+            | sint_core::types::GameAction::EvasiveManeuvers => {
+                // Reward defensive actions if an attack is telegraphed
+                if current
+                    .enemy
+                    .next_attack
+                    .as_ref()
+                    .is_some_and(|a| a.target_room.is_some())
+                {
+                    details.vitals += weights.defensive_action_reward;
+                }
+            }
+            _ => {}
+        }
     }
 
     // 3. Hull Integrity Delta

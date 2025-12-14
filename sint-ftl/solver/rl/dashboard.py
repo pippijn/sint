@@ -182,7 +182,7 @@ class SintDashboard:
                 if key == "total": continue 
                 bar_len = 10
                 mag = abs(value)
-                filled = min(bar_len, int(mag / 10)) if mag > 1 else int(mag * 5)
+                filled = min(bar_len, int(mag / 100)) if mag > 10 else int(mag / 10)
                 bar = "█" * filled + "░" * (bar_len - filled)
                 color = "green" if value > 0 else "red" if value < 0 else "dim white"
                 rew_table.add_row(key.capitalize(), f"{value:+.2f}", f"[{color}]{bar}[/]")

@@ -1,4 +1,4 @@
-use sint_core::logic::{GameLogic, apply_action};
+use sint_core::logic::GameLogic;
 use sint_core::types::*;
 use sint_solver::driver::GameDriver;
 
@@ -6,7 +6,7 @@ use sint_solver::driver::GameDriver;
 fn test_ap_reset_on_round_transition() {
     let player_ids = vec!["P1".to_owned(), "P2".to_owned()];
     let seed = 2236;
-    let mut state = GameLogic::new_game(player_ids.clone(), seed);
+    let state = GameLogic::new_game(player_ids.clone(), seed);
 
     // Stabilize to TacticalPlanning
     let mut driver = GameDriver::new(state);
@@ -65,10 +65,8 @@ fn test_ap_reset_after_boss_defeat() {
     // Actually, ShootHandler in simulation mode doesn't apply damage.
     // But GameDriver::apply calls it with simulation=false.
 
-    let mut hit = false;
     for _ in 0..10 {
         if driver.state.enemy.hp <= 0 {
-            hit = true;
             break;
         }
         if driver.state.players["P1"].ap == 0 {

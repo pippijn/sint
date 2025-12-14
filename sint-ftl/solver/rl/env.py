@@ -169,7 +169,7 @@ class SintEnv(gym.Env):
         
         obs = self._get_obs()
         assert obs.shape == self.observation_space.shape, f"Obs shape {obs.shape} != {self.observation_space.shape}"
-        return obs, {}
+        return obs, {"initial_seed": self.initial_seed}
 
     def step(self, action_idx):
         self.current_steps += 1
@@ -220,6 +220,7 @@ class SintEnv(gym.Env):
             info["terminal_state"] = self.state
             info["terminal_history"] = list(self.history)
             info["terminal_details"] = self.last_details
+            info["initial_seed"] = self.initial_seed
             if truncated and not terminated:
                 info["TimeLimit.truncated"] = True
 

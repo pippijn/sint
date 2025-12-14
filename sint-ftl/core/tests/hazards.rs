@@ -170,3 +170,31 @@ fn test_repair_action() {
 
     assert!(state.map.rooms[&kitchen].hazards.is_empty());
 }
+
+#[test]
+fn test_hazard_coexistence() {
+    // This tests if Fire and Water can exist in the same room without instantly canceling out
+    let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
+    let kitchen = find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap();
+
+    if let Some(r) = state.map.rooms.get_mut(&kitchen) {
+        r.hazards.push(HazardType::Fire);
+        r.hazards.push(HazardType::Water);
+    }
+
+    // Check state persistence before resolution
+    let r = state.map.rooms.get(&kitchen).unwrap();
+    assert!(r.hazards.contains(&HazardType::Fire));
+    assert!(r.hazards.contains(&HazardType::Water));
+
+    // Run resolution (EnemyAction phase)
+    state.phase = GamePhase::EnemyAction;
+    resolution::resolve_hazards(&mut state);
+
+    let r = state.map.rooms.get(&kitchen).unwrap();
+    assert!(r.hazards.contains(&HazardType::Fire), "Fire should persist");
+    assert!(
+        r.hazards.contains(&HazardType::Water),
+        "Water should persist"
+    );
+}

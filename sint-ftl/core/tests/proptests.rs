@@ -28,7 +28,7 @@ proptest! {
             }
 
             // Pick a random player who can still act
-            let acting_players: Vec<_> = player_ids.iter().filter(|&&ref pid| {
+            let acting_players: Vec<_> = player_ids.iter().filter(|&pid| {
                 !get_valid_actions(&state, pid).is_empty()
             }).collect();
 
@@ -92,11 +92,10 @@ proptest! {
                                     match game_action {
                                         GameAction::Bake | GameAction::Shoot | GameAction::RaiseShields | GameAction::EvasiveManeuvers | GameAction::Lookout | GameAction::FirstAid { .. } => {
                                             // If the player is in THIS disabled room in the PROJECTION, they shouldn't see these actions
-                                            if let Some(p) = projected_state.players.get(pid) {
-                                                if p.room_id == room.id {
+                                            if let Some(p) = projected_state.players.get(pid)
+                                                && p.room_id == room.id {
                                                      prop_assert!(false, "System action {:?} available for {} in projected disabled room {}", game_action, pid, room.id);
                                                 }
-                                            }
                                         }
                                         _ => {}
                                     }
@@ -135,14 +134,11 @@ proptest! {
         // Filter for actions that can be undone (queued actions)
         let undoable_actions: Vec<_> = valid_actions.into_iter().filter(|a| {
             if let Action::Game(ga) = a {
-                match ga {
-                    GameAction::Move { .. } | GameAction::Bake | GameAction::Shoot |
+                matches!(ga, GameAction::Move { .. } | GameAction::Bake | GameAction::Shoot |
                     GameAction::RaiseShields | GameAction::EvasiveManeuvers |
                     GameAction::Extinguish | GameAction::Repair | GameAction::PickUp { .. } |
                     GameAction::Lookout | GameAction::FirstAid { .. } | GameAction::Interact |
-                    GameAction::Throw { .. } | GameAction::Revive { .. } => true,
-                    _ => false
-                }
+                    GameAction::Throw { .. } | GameAction::Revive { .. })
             } else {
                 false
             }

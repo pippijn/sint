@@ -102,6 +102,56 @@ fn test_move_then_evade_valid() {
 }
 
 #[test]
+fn test_extinguish_masking_via_projection() {
+    let mut state = GameLogic::new_game(vec!["P1".to_owned(), "P2".to_owned()], 12345);
+    state.phase = GamePhase::TacticalPlanning;
+
+    let room_id = 1;
+    // Put both players in Room 1
+    for p_id in &["P1", "P2"] {
+        if let Some(p) = state.players.get_mut(*p_id) {
+            p.room_id = room_id;
+            p.ap = 2;
+        }
+    }
+
+    // Add exactly ONE fire to Room 1
+    if let Some(room) = state.map.rooms.get_mut(&room_id) {
+        room.hazards.clear();
+        room.hazards.push(HazardType::Fire);
+    }
+
+    // 1. Initially, both should have Extinguish in their valid actions
+    let valid_p1 = get_valid_actions(&state, "P1");
+    let valid_p2 = get_valid_actions(&state, "P2");
+
+    assert!(
+        valid_p1
+            .iter()
+            .any(|a| matches!(a, Action::Game(GameAction::Extinguish)))
+    );
+    assert!(
+        valid_p2
+            .iter()
+            .any(|a| matches!(a, Action::Game(GameAction::Extinguish)))
+    );
+
+    // 2. P1 queues Extinguish
+    let state =
+        GameLogic::apply_action(state, "P1", Action::Game(GameAction::Extinguish), None).unwrap();
+
+    // 3. Now P2 should NOT have Extinguish in their valid actions, because P1's queued action
+    // will extinguish the only fire in the room in the projected state.
+    let valid_p2_after = get_valid_actions(&state, "P2");
+    assert!(
+        !valid_p2_after
+            .iter()
+            .any(|a| matches!(a, Action::Game(GameAction::Extinguish))),
+        "P2 should not see Extinguish as valid after P1 has queued it for the only fire"
+    );
+}
+
+#[test]
 fn test_move_in_lobby() {
     let state = GameLogic::new_game(vec!["Player1".to_owned()], 12345);
 

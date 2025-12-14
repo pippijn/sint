@@ -69,7 +69,7 @@ proptest! {
 
         // Pickup
         let pickup_act = GameAction::PickUp { item_type: ItemType::Peppernut };
-        let history = vec![(PlayerId::from("P1"), pickup_act.clone())];
+        let history = [(PlayerId::from("P1"), pickup_act.clone())];
         let borrowed_history: Vec<_> = history.iter().collect();
         let next_state = GameLogic::apply_action(current_state.clone(), "P1", Action::Game(pickup_act), None).unwrap();
         total_juggling_reward += score_rl(&current_state, &next_state, &borrowed_history, &weights).total;
@@ -77,7 +77,7 @@ proptest! {
 
         // Drop
         let drop_act = GameAction::Drop { item_index: 0 };
-        let history = vec![(PlayerId::from("P1"), drop_act.clone())];
+        let history = [(PlayerId::from("P1"), drop_act.clone())];
         let borrowed_history: Vec<_> = history.iter().collect();
         let next_state = GameLogic::apply_action(current_state.clone(), "P1", Action::Game(drop_act), None).unwrap();
         total_juggling_reward += score_rl(&current_state, &next_state, &borrowed_history, &weights).total;
@@ -140,7 +140,7 @@ proptest! {
 
         let valid_actions = get_valid_actions(&state, "P1");
         let pass_act = ("P1".to_owned(), GameAction::Pass);
-        let history = vec![pass_act];
+        let history = [pass_act];
         let borrowed_history: Vec<_> = history.iter().collect();
         let next_state_pass = GameLogic::apply_action(state.clone(), "P1", Action::Game(GameAction::Pass), None).unwrap();
         let pass_reward = score_rl(&state, &next_state_pass, &borrowed_history, &weights).total;
@@ -152,7 +152,7 @@ proptest! {
                 sint_core::logic::resolution::resolve_proposal_queue(&mut next_state, false);
 
                 let step_act = ("P1".to_owned(), ga.clone());
-                let history = vec![step_act];
+                let history = [step_act];
                 let borrowed_history: Vec<_> = history.iter().collect();
                 let reward = score_rl(&state, &next_state, &borrowed_history, &weights).total;
 

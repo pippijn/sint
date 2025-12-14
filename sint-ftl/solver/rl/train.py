@@ -220,11 +220,16 @@ class TUICallback(BaseCallback):
                     details = self.training_env.get_attr("last_details")
                     histories = self.training_env.get_attr("history")
                     states = self.training_env.get_attr("state")
-                    seeds = self.training_env.get_attr("initial_seed")
+                    env_seeds = self.training_env.get_attr("initial_seed")
 
                     with self.lock:
-                        if seeds:
-                            self.current_ep_seeds = seeds
+                        if env_seeds:
+                            # Update our tracked seeds for ongoing episodes
+                            for i, s in enumerate(env_seeds):
+                                if i < len(self.current_ep_seeds):
+                                    self.current_ep_seeds[i] = s
+                                else:
+                                    self.current_ep_seeds.append(s)
 
                         if details and len(details) == len(rewards):
                             for i in range(len(details)):
@@ -243,10 +248,14 @@ class TUICallback(BaseCallback):
                                     self.current_ep_breakdowns[i][k] = self.current_ep_breakdowns[i].get(k, 0.0) + v
                                 
                                 if is_terminal:
+                                    # For best episode, we want the seed of the game that just finished
+                                    # which is stored in terminal_info by our SintEnv
+                                    ep_seed = info.get("initial_seed", self.current_ep_seeds[i])
+                                    
                                     if self.current_ep_rewards[i] > self.best_ep_reward:
                                         self.best_ep_reward = self.current_ep_rewards[i]
                                         self.best_ep_breakdown = self.current_ep_breakdowns[i].copy()
-                                        self.best_ep_seed = self.current_ep_seeds[i]
+                                        self.best_ep_seed = ep_seed
                                         term_history = info.get("terminal_history")
                                         if term_history:
                                             self.best_ep_steps = len(term_history)
