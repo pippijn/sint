@@ -14,42 +14,11 @@ class Player:
     def __init__(self, name: str, id: str):
         self.name = name
         self.id = id
-        self.max_ap = 2
-        self.ap = 2
-        self._sugar_rush_moves = 0
-        self._sugar_rush_active = False
         self.actions: List[Tuple[str, GameAction]] = []
 
-    def reset_ap(self, ap: int = 2) -> None:
-        self.ap = ap
-        self.max_ap = ap
-        self._sugar_rush_moves = 0
-
-    def action(self, cmd: str, cost: Optional[int] = None) -> None:
+    def action(self, cmd: str) -> None:
         act = self._parse_command(cmd)
-        
-        if cost is None:
-             if cmd.startswith("Move") and self._sugar_rush_active and self._sugar_rush_moves < 5:
-                  cost = 0
-             elif cmd.startswith("Move"):
-                  cost = 1
-             elif cmd == "RaiseShields" or cmd == "EvasiveManeuvers":
-                  cost = 2
-             elif cmd == "Pass" or cmd == "VoteReady" or cmd.startswith("Chat") or cmd.startswith("Undo"):
-                  cost = 0
-             else:
-                  cost = 1
-
-        if cmd.startswith("Move"):
-             self._sugar_rush_moves += 1
-
-        self.ap -= cost
         self.actions.append((self.id, act))
-
-    def pass_turn(self) -> None:
-        if self.ap > 0:
-            self.actions.append((self.id, GameAction.model_validate({"type": "Pass"})))
-        self.ap = 0
 
     def _parse_command(self, cmd: str) -> GameAction:
         parts = cmd.split()
@@ -83,42 +52,22 @@ class LoggingPlayer(Player):
         super().__init__(name, id)
         self.rounds_log = rounds_log
 
-    def action(self, cmd: str, cost: Optional[int] = None) -> None:
-        super().action(cmd, cost)
+    def action(self, cmd: str) -> None:
+        super().action(cmd)
         if self.rounds_log:
             self.rounds_log[-1].append(self.actions[-1])
 
-    def pass_turn(self) -> None:
-        old_action_count = len(self.actions)
-        if self.ap > 0:
-            self.actions.append((self.id, GameAction.model_validate({"type": "Pass"})))
-        self.ap = 0
-        if len(self.actions) > old_action_count:
-             new_act = self.actions[-1]
-             if new_act[1].root.type == "Pass":
-                  if self.rounds_log:
-                       self.rounds_log[-1].append(new_act)
-
 class RoundScope:
-    def __init__(self, players: List[LoggingPlayer], rounds_log: List[List[Tuple[str, GameAction]]], ap_override: Optional[int] = None, sugar_rush: bool = False):
+    def __init__(self, players: List[LoggingPlayer], rounds_log: List[List[Tuple[str, GameAction]]]):
         self.players = players
         self.rounds_log = rounds_log
-        self.ap = 2 if ap_override is None else ap_override
-        self.sugar_rush = sugar_rush
 
     def __enter__(self) -> 'RoundScope':
         self.rounds_log.append([])
-        for p in self.players:
-            p.reset_ap(self.ap)
-            p._sugar_rush_active = self.sugar_rush
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
-        if exc_type is not None:
-             return False
-        for p in self.players:
-            p.pass_turn()
-        return True
+        return False
 
 # --- Runner Logic ---
 
