@@ -41,12 +41,15 @@ class SintBindings:
         return json.loads(json.dumps(data))
 
     @staticmethod
-    def _to_rust_friendly(model: BaseModel) -> Any:
+    def _to_rust_friendly(model: Any) -> Any:
         """
         Converts a Pydantic model to a dict with integer keys where appropriate
         for Rust consumption.
         """
-        data = model.model_dump(mode='json', by_alias=True)
+        if hasattr(model, "model_dump"):
+            data = model.model_dump(mode='json', by_alias=True)
+        else:
+            data = model
         return SintBindings._string_keys_to_int(data)
 
     @classmethod
@@ -79,7 +82,7 @@ class SolverBindings:
     """
 
     @classmethod
-    def verify_solution(cls, initial_state: GameState, rounds: List[List[Tuple[str, GameAction]]]) -> Dict[str, Any]:
+    def verify_solution(cls, initial_state: GameState, rounds: List[List[Tuple[str, Any]]]) -> Dict[str, Any]:
         rust_state = SintBindings._to_rust_friendly(initial_state)
         
         # Convert GameAction models to dicts
@@ -87,14 +90,27 @@ class SolverBindings:
         for r in rounds:
             round_actions = []
             for pid, act in r:
-                round_actions.append((pid, act.model_dump(mode='json', by_alias=True)))
+                if hasattr(act, "model_dump"):
+                    round_actions.append((pid, act.model_dump(mode='json', by_alias=True)))
+                else:
+                    round_actions.append((pid, act))
             rust_rounds.append(round_actions)
             
         result = sint_solver.verify_solution(rust_state, rust_rounds)
         return cast(Dict[str, Any], SintBindings._to_pydantic_friendly(result))
 
     @classmethod
-    def get_trajectory_log(cls, initial_state: GameState, history: List[Tuple[str, GameAction]]) -> List[str]:
+    def get_trajectory_log(cls, initial_state: GameState, history: List[Tuple[str, Any]]) -> List[str]:
         rust_state = SintBindings._to_rust_friendly(initial_state)
-        rust_history = [(pid, act.model_dump(mode='json', by_alias=True)) for pid, act in history]
+        rust_history = []
+        for pid, act in history:
+            if hasattr(act, "model_dump"):
+                rust_history.append((pid, act.model_dump(mode='json', by_alias=True)))
+            else:
+                rust_history.append((pid, act))
         return cast(List[str], sint_solver.get_trajectory_log(rust_state, rust_history))
+
+    @classmethod
+    def format_game_state(cls, state: GameState) -> str:
+        rust_state = SintBindings._to_rust_friendly(state)
+        return cast(str, sint_solver.format_game_state(rust_state))

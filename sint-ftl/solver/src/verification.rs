@@ -126,6 +126,75 @@ impl VerificationResult {
     }
 }
 
+pub fn parse_game_action(cmd: &str) -> GameAction {
+    let cmd = cmd.trim();
+    if cmd.starts_with("Move") {
+        let target: u32 = cmd.split_whitespace().nth(1).unwrap().parse().unwrap();
+        GameAction::Move { to_room: target }
+    } else if cmd == "Bake" {
+        GameAction::Bake
+    } else if cmd == "Shoot" {
+        GameAction::Shoot
+    } else if cmd.starts_with("Throw") {
+        let parts: Vec<&str> = cmd.split_whitespace().collect();
+        let target = parts[1].to_owned();
+        let idx = parts[2].parse().unwrap();
+        GameAction::Throw {
+            target_player: target,
+            item_index: idx,
+        }
+    } else if cmd == "Extinguish" {
+        GameAction::Extinguish
+    } else if cmd == "Repair" {
+        GameAction::Repair
+    } else if cmd.starts_with("PickUp") {
+        let parts: Vec<&str> = cmd.split_whitespace().collect();
+        let item_type = if parts.len() > 1 {
+            match parts[1] {
+                "Peppernut" => ItemType::Peppernut,
+                "Extinguisher" => ItemType::Extinguisher,
+                "Keychain" => ItemType::Keychain,
+                "Wheelbarrow" => ItemType::Wheelbarrow,
+                "Mitre" => ItemType::Mitre,
+                _ => ItemType::Peppernut,
+            }
+        } else {
+            ItemType::Peppernut
+        };
+        GameAction::PickUp { item_type }
+    } else if cmd.starts_with("Drop") {
+        let idx = cmd.split_whitespace().nth(1).unwrap().parse().unwrap();
+        GameAction::Drop { item_index: idx }
+    } else if cmd == "Pass" {
+        GameAction::Pass
+    } else if cmd == "Ready" || cmd == "VoteReady" {
+        GameAction::VoteReady { ready: true }
+    } else if cmd == "RaiseShields" {
+        GameAction::RaiseShields
+    } else if cmd == "EvasiveManeuvers" {
+        GameAction::EvasiveManeuvers
+    } else if cmd == "Lookout" {
+        GameAction::Lookout
+    } else if cmd == "Interact" {
+        GameAction::Interact
+    } else if cmd.starts_with("Revive") {
+        let target = cmd.split_whitespace().nth(1).unwrap().to_owned();
+        GameAction::Revive {
+            target_player: target,
+        }
+    } else if cmd.starts_with("FirstAid") {
+        let target = cmd.split_whitespace().nth(1).unwrap().to_owned();
+        GameAction::FirstAid {
+            target_player: target,
+        }
+    } else if cmd.starts_with("Chat") {
+        let msg = cmd.replace("Chat ", "").trim().to_owned();
+        GameAction::Chat { message: msg }
+    } else {
+        panic!("Unknown command: {}", cmd);
+    }
+}
+
 pub fn parse_solution_text(text: &str) -> ParsedSolution {
     let mut rounds = Vec::new();
     let mut current_round = Vec::new();
@@ -168,60 +237,7 @@ pub fn parse_solution_text(text: &str) -> ParsedSolution {
         let pid = parts[0].trim().to_owned();
         let cmd = parts[1].trim();
 
-        let action = if cmd.starts_with("Move") {
-            let target: u32 = cmd.split_whitespace().nth(1).unwrap().parse().unwrap();
-            GameAction::Move { to_room: target }
-        } else if cmd == "Bake" {
-            GameAction::Bake
-        } else if cmd == "Shoot" {
-            GameAction::Shoot
-        } else if cmd.starts_with("Throw") {
-            let parts: Vec<&str> = cmd.split_whitespace().collect();
-            let target = parts[1].to_owned();
-            let idx = parts[2].parse().unwrap();
-            GameAction::Throw {
-                target_player: target,
-                item_index: idx,
-            }
-        } else if cmd == "Extinguish" {
-            GameAction::Extinguish
-        } else if cmd == "Repair" {
-            GameAction::Repair
-        } else if cmd == "PickUp" {
-            GameAction::PickUp {
-                item_type: ItemType::Peppernut,
-            }
-        } else if cmd.starts_with("Drop") {
-            let idx = cmd.split_whitespace().nth(1).unwrap().parse().unwrap();
-            GameAction::Drop { item_index: idx }
-        } else if cmd == "Pass" {
-            GameAction::Pass
-        } else if cmd == "Ready" {
-            GameAction::VoteReady { ready: true }
-        } else if cmd == "RaiseShields" {
-            GameAction::RaiseShields
-        } else if cmd == "EvasiveManeuvers" {
-            GameAction::EvasiveManeuvers
-        } else if cmd == "Lookout" {
-            GameAction::Lookout
-        } else if cmd == "Interact" {
-            GameAction::Interact
-        } else if cmd.starts_with("Revive") {
-            let target = cmd.split_whitespace().nth(1).unwrap().to_owned();
-            GameAction::Revive {
-                target_player: target,
-            }
-        } else if cmd.starts_with("FirstAid") {
-            let target = cmd.split_whitespace().nth(1).unwrap().to_owned();
-            GameAction::FirstAid {
-                target_player: target,
-            }
-        } else if cmd.starts_with("Chat") {
-            let msg = cmd.replace("Chat ", "").trim().to_owned();
-            GameAction::Chat { message: msg }
-        } else {
-            panic!("Unknown command: {}", cmd);
-        };
+        let action = parse_game_action(cmd);
 
         current_round.push((pid, action));
     }
@@ -233,6 +249,41 @@ pub fn parse_solution_text(text: &str) -> ParsedSolution {
     // Or if valid use case requires implicit single round.
 
     (rounds, seed, players)
+}
+
+pub fn format_game_state(state: &GameState) -> String {
+    let mut out = String::new();
+    out.push_str(&format!(
+        "Hull: {} | Enemy HP: {} | Phase: {:?} | Turn: {}\n",
+        state.hull_integrity, state.enemy.hp, state.phase, state.turn_count
+    ));
+    if let Some(attack) = &state.enemy.next_attack {
+        out.push_str(&format!(
+            "Enemy Telegraph: {:?} at Room {:?}\n",
+            attack.effect, attack.target_room
+        ));
+    }
+    for (pid, p) in state.players.iter() {
+        let inv: Vec<_> = p.inventory.iter().map(|i| format!("{:?}", i)).collect();
+        out.push_str(&format!(
+            "  {}: Room {} | HP {} | AP {} | Inv {:?}\n",
+            pid, p.room_id, p.hp, p.ap, inv
+        ));
+    }
+    for (rid, r) in state.map.rooms.iter() {
+        if !r.hazards.is_empty() || !r.items.is_empty() {
+            let items: Vec<_> = r.items.iter().map(|i| format!("{:?}", i)).collect();
+            out.push_str(&format!(
+                "  Room {} ({}): Hazards {:?} | Items {:?}\n",
+                rid, r.name, r.hazards, items
+            ));
+        }
+    }
+    if !state.active_situations.is_empty() {
+        let titles: Vec<_> = state.active_situations.iter().map(|s| &s.title).collect();
+        out.push_str(&format!("Active Situations: {:?}\n", titles));
+    }
+    out
 }
 
 pub fn run_verification(

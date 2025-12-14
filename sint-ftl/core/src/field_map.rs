@@ -120,6 +120,10 @@ where
         self.data.clear();
     }
 
+    pub fn iter(&self) -> impl Iterator<Item = (&V::Id, &V)> {
+        self.data.iter().map(|v| (v.id(), v))
+    }
+
     pub fn values(&self) -> impl Iterator<Item = &V> {
         self.data.iter()
     }
