@@ -11,6 +11,8 @@ pub struct StatsWidget {
     pub hull: i32,
     pub boss_name: String,
     pub boss_hp: i32,
+    pub total_enemy_hp: i32,
+    pub total_damage: i32,
     pub score: f64,
     pub duration: Duration,
     pub is_done: bool,
@@ -40,11 +42,13 @@ impl Widget for StatsWidget {
         };
 
         let stats_text = format!(
-            "Solver TUI | Step: {} | Hull: {} | {}: {} | Score: {:.0} | Time: {:.1}s | {}{}",
+            "Solver TUI | Step: {} | Hull: {} | {}: {} | Dmg: {} | Rem: {} | Score: {:.0} | Time: {:.1}s | {}{}",
             self.step,
             self.hull,
             self.boss_name,
             self.boss_hp,
+            self.total_damage,
+            self.total_enemy_hp,
             self.score,
             self.duration.as_secs_f64(),
             status_txt,

@@ -41,15 +41,15 @@ struct Args {
     strategy: Strategy,
 
     /// Beam Width (Number of states to keep per step)
-    #[arg(short, long, default_value_t = 1000)]
+    #[arg(short, long, default_value_t = 300)]
     beam_width: usize,
 
     /// RHEA Horizon
-    #[arg(long, default_value_t = 10)]
+    #[arg(long, default_value_t = 30)]
     rhea_horizon: usize,
 
     /// RHEA Generations per step
-    #[arg(long, default_value_t = 50)]
+    #[arg(long, default_value_t = 10)]
     rhea_generations: usize,
 
     /// RHEA Population
@@ -102,7 +102,24 @@ fn save_solution(sol: &SearchNode, args: &Args) {
         println!("\n=== BEST RESULT ===");
         println!("Final Phase: {:?}", sol.state.phase);
         println!("Hull: {}", sol.state.hull_integrity);
-        println!("Boss HP: {}", sol.state.enemy.hp);
+
+        let mut total_hp = 0;
+        let mut remaining_hp = 0;
+        for level in 0..sint_core::logic::MAX_BOSS_LEVEL {
+            let boss = sint_core::logic::get_boss(level);
+            total_hp += boss.max_hp;
+            if level < sol.state.boss_level {
+                // Already defeated
+            } else if level == sol.state.boss_level {
+                remaining_hp += sol.state.enemy.hp;
+            } else {
+                remaining_hp += boss.max_hp;
+            }
+        }
+
+        println!("Boss: {} ({} HP)", sol.state.enemy.name, sol.state.enemy.hp);
+        println!("Total Enemy HP: {}", remaining_hp);
+        println!("Total Damage: {}", total_hp - remaining_hp);
 
         // Calculate Tournament Score
         let mut scorer = sint_solver::scoring::beam::ScoreAccumulator::new();
@@ -332,16 +349,32 @@ fn ui(f: &mut Frame, app: &SolverApp) {
     let current_state = current_node.map(|n| &n.state);
 
     // Stats Widget
-    let (step, hull, boss_name, boss_hp, score) = if let Some(p) = &app.progress {
+    let (step, hull, boss_name, boss_hp, total_enemy_hp, total_damage, score) = if let Some(p) = &app.progress {
+        let mut total_hp = 0;
+        let mut remaining_hp = 0;
+        for level in 0..sint_core::logic::MAX_BOSS_LEVEL {
+            let boss = sint_core::logic::get_boss(level);
+            total_hp += boss.max_hp;
+            if level < p.node.state.boss_level {
+                // Already defeated
+            } else if level == p.node.state.boss_level {
+                remaining_hp += p.node.state.enemy.hp;
+            } else {
+                remaining_hp += boss.max_hp;
+            }
+        }
+
         (
             p.step,
             p.node.state.hull_integrity,
             p.node.state.enemy.name.clone(),
             p.node.state.enemy.hp,
+            remaining_hp,
+            total_hp - remaining_hp,
             p.node.score.total,
         )
     } else {
-        (0, 0, "Boss".to_string(), 0, 0.0)
+        (0, 0, "Boss".to_string(), 0, 0, 0, 0.0)
     };
 
     let (shields, evasion) = if let Some(s) = current_state {
@@ -359,6 +392,8 @@ fn ui(f: &mut Frame, app: &SolverApp) {
         hull,
         boss_name,
         boss_hp,
+        total_enemy_hp,
+        total_damage,
         score,
         duration,
         is_done: app.done,

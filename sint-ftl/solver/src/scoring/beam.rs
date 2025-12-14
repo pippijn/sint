@@ -219,11 +219,11 @@ impl Default for BeamScoringWeights {
             // Critical State
             critical_hull_threshold: 12.0,
             critical_hull_penalty_base: 2.0,
-            critical_hull_penalty_per_hp: 50.0,
+            critical_hull_penalty_per_hp: 150.0,
             critical_fire_threshold: 2,
             critical_fire_penalty_per_token: 0.2,
             critical_system_hazard_penalty: 10.0,
-            fire_in_critical_hull_penalty: 5000.0,
+            fire_in_critical_hull_penalty: 20000.0,
             critical_survival_mult: 0.4,
             critical_threat_mult: 5.0,
 
@@ -430,12 +430,18 @@ pub fn score_static(
         checkmate_mult = (progress.powf(weights.checkmate_exponent) * weights.checkmate_multiplier)
             .min(weights.checkmate_max_mult);
 
-        // Survival Override: If we are in critical condition, dampen bloodlust unless the boss is almost dead.
+        // Survival Override: If we are in critical condition, dampen bloodlust.
+        // Finishing the boss IS survival, but only if it happens SOON.
         if is_critical {
-            if (state.enemy.hp as f64) > weights.critical_survival_boss_hp_threshold {
-                checkmate_mult = 1.0;
+            if (state.enemy.hp as f64) > 2.0 {
+                let survival_factor = (projected_hull as f64 / weights.critical_hull_threshold).max(0.2).min(1.0);
+                checkmate_mult *= survival_factor;
+
+                if (state.enemy.hp as f64) > weights.critical_survival_boss_hp_threshold {
+                    checkmate_mult *= weights.survival_only_multiplier;
+                }
             } else {
-                // Do NOT dampen if the boss is at 10 HP or less. Finishing the boss IS survival.
+                // Boss is at 1-2 HP. GO FOR IT.
             }
         }
     }
@@ -454,7 +460,8 @@ pub fn score_static(
         // New: If hull is critical AND there is any fire, add an extreme penalty.
         // This prevents the AI from ignoring "small" fires when it's one hit from death.
         if rooms_on_fire > 0 {
-            panic_penalty += weights.fire_in_critical_hull_penalty * hull_penalty_scaler;
+            let fire_panic_factor = (rooms_on_fire as f64).powf(weights.panic_fire_exponent);
+            panic_penalty += weights.fire_in_critical_hull_penalty * fire_panic_factor * hull_penalty_scaler;
         }
 
         details.panic -= panic_penalty;
@@ -511,14 +518,21 @@ pub fn score_static(
     }
 
     if in_fire_panic || is_critical {
-        // If boss is near death, don't dampen offense as much.
-        let dampening = if (state.enemy.hp as f64) <= weights.checkmate_dampening_boss_hp_threshold {
+        // Survival Mode: If we are about to die or overwhelmed by fire,
+        // focus on survival, but keep logistics active to ensure we have tools/ammo.
+        let dampening = if (state.enemy.hp as f64) <= 2.0 {
+            // Boss is almost dead! Victory is the best survival.
+            0.8
+        } else if (state.enemy.hp as f64) <= weights.checkmate_dampening_boss_hp_threshold {
+            // Boss is low, but not dead.
             (weights.survival_only_multiplier * weights.panic_dampening_multiplier).min(1.0)
         } else {
             weights.survival_only_multiplier
         };
         details.offense *= dampening;
         details.situations *= dampening;
+        details.progression *= dampening;
+        // Do NOT dampen logistics - we need ammo to end the threat!
     }
 
     if state.enemy.hp <= 0 {

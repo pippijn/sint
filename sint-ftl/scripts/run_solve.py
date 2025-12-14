@@ -81,13 +81,14 @@ def print_summary(results: List[Tuple[str, int, Optional[str]]]) -> None:
     print("\n" + "="*80)
     print(f"{'AGGREGATE PERFORMANCE REPORT':^80}")
     print("="*80)
-    print(f"{'Seed':<10} | {'Result':<10} | {'Boss HP':<8} | {'Hull':<5} | {'Rounds':<7} | {'Fitness Score':<15}")
+    print(f"{'Seed':<10} | {'Result':<10} | {'Dmg':<5} | {'Rem':<5} | {'Hull':<5} | {'Rounds':<7} | {'Fitness Score':<15}")
     print("-" * 80)
 
     total_fitness = 0.0
     victories = 0
     total_hull = 0
-    total_boss_hp = 0
+    total_damage = 0
+    total_rem_hp = 0
     total_rounds = 0
     count = 0
 
@@ -99,13 +100,15 @@ def print_summary(results: List[Tuple[str, int, Optional[str]]]) -> None:
         # Extraction
         phase_match = re.search(r"Final Phase: (\w+)", output)
         hull_match = re.search(r"Hull: (-?\d+)", output)
-        boss_hp_match = re.search(r"Boss HP: (\d+)", output)
+        damage_match = re.search(r"Total Damage: (\d+)", output)
+        rem_hp_match = re.search(r"Total Enemy HP: (\d+)", output)
         rounds_match = re.search(r"Rounds: (\d+)", output)
         fitness_match = re.search(r"Fitness Score: ([\d.-]+)", output)
 
         phase = phase_match.group(1) if phase_match else "Unknown"
         hull = int(hull_match.group(1)) if hull_match else 0
-        boss_hp = int(boss_hp_match.group(1)) if boss_hp_match else 0
+        damage = int(damage_match.group(1)) if damage_match else 0
+        rem_hp = int(rem_hp_match.group(1)) if rem_hp_match else 0
         rounds = int(rounds_match.group(1)) if rounds_match else 0
         fitness = float(fitness_match.group(1)) if fitness_match else 0.0
 
@@ -114,22 +117,24 @@ def print_summary(results: List[Tuple[str, int, Optional[str]]]) -> None:
             victories += 1
         
         result_str = "WIN" if win else "LOSS"
-        print(f"{seed:<10} | {result_str:<10} | {boss_hp:<8} | {hull:<5} | {rounds:<7} | {fitness:<15.1f}")
+        print(f"{seed:<10} | {result_str:<10} | {damage:<5} | {rem_hp:<5} | {hull:<5} | {rounds:<7} | {fitness:<15.1f}")
 
         total_fitness += fitness
         total_hull += hull
-        total_boss_hp += boss_hp
+        total_damage += damage
+        total_rem_hp += rem_hp
         total_rounds += rounds
 
     if count > 0:
         print("-" * 80)
         avg_fitness = total_fitness / count
         avg_hull = total_hull / count
-        avg_boss_hp = total_boss_hp / count
+        avg_damage = total_damage / count
+        avg_rem_hp = total_rem_hp / count
         avg_rounds = total_rounds / count
         win_rate = (victories / count) * 100
 
-        print(f"{'AVERAGE':<10} | {win_rate:>5.1f}% WIN | {avg_boss_hp:<8.1f} | {avg_hull:<5.1f} | {avg_rounds:<7.1f} | {avg_fitness:<15.1f}")
+        print(f"{'AVERAGE':<10} | {win_rate:>5.1f}% WIN | {avg_damage:<5.1f} | {avg_rem_hp:<5.1f} | {avg_hull:<5.1f} | {avg_rounds:<7.1f} | {avg_fitness:<15.1f}")
     
     print("="*80 + "\n")
 
