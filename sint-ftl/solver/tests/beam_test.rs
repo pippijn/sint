@@ -107,6 +107,14 @@ fn test_beam_width_effect() {
     let res_wide =
         beam_search(&config_wide, &weights, None::<fn(SearchProgress)>).expect("Wide failed");
 
+    println!("Narrow Score: {:.3}", res_narrow.score.total);
+    println!("Wide Score:   {:.3}", res_wide.score.total);
+
+    if res_wide.score.total < res_narrow.score.total - 0.001 {
+        println!("Narrow Breakdown: {}", res_narrow.score.format_short());
+        println!("Wide Breakdown:   {}", res_wide.score.format_short());
+    }
+
     // Wide beam should generally produce equal or better score
     assert!(res_wide.score.total >= res_narrow.score.total - 0.001);
 }

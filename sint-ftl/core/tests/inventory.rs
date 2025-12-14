@@ -14,8 +14,9 @@ fn test_pickup_limit() {
     )
     .unwrap();
 
-    // Give P1 a Nut
+    // Give P1 2 Nuts
     if let Some(p) = state.players.get_mut("P1") {
+        p.inventory.push(ItemType::Peppernut);
         p.inventory.push(ItemType::Peppernut);
         p.room_id = kitchen;
     }
@@ -24,7 +25,7 @@ fn test_pickup_limit() {
         r.items.push(ItemType::Peppernut);
     }
 
-    // Try to pick up another Nut (Limit 1 without Wheelbarrow)
+    // Try to pick up another Nut (Limit 2 without Wheelbarrow)
     let res = GameLogic::apply_action(
         state.clone(),
         "P1",
@@ -33,7 +34,7 @@ fn test_pickup_limit() {
         }),
         None,
     );
-    assert!(res.is_err(), "Should enforce 1 Nut limit");
+    assert!(res.is_err(), "Should enforce 2 Nut limit");
 }
 
 #[test]
@@ -76,6 +77,7 @@ fn test_drop_wheelbarrow_fail_if_full() {
         p.inventory.push(ItemType::Wheelbarrow); // Index 0
         p.inventory.push(ItemType::Peppernut);
         p.inventory.push(ItemType::Peppernut);
+        p.inventory.push(ItemType::Peppernut);
     }
 
     // Try to drop Wheelbarrow (Index 0)
@@ -85,7 +87,7 @@ fn test_drop_wheelbarrow_fail_if_full() {
         Action::Game(GameAction::Drop { item_index: 0 }),
         None,
     );
-    assert!(res.is_err(), "Cannot drop Wheelbarrow if holding >1 Nut");
+    assert!(res.is_err(), "Cannot drop Wheelbarrow if holding >2 Nuts");
 }
 
 #[test]

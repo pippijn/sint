@@ -153,7 +153,7 @@ impl Default for BeamScoringWeights {
         Self {
             hull_integrity: 200.0,
             hull_delta_penalty: 2.0,
-            enemy_hp: 25.0,
+            enemy_hp: 1000.0,
             player_hp: 1.0,
             ap_balance: 10.0,
 
@@ -192,7 +192,7 @@ impl Default for BeamScoringWeights {
             situation_resolved_reward: 10000.0,
             system_importance_multiplier: 10.0,
             boss_killing_blow_reward: 10000000.0,
-            inaction_penalty: 100.0,
+            inaction_penalty: 1000.0,
 
             // Logistics
             ammo_stockpile_reward: 10000.0,
@@ -210,7 +210,7 @@ impl Default for BeamScoringWeights {
 
             // Progression
             boss_level_reward: 100000.0,
-            turn_penalty: 10.0,
+            turn_penalty: 500.0,
             step_penalty: 1.0,
             checkmate_system_bonus: 5000.0,
 
@@ -503,8 +503,9 @@ pub fn score_static(
                 }
             } else {
                 // Boss is at 1-2 HP and we are NOT dead yet. GO FOR IT.
-                // We even boost it further to ensure it outweighs panic
-                checkmate_mult *= 1.5;
+                // But scale by health to ensure we don't start next boss at 1 HP.
+                let survival_factor = (projected_hull as f64 / MAX_HULL as f64).max(0.1).min(1.0);
+                checkmate_mult *= 1.5 * survival_factor;
             }
         }
     }

@@ -22,7 +22,7 @@ impl CardBehavior for ShortCircuitCard {
         if let Some(engine_id) = find_room_with_system(state, SystemType::Engine)
             && let Some(room) = state.map.rooms.get_mut(&engine_id)
         {
-            room.hazards.push(HazardType::Fire);
+            room.add_hazard(HazardType::Fire);
         }
     }
 }

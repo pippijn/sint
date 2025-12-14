@@ -35,7 +35,7 @@ impl CardBehavior for AnchorLooseCard {
             state.rng_seed = rng.random();
 
             if let Some(room) = state.map.rooms.get_mut(&target) {
-                room.hazards.push(HazardType::Water);
+                room.add_hazard(HazardType::Water);
             }
         }
     }

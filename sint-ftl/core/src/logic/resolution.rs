@@ -47,16 +47,16 @@ pub fn resolve_enemy_attack(state: &mut GameState) {
             if let Some(room) = state.map.rooms.get_mut(&attack.target_room) {
                 match attack.effect {
                     AttackEffect::Fireball => {
-                        room.hazards.push(HazardType::Fire);
+                        room.add_hazard(HazardType::Fire);
                         for _ in 0..hazard_mod {
-                            room.hazards.push(HazardType::Fire);
+                            room.add_hazard(HazardType::Fire);
                         }
                         state.hull_integrity -= 1;
                     }
                     AttackEffect::Leak => {
-                        room.hazards.push(HazardType::Water);
+                        room.add_hazard(HazardType::Water);
                         for _ in 0..hazard_mod {
-                            room.hazards.push(HazardType::Water);
+                            room.add_hazard(HazardType::Water);
                         }
                     }
                     _ => {}
@@ -123,7 +123,7 @@ pub fn resolve_hazards(state: &mut GameState) {
         if let Some(room) = state.map.rooms.get_mut(&room_id)
             && !room.hazards.contains(&HazardType::Fire)
         {
-            room.hazards.push(HazardType::Fire);
+            room.add_hazard(HazardType::Fire);
         }
     }
 

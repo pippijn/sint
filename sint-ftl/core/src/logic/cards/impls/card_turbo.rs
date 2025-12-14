@@ -65,13 +65,13 @@ impl CardBehavior for TurboModeCard {
 
             // 2. Apply Hazards
             if let Some(room) = state.map.rooms.get_mut(&engine_id) {
-                room.hazards.push(HazardType::Fire);
-                room.hazards.push(HazardType::Fire);
+                room.add_hazard(HazardType::Fire);
+                room.add_hazard(HazardType::Fire);
             }
             if let Some(tid) = target_neighbor
                 && let Some(room) = state.map.rooms.get_mut(&tid)
             {
-                room.hazards.push(HazardType::Fire);
+                room.add_hazard(HazardType::Fire);
             }
         }
 

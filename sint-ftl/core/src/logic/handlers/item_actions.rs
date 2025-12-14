@@ -25,24 +25,8 @@ impl ActionHandler for PickUpHandler {
             )));
         }
 
-        if self.item_type == ItemType::Peppernut {
-            let nut_count = p
-                .inventory
-                .iter()
-                .filter(|i| **i == ItemType::Peppernut)
-                .count();
-            let has_wheelbarrow = p.inventory.contains(&ItemType::Wheelbarrow);
-            let limit = if has_wheelbarrow { 5 } else { 1 };
-
-            if nut_count >= limit {
-                return Err(GameError::InventoryFull);
-            }
-        } else {
-            // Special Item Limit: Can only carry 1 special item (non-Peppernut)
-            let has_special = p.inventory.iter().any(|i| *i != ItemType::Peppernut);
-            if has_special {
-                return Err(GameError::InventoryFull);
-            }
+        if !p.can_add_item(self.item_type) {
+            return Err(GameError::InventoryFull);
         }
         Ok(())
     }
@@ -103,14 +87,9 @@ impl ActionHandler for DropHandler {
         // Cannot drop Wheelbarrow if holding excess Peppernuts
         let item_to_drop = &p.inventory[self.item_index];
         if *item_to_drop == ItemType::Wheelbarrow {
-            let nut_count = p
-                .inventory
-                .iter()
-                .filter(|i| **i == ItemType::Peppernut)
-                .count();
-            if nut_count > 1 {
+            if p.peppernut_count() > 2 {
                 return Err(GameError::InvalidAction(
-                    "Cannot drop Wheelbarrow while holding >1 Peppernuts".to_owned(),
+                    "Cannot drop Wheelbarrow while holding >2 Peppernuts".to_owned(),
                 ));
             }
         }
@@ -133,7 +112,19 @@ impl ActionHandler for DropHandler {
         let item = p.inventory.remove(self.item_index);
 
         if let Some(room) = state.map.rooms.get_mut(&room_id) {
-            room.items.push(item);
+            // Water destroys Peppernuts immediately (except in Storage)
+            if item == ItemType::Peppernut
+                && room.hazards.contains(&crate::types::HazardType::Water)
+                && room.system != Some(crate::types::SystemType::Storage)
+            {
+                // Destroyed! Do not push to room.items
+                log::info!(
+                    "Peppernut dropped into water and destroyed in room {}",
+                    room_id
+                );
+            } else {
+                room.add_item(item);
+            }
         }
         Ok(())
     }
@@ -183,15 +174,7 @@ impl ActionHandler for ThrowHandler {
         }
 
         // Check Target Capacity
-        let nut_count = target
-            .inventory
-            .iter()
-            .filter(|i| **i == ItemType::Peppernut)
-            .count();
-        let has_wheelbarrow = target.inventory.contains(&ItemType::Wheelbarrow);
-        let limit = if has_wheelbarrow { 5 } else { 1 };
-
-        if nut_count >= limit {
+        if !target.can_add_item(ItemType::Peppernut) {
             return Err(GameError::InventoryFull);
         }
 

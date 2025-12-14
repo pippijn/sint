@@ -22,7 +22,7 @@ impl CardBehavior for LeakCard {
         if let Some(cargo_id) = find_room_with_system(state, SystemType::Cargo)
             && let Some(room) = state.map.rooms.get_mut(&cargo_id)
         {
-            room.hazards.push(HazardType::Water);
+            room.add_hazard(HazardType::Water);
         }
     }
 }

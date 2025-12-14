@@ -13,6 +13,7 @@ fn test_cannot_carry_two_special_items() {
     // Give P1 an Extinguisher
     if let Some(p) = state.players.get_mut("P1") {
         p.inventory.push(ItemType::Extinguisher);
+        p.inventory.push(ItemType::Keychain);
     }
     // Place Wheelbarrow in room
     if let Some(r) = state.map.rooms.get_mut(&room_id) {
@@ -28,7 +29,10 @@ fn test_cannot_carry_two_special_items() {
         }),
         None,
     );
-    assert!(res.is_err(), "Should not allow picking up 2nd special item");
+    assert!(
+        res.is_err(),
+        "Should not allow picking up Wheelbarrow if hands are full"
+    );
 }
 
 #[test]
@@ -67,13 +71,14 @@ fn test_throw_fails_if_receiver_has_special_item() {
     let room_id = state.players["P1"].room_id;
     if let Some(p) = state.players.get_mut("P2") {
         p.room_id = room_id;
-        p.inventory.push(ItemType::Wheelbarrow);
+        p.inventory.push(ItemType::Extinguisher);
+        p.inventory.push(ItemType::Keychain);
     }
     if let Some(p) = state.players.get_mut("P1") {
-        p.inventory.push(ItemType::Extinguisher); // Index 0
+        p.inventory.push(ItemType::Peppernut); // Index 0
     }
 
-    // P1 throws Extinguisher to P2 (who has Wheelbarrow)
+    // P1 throws Peppernut to P2 (who has both hands full)
     let res = GameLogic::apply_action(
         state.clone(),
         "P1",
@@ -83,7 +88,10 @@ fn test_throw_fails_if_receiver_has_special_item() {
         }),
         None,
     );
-    assert!(res.is_err(), "Receiver cannot hold 2 special items");
+    assert!(
+        res.is_err(),
+        "Receiver cannot hold item if both hands are full"
+    );
 }
 
 #[test]
@@ -95,7 +103,8 @@ fn test_throw_fails_if_receiver_full_ammo() {
     let room_id = state.players["P1"].room_id;
     if let Some(p) = state.players.get_mut("P2") {
         p.room_id = room_id;
-        p.inventory.push(ItemType::Peppernut); // Has 1 (Max 1)
+        p.inventory.push(ItemType::Peppernut);
+        p.inventory.push(ItemType::Peppernut); // Has 2 (Max 2)
     }
     if let Some(p) = state.players.get_mut("P1") {
         p.inventory.push(ItemType::Peppernut); // Index 0

@@ -24,6 +24,9 @@ pyo3 = { version = "0.27", features = ["extension-module"], optional = true }
 pythonize = { version = "0.27", optional = true }
 log = "0.4.29"
 
+[dev-dependencies]
+proptest = "1.6"
+
 [features]
 schema = []
 python = ["dep:pyo3", "dep:pythonize"]

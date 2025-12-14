@@ -260,13 +260,19 @@ fn apply_game_action(
         get_behavior(card.id).validate_action(&projected_state, player_id, &action)?;
     }
 
-    // 2. Validate AP (Projected)
-    // `projected_state` has remaining AP because it was cloned from `state` (where AP was deducted).
+    // 2. Validate AP (REAL state, not projected)
+    // We must spend AP we actually have. If projection predicts a refund,
+    // we still can't spend it until the refund actually happens in the real state.
+    let p_real = state
+        .players
+        .get(player_id)
+        .ok_or(GameError::PlayerNotFound)?;
     let p_proj = projected_state
         .players
         .get(player_id)
         .ok_or(GameError::PlayerNotFound)?;
-    let current_ap = p_proj.ap;
+
+    let current_ap = p_real.ap;
     let base_cost = action_cost(&projected_state, player_id, &action);
 
     if current_ap < base_cost {
@@ -540,6 +546,18 @@ pub fn action_cost(state: &GameState, player_id: &str, action: &GameAction) -> i
         | GameAction::VoteReady { .. }
         | GameAction::Pass
         | GameAction::Undo { .. } => 0,
+        GameAction::Interact => {
+            // Find which card would be solved and return its AP cost from the solution struct
+            if let Some(idx) = crate::logic::cards::find_solvable_card(state, player_id) {
+                if let Some(sol) = &state.active_situations[idx].solution {
+                    sol.ap_cost as i32
+                } else {
+                    1
+                }
+            } else {
+                1
+            }
+        }
         _ => get_handler(action).base_cost(),
     };
 
@@ -568,7 +586,13 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
 
     let mut actions = Vec::new();
 
-    // Always allowed (technically)
+    // Player MUST exist to perform any action
+    let p_opt = projected_state.players.get(player_id);
+    if p_opt.is_none() {
+        return actions;
+    }
+
+    // Always allowed for registered players
     actions.push(Action::Game(GameAction::Chat {
         message: "".to_owned(),
     }));
@@ -592,12 +616,18 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
         }
         GamePhase::TacticalPlanning => {
             actions.push(Action::Game(GameAction::VoteReady { ready: true }));
-            actions.push(Action::Game(GameAction::Pass));
+            // Use ORIGINAL state AP for Pass. If they queued actions, they can't Pass
+            // until they either Undo them or resolve them.
+            if let Some(p_orig) = state.players.get(player_id) {
+                if p_orig.ap > 0 {
+                    actions.push(Action::Game(GameAction::Pass));
+                }
+            }
         }
         _ => {}
     }
 
-    let p = match projected_state.players.get(player_id) {
+    let p = match p_opt {
         Some(player) => player,
         None => return actions,
     };
@@ -606,12 +636,17 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
         return actions;
     }
 
+    // Use REAL AP for availability checks, but projected state for context
+    let p_real = state.players.get(player_id).unwrap(); // Existence checked above
+    let p_proj = p_opt.unwrap();
+    let current_ap = p_real.ap;
+
     // Use projected position and AP
-    if let Some(room) = projected_state.map.rooms.get(&p.room_id) {
+    if let Some(room) = projected_state.map.rooms.get(&p_proj.room_id) {
         // Move
         for &neighbor in &room.neighbors {
             let action = GameAction::Move { to_room: neighbor };
-            if p.ap >= action_cost(&projected_state, player_id, &action) {
+            if current_ap >= action_cost(&projected_state, player_id, &action) {
                 actions.push(Action::Game(action));
             }
         }
@@ -624,7 +659,7 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
             let action = match sys {
                 SystemType::Kitchen => Some(GameAction::Bake),
                 SystemType::Cannons => {
-                    if p.inventory.contains(&ItemType::Peppernut) {
+                    if p_proj.inventory.contains(&ItemType::Peppernut) {
                         Some(GameAction::Shoot)
                     } else {
                         None
@@ -637,14 +672,14 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
             };
 
             if let Some(act) = action
-                && p.ap >= action_cost(&projected_state, player_id, &act)
+                && current_ap >= action_cost(&projected_state, player_id, &act)
             {
                 actions.push(Action::Game(act));
             }
 
-            // Sickbay (Targeted Action)
+            // Sickbay (Targeted Action) - MUST BE FUNCTIONAL
             if sys == SystemType::Sickbay
-                && p.ap
+                && current_ap
                     >= action_cost(
                         &projected_state,
                         player_id,
@@ -665,7 +700,9 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
                     }
 
                     // Check if in neighbor or same room
-                    if room.neighbors.contains(&other_p.room_id) || other_p.room_id == p.room_id {
+                    if room.neighbors.contains(&other_p.room_id)
+                        || other_p.room_id == p_proj.room_id
+                    {
                         actions.push(Action::Game(GameAction::FirstAid {
                             target_player: other_p.id.clone(),
                         }));
@@ -677,7 +714,7 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
         // Hazards
         if room.hazards.contains(&HazardType::Fire) {
             let action = GameAction::Extinguish;
-            if p.ap >= action_cost(&projected_state, player_id, &action) {
+            if current_ap >= action_cost(&projected_state, player_id, &action) {
                 actions.push(Action::Game(action));
             }
         }
@@ -685,7 +722,7 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
             || (room.system == Some(SystemType::Cargo) && projected_state.hull_integrity < MAX_HULL)
         {
             let action = GameAction::Repair;
-            if p.ap >= action_cost(&projected_state, player_id, &action) {
+            if current_ap >= action_cost(&projected_state, player_id, &action) {
                 actions.push(Action::Game(action));
             }
         }
@@ -694,23 +731,9 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
         let mut seen_items = Vec::new();
         for item in &room.items {
             if !seen_items.contains(item) {
-                let mut can_pickup = true;
-                if *item == ItemType::Peppernut {
-                    let nut_count = p
-                        .inventory
-                        .iter()
-                        .filter(|i| **i == ItemType::Peppernut)
-                        .count();
-                    let has_wheelbarrow = p.inventory.contains(&ItemType::Wheelbarrow);
-                    let limit = if has_wheelbarrow { 5 } else { 1 };
-                    if nut_count >= limit {
-                        can_pickup = false;
-                    }
-                }
-
-                if can_pickup {
+                if p_proj.can_add_item(*item) {
                     let action = GameAction::PickUp { item_type: *item };
-                    if p.ap >= action_cost(&projected_state, player_id, &action) {
+                    if current_ap >= action_cost(&projected_state, player_id, &action) {
                         actions.push(Action::Game(action));
                     }
                 }
@@ -719,12 +742,12 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
         }
 
         // Inventory Actions (Drop/Throw)
-        for idx in 0..p.inventory.len() {
+        for idx in 0..p_proj.inventory.len() {
             // 1. Drop (Free)
             actions.push(Action::Game(GameAction::Drop { item_index: idx }));
 
             // 2. Throw (Costs 1 AP) - Only Peppernuts
-            if p.inventory[idx] == ItemType::Peppernut {
+            if p_proj.inventory[idx] == ItemType::Peppernut {
                 let throw_cost = action_cost(
                     &projected_state,
                     player_id,
@@ -733,14 +756,15 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
                         item_index: idx,
                     },
                 );
-                if p.ap >= throw_cost {
+                if current_ap >= throw_cost {
                     for other_p in projected_state.players.values() {
                         if other_p.id == *player_id {
                             continue;
                         }
 
                         // Adjacency check for Throw (Same or adjacent room)
-                        if room.neighbors.contains(&other_p.room_id) || other_p.room_id == p.room_id
+                        if room.neighbors.contains(&other_p.room_id)
+                            || other_p.room_id == p_proj.room_id
                         {
                             actions.push(Action::Game(GameAction::Throw {
                                 target_player: other_p.id.clone(),
@@ -753,41 +777,23 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
         }
 
         // Interact (Situation Solutions)
-        for card in &projected_state.active_situations {
-            if let Some(sol) = &card.solution {
-                let room_match = match sol.target_system {
-                    Some(sys) => {
-                        crate::logic::find_room_with_system_in_map(&projected_state.map, sys)
-                            == Some(p.room_id)
-                    }
-                    None => true, // Solvable anywhere
-                };
-
-                let item_match = sol.item_cost.is_none()
-                    || p.inventory.contains(sol.item_cost.as_ref().unwrap());
-
-                if room_match && item_match {
-                    let action = GameAction::Interact;
-                    if p.ap >= action_cost(&projected_state, player_id, &action) {
-                        // Avoid duplicates if multiple cards solvable in same room
-                        if !actions.contains(&Action::Game(GameAction::Interact)) {
-                            actions.push(Action::Game(action));
-                        }
-                    }
-                }
+        if crate::logic::cards::find_solvable_card(&projected_state, player_id).is_some() {
+            let action = GameAction::Interact;
+            if current_ap >= action_cost(&projected_state, player_id, &action) {
+                actions.push(Action::Game(action));
             }
         }
 
         // Revive
         for other_p in projected_state.players.values() {
             if other_p.id != *player_id
-                && other_p.room_id == p.room_id
+                && other_p.room_id == p_proj.room_id
                 && other_p.status.contains(&PlayerStatus::Fainted)
             {
                 let action = GameAction::Revive {
                     target_player: other_p.id.clone(),
                 };
-                if p.ap >= action_cost(&projected_state, player_id, &action) {
+                if current_ap >= action_cost(&projected_state, player_id, &action) {
                     actions.push(Action::Game(action));
                 }
             }

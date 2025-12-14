@@ -34,8 +34,8 @@ impl CardBehavior for PeppernutRainCard {
 
         for rid in occupied_rooms {
             if let Some(room) = state.map.rooms.get_mut(&rid) {
-                room.items.push(ItemType::Peppernut);
-                room.items.push(ItemType::Peppernut);
+                room.add_item(ItemType::Peppernut);
+                room.add_item(ItemType::Peppernut);
             }
         }
     }

@@ -60,18 +60,25 @@ The Enemy targets specific **Systems** determined by a **2d6 Dice Roll**. The Ro
     *   **0 HP = Fainted.** The pawn is removed from the board. Respawns in Dormitory (System 3) at the start of the next round with full HP.
 *   **AP:** Each player has **2 Action Points** per round.
     *   **Rest Round Bonus:** During a Rest Round, each player receives **6 Action Points** (3x normal).
-*   **Carry Capacity:**
-    *   **Special Items:** Max **1 Special Item** (Extinguisher, Wheelbarrow, etc).
-    *   **Ammo (Hand):** Max **1 Peppernut**.
-    *   **Ammo (Wheelbarrow):** Max **5 Peppernuts** (Requires holding Wheelbarrow).
-    *   *Note: Special Items do not count towards the Peppernut limit.*
+### **Carry Capacity**
+*   **Two Hands:** Each player has **2 slots** (hands).
+    *   **Peppernut:** Takes 1 slot.
+    *   **Special Item:** Takes 1 slot (Extinguisher, Wheelbarrow, etc.).
+    *   **Wheelbarrow:** Takes **both slots** (2 slots).
+*   **Wheelbarrow Bonus:** While holding a Wheelbarrow, you can carry up to **5 Peppernuts** inside it (these do not take up extra hand slots).
+*   **Examples:**
+    *   2 Peppernuts (OK)
+    *   1 Peppernut + 1 Extinguisher (OK)
+    *   2 Extinguishers (OK)
+    *   Wheelbarrow + 5 Peppernuts (OK)
+    *   Wheelbarrow + 1 Extinguisher (NOT POSSIBLE)
 
 ### **Player Actions (Cost: 1 AP unless specified)**
 1.  **Move:** Move to an adjacent room.
 2.  **Interact:** Perform the specific Room Action (Bake, Shoot, Shield, etc.).
 3.  **Extinguish:** Remove 1 Fire token from current room (Removes **2** if holding **Extinguisher**).
 4.  **Repair:** Remove 1 Water token from current room. If in **Cargo** and no Water is present, restores **1 Hull Integrity** (Max 20).
-5.  **Throw:** Toss 1 Peppernut to a player in an adjacent room (100% success). Only Peppernuts can be thrown; special items must be dropped and picked up.
+5.  **Throw:** Toss 1 Peppernut to a player in the same or an adjacent room (100% success). Only Peppernuts can be thrown; special items must be dropped and picked up.
 6.  **Pick Up:** Add item from room to inventory.
 7.  **Drop:** Drop item from inventory to room (**Free**).
 8.  **Revive:** Help a Fainted player in the same room (Revives them immediately with 1 HP).
@@ -112,7 +119,9 @@ The game does not have fixed turns. It plays in a series of **Rounds**, each con
 2.  **Fire Damage (The Burn):**
     *   Any player standing in a room with Fire takes **1 Damage**.
     *   Any room with Fire deals **1 Hull Damage**.
-3.  **Spread:** Fire may spread (Dice Roll).
+3.  **Hazard Effects & Spread:** 
+    *   **Water Damage:** All loose Peppernuts in flooded rooms (except Storage) are destroyed.
+    *   **Fire Spread:** Fire may spread to adjacent rooms (Dice Roll).
 4.  **Respawn:** Fainted players return to the Dormitory.
 
 ### **REST ROUND**
@@ -133,7 +142,7 @@ The game does not have fixed turns. It plays in a series of **Rounds**, each con
 *   **Spread:** If >= 2 Fire tokens in a room (>= 1 in Cargo), it has a 50% chance to spread to adjacent rooms.
 
 ### **WATER (Blue Token)**
-*   **Effect:** Disables Room Function. Destroys all loose **Peppernuts** in the room (except in **Storage**). Special items (Extinguisher, Wheelbarrow, etc.) are **NOT** destroyed by water.
+*   **Effect:** Disables Room Function. Destroys all loose **Peppernuts** in the room (except in **Storage**) **at the end of the round**. This allows players to retrieve items before they are lost. Special items (Extinguisher, Wheelbarrow, etc.) are **NOT** destroyed by water.
 *   **Cleanup:** Requires 'Repair' (Mop).
 
 ## **6. COMMUNICATION**

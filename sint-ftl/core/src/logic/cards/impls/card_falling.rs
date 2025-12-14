@@ -22,9 +22,9 @@ impl CardBehavior for FallingGiftCard {
         if let Some(cargo_id) = find_room_with_system(state, SystemType::Cargo)
             && let Some(room) = state.map.rooms.get_mut(&cargo_id)
         {
-            room.hazards.push(HazardType::Water);
-            room.items.push(ItemType::Peppernut);
-            room.items.push(ItemType::Peppernut);
+            room.add_hazard(HazardType::Water);
+            room.add_item(ItemType::Peppernut);
+            room.add_item(ItemType::Peppernut);
         }
     }
 }

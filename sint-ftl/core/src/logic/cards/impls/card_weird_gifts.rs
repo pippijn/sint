@@ -28,13 +28,13 @@ impl CardBehavior for WeirdGiftsCard {
             && let Some(room) = state.map.rooms.get_mut(&cargo_id)
         {
             for _ in 0..3 {
-                room.hazards.push(HazardType::Fire);
+                room.add_hazard(HazardType::Fire);
             }
         }
         if let Some(sickbay_id) = find_room_with_system(state, SystemType::Sickbay)
             && let Some(room) = state.map.rooms.get_mut(&sickbay_id)
         {
-            room.hazards.push(HazardType::Fire);
+            room.add_hazard(HazardType::Fire);
         }
         state
             .active_situations

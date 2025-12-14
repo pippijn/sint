@@ -111,6 +111,16 @@ pub struct Room {
     pub neighbors: SmallVec<[RoomId; 8]>,
 }
 
+impl Room {
+    pub fn add_hazard(&mut self, hazard: HazardType) {
+        self.hazards.push(hazard);
+    }
+
+    pub fn add_item(&mut self, item: ItemType) {
+        self.items.push(item);
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Hash)]
 pub enum RoomName {
     CentralHallway,
@@ -225,11 +235,59 @@ pub struct Player {
     pub hp: i32, // Max 3
     pub ap: i32, // Max 2
     #[schemars(with = "Vec<ItemType>")]
-    pub inventory: SmallVec<[ItemType; 5]>,
+    pub inventory: SmallVec<[ItemType; 8]>,
     #[schemars(with = "Vec<PlayerStatus>")]
     pub status: SmallVec<[PlayerStatus; 2]>,
     /// Has this player voted "Ready" for the current proposal batch?
     pub is_ready: bool,
+}
+
+impl Player {
+    pub fn has_wheelbarrow(&self) -> bool {
+        self.inventory.contains(&ItemType::Wheelbarrow)
+    }
+
+    pub fn peppernut_count(&self) -> usize {
+        self.inventory
+            .iter()
+            .filter(|&&i| i == ItemType::Peppernut)
+            .count()
+    }
+
+    pub fn special_item_count(&self) -> usize {
+        self.inventory
+            .iter()
+            .filter(|&&i| i != ItemType::Peppernut)
+            .count()
+    }
+
+    /// Maximum Peppernuts this player can carry based on their current inventory.
+    pub fn max_peppernuts(&self) -> usize {
+        if self.has_wheelbarrow() {
+            5
+        } else {
+            let used_slots = self.special_item_count();
+            if used_slots >= 2 { 0 } else { 2 - used_slots }
+        }
+    }
+
+    /// Can this player add another item of this type?
+    pub fn can_add_item(&self, item: ItemType) -> bool {
+        if item == ItemType::Peppernut {
+            self.peppernut_count() < self.max_peppernuts()
+        } else if item == ItemType::Wheelbarrow {
+            // Wheelbarrow takes 2 slots. Can only be picked up if hands are free of other special items.
+            // It can be picked up while holding nuts (they move into the wheelbarrow).
+            self.special_item_count() == 0
+        } else {
+            // Other special item (1 slot)
+            if self.has_wheelbarrow() {
+                return false;
+            }
+            let used_slots = self.special_item_count() + self.peppernut_count();
+            used_slots < 2
+        }
+    }
 }
 
 impl Identifiable for Player {

@@ -38,7 +38,14 @@ impl CardBehavior for PresentCard {
         // Option C: Ammo. Give everyone 1 Peppernut.
         if repaired < limit {
             for p in state.players.values_mut() {
-                if p.inventory.len() < 3 {
+                let nut_count = p
+                    .inventory
+                    .iter()
+                    .filter(|i| **i == ItemType::Peppernut)
+                    .count();
+                let has_wheelbarrow = p.inventory.contains(&ItemType::Wheelbarrow);
+                let cap = if has_wheelbarrow { 5 } else { 1 };
+                if nut_count < cap {
                     p.inventory.push(ItemType::Peppernut);
                 }
             }
