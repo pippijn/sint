@@ -201,10 +201,23 @@ impl ActionHandler for InteractHandler {
 
         let mut solved_idx = None;
 
+        // Prioritize Negative situations (threats)
         for (i, card) in state.active_situations.iter().enumerate() {
-            if get_behavior(card.id).can_solve(state, player_id) {
+            if get_behavior(card.id).can_solve(state, player_id)
+                && get_behavior(card.id).get_sentiment() == crate::types::CardSentiment::Negative
+            {
                 solved_idx = Some(i);
                 break;
+            }
+        }
+
+        // Fallback to any solvable situation
+        if solved_idx.is_none() {
+            for (i, card) in state.active_situations.iter().enumerate() {
+                if get_behavior(card.id).can_solve(state, player_id) {
+                    solved_idx = Some(i);
+                    break;
+                }
             }
         }
 

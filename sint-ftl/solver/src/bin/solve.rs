@@ -123,7 +123,10 @@ fn save_solution(sol: &SearchNode, args: &Args) {
 
         // Calculate Tournament Score
         let mut scorer = sint_solver::scoring::beam::ScoreAccumulator::new();
-        let mut driver = sint_solver::driver::GameDriver::new(GameLogic::new_game(player_ids.clone(), args.seed));
+        let mut driver = sint_solver::driver::GameDriver::new(GameLogic::new_game(
+            player_ids.clone(),
+            args.seed,
+        ));
         let mut last_round = driver.state.turn_count;
         let history = sol.get_history();
 
@@ -349,33 +352,34 @@ fn ui(f: &mut Frame, app: &SolverApp) {
     let current_state = current_node.map(|n| &n.state);
 
     // Stats Widget
-    let (step, hull, boss_name, boss_hp, total_enemy_hp, total_damage, score) = if let Some(p) = &app.progress {
-        let mut total_hp = 0;
-        let mut remaining_hp = 0;
-        for level in 0..sint_core::logic::MAX_BOSS_LEVEL {
-            let boss = sint_core::logic::get_boss(level);
-            total_hp += boss.max_hp;
-            if level < p.node.state.boss_level {
-                // Already defeated
-            } else if level == p.node.state.boss_level {
-                remaining_hp += p.node.state.enemy.hp;
-            } else {
-                remaining_hp += boss.max_hp;
+    let (step, hull, boss_name, boss_hp, total_enemy_hp, total_damage, score) =
+        if let Some(p) = &app.progress {
+            let mut total_hp = 0;
+            let mut remaining_hp = 0;
+            for level in 0..sint_core::logic::MAX_BOSS_LEVEL {
+                let boss = sint_core::logic::get_boss(level);
+                total_hp += boss.max_hp;
+                if level < p.node.state.boss_level {
+                    // Already defeated
+                } else if level == p.node.state.boss_level {
+                    remaining_hp += p.node.state.enemy.hp;
+                } else {
+                    remaining_hp += boss.max_hp;
+                }
             }
-        }
 
-        (
-            p.step,
-            p.node.state.hull_integrity,
-            p.node.state.enemy.name.clone(),
-            p.node.state.enemy.hp,
-            remaining_hp,
-            total_hp - remaining_hp,
-            p.node.score.total,
-        )
-    } else {
-        (0, 0, "Boss".to_string(), 0, 0, 0, 0.0)
-    };
+            (
+                p.step,
+                p.node.state.hull_integrity,
+                p.node.state.enemy.name.clone(),
+                p.node.state.enemy.hp,
+                remaining_hp,
+                total_hp - remaining_hp,
+                p.node.score.total,
+            )
+        } else {
+            (0, 0, "Boss".to_string(), 0, 0, 0, 0.0)
+        };
 
     let (shields, evasion) = if let Some(s) = current_state {
         (s.shields_active, s.evasion_active)

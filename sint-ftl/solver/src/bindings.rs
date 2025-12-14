@@ -60,9 +60,61 @@ fn get_trajectory_log(
 }
 
 #[cfg(feature = "python")]
+#[pyfunction]
+fn compute_score(
+    _py: Python,
+    parent_dict: Bound<'_, PyAny>,
+    current_dict: Bound<'_, PyAny>,
+    history_list: Bound<'_, PyAny>,
+) -> PyResult<f64> {
+    let parent: GameState = depythonize(&parent_dict).map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid parent state: {}", e))
+    })?;
+
+    let current: GameState = depythonize(&current_dict).map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid current state: {}", e))
+    })?;
+
+    let history: Vec<(String, GameAction)> = depythonize(&history_list).map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid history list: {}", e))
+    })?;
+
+    // Borrow history for calculate_score: &[&(PlayerId, GameAction)]
+    let borrowed_history: Vec<&(String, GameAction)> = history.iter().collect();
+
+    let weights = crate::scoring::beam::BeamScoringWeights::default();
+    let distances = sint_core::logic::pathfinding::MapDistances::new(&current.map);
+
+    let details = crate::scoring::beam::calculate_score(
+        &parent,
+        &current,
+        &borrowed_history,
+        &weights,
+        &distances,
+    );
+
+    Ok(details.total)
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+fn compute_score_rhea(_py: Python, state_dict: Bound<'_, PyAny>) -> PyResult<f64> {
+    let state: GameState = depythonize(&state_dict).map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid game state: {}", e))
+    })?;
+
+    let weights = crate::scoring::rhea::RheaScoringWeights::default();
+    let details = crate::scoring::rhea::score_rhea(&state, &weights);
+
+    Ok(details.total)
+}
+
+#[cfg(feature = "python")]
 #[pymodule]
 fn sint_solver(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(verify_solution, m)?)?;
     m.add_function(wrap_pyfunction!(get_trajectory_log, m)?)?;
+    m.add_function(wrap_pyfunction!(compute_score, m)?)?;
+    m.add_function(wrap_pyfunction!(compute_score_rhea, m)?)?;
     Ok(())
 }

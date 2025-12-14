@@ -41,10 +41,10 @@ The Enemy targets specific **Systems** determined by a **2d6 Dice Roll**. The Ro
 | **2** | **The Bow** | *Lookout.* Reveals the top card of the Enemy Deck (Forecasting). | - |
 | **3** | **Dormitory** | *Respawn Point.* Fainted players revive here at the start of the next round. | - |
 | **4** | **Cargo** | *Fuel.* Fire spreads 2x faster. Action: **"Repair"** (1 AP) -> +1 Hull (Max 20). | **Wheelbarrow** |
-| **5** | **Engine** | *Power.* Action: **"Raise Shields"** (2 AP). Blocks **all** incoming **Damage** events this round. | **Extinguisher** |
+| **5** | **Engine** | *Power.* Action: **"Evasive Maneuvers"** (2 AP). Forces **all** enemy attacks to **MISS** this round. | **Extinguisher** |
 | **6** | **Kitchen** | *Ammo.* Action: **"Bake"** (1 AP). Create 3 Peppernuts (placed in room). | - |
 | **7** | **Cannons** | *Attack.* Action: **"Load & Fire"** (1 AP + 1 Nut). Deals 1 Dmg to Enemy (**1d6 >= 3**). | - |
-| **8** | **Bridge** | *Steering.* Action: **"Evasive Maneuvers"** (2 AP). Forces **all** enemy attacks to **MISS** this round. | - |
+| **8** | **Bridge** | *Steering.* Action: **"Raise Shields"** (2 AP). Blocks **all** incoming **Damage** events this round. | - |
 | **9** | **Sickbay** | *Heal.* Action: **"First Aid"** (1 AP). Restore 1 HP to self or adjacent player. | - |
 | **10** | **Storage** | *Vault.* Secure storage. Items here are safe from Water damage. | **5 Peppernuts** |
 

@@ -30,15 +30,17 @@ def run_cmd(cmd: str, cwd: str = ROOT_DIR, env: Optional[dict[str, str]] = None,
             sys.exit(ret)
         return ret
 
+def install_requirements() -> None:
+    print('📦 Synchronizing Python dependencies...')
+    venv_python = os.path.join(VENV_BIN, 'python')
+    run_cmd(f'{venv_python} -m pip install -q -r ai/requirements.txt', quiet=True)
+    run_cmd(f'{venv_python} -m pip install -q maturin', quiet=True)
+
 def check_venv() -> None:
     if not os.path.exists(VENV_DIR):
         print('🔧 Creating Python virtual environment...')
         subprocess.check_call([sys.executable, '-m', 'venv', '.venv'])
-        # Install deps
-        venv_python = os.path.join(VENV_BIN, 'python')
-        # -q for quiet
-        run_cmd(f'{venv_python} -m pip install -q -r ai/requirements.txt', quiet=True)
-        run_cmd(f'{venv_python} -m pip install -q maturin', quiet=True)
+        install_requirements()
 
 def get_latest_mtime(path: str) -> float:
     max_mtime = 0.0

@@ -1,2 +1,10 @@
-websockets
+datamodel-code-generator
 google-genai
+gymnasium
+numpy
+pydantic
+sb3-contrib
+stable-baselines3
+torch
+websockets
+tensorboard
