@@ -389,7 +389,7 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
                 state.rng_seed = rng.random();
 
                 let mut attack = if let Some(sys) = SystemType::from_u32(roll) {
-                    let room_id = find_room_with_system_in_map(&state.map, sys).unwrap_or(0);
+                    let room_id = find_room_with_system_in_map(&state.map, sys);
                     EnemyAttack {
                         target_room: room_id,
                         target_system: Some(sys),
@@ -397,7 +397,7 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
                     }
                 } else {
                     EnemyAttack {
-                        target_room: 0,
+                        target_room: None,
                         target_system: None,
                         effect: AttackEffect::Miss,
                     }

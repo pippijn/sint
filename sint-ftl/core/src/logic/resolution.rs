@@ -44,7 +44,9 @@ pub fn resolve_enemy_attack(state: &mut GameState) {
             }
 
             // Hit!
-            if let Some(room) = state.map.rooms.get_mut(&attack.target_room) {
+            if let Some(room_id) = attack.target_room
+                && let Some(room) = state.map.rooms.get_mut(&room_id)
+            {
                 match attack.effect {
                     AttackEffect::Fireball => {
                         room.add_hazard(HazardType::Fire);

@@ -269,11 +269,11 @@ fn RoomCard(room: Room, ctx: GameContext, door_dir: Option<DoorDirection>) -> im
         let is_here = players_here.iter().any(|p| p.id == *my_pid);
 
         // 2. Prediction (Where will I be?)
-        let mut predicted_room_id = 0;
+        let mut predicted_room_id = None;
         let mut predicted_ap = 0;
 
         if let Some(p) = s.players.get(my_pid) {
-            predicted_room_id = p.room_id;
+            predicted_room_id = Some(p.room_id);
             predicted_ap = p.ap;
 
             // The proposal queue moves are already paid for in p.ap (logic.rs),
@@ -282,7 +282,7 @@ fn RoomCard(room: Room, ctx: GameContext, door_dir: Option<DoorDirection>) -> im
                 if prop.player_id == *my_pid
                     && let GameAction::Move { to_room } = prop.action
                 {
-                    predicted_room_id = to_room;
+                    predicted_room_id = Some(to_room);
                 }
             }
         }
@@ -292,9 +292,9 @@ fn RoomCard(room: Room, ctx: GameContext, door_dir: Option<DoorDirection>) -> im
         let mut can_move = false;
 
         if s.phase == GamePhase::TacticalPlanning
-            && predicted_room_id != 0
-            && predicted_room_id != room.id
-            && let Some(p) = find_path(&s.map, predicted_room_id, room.id)
+            && let Some(pred_rid) = predicted_room_id
+            && pred_rid != room.id
+            && let Some(p) = find_path(&s.map, pred_rid, room.id)
         {
             let mut cost = 0;
             for step in &p {
@@ -318,7 +318,7 @@ fn RoomCard(room: Room, ctx: GameContext, door_dir: Option<DoorDirection>) -> im
             .enemy
             .next_attack
             .as_ref()
-            .is_some_and(|a| a.target_room == room.id && a.effect != AttackEffect::Miss);
+            .is_some_and(|a| a.target_room == Some(room.id) && a.effect != AttackEffect::Miss);
 
         // 5. Ghosts
         let ghosts: Vec<String> = s

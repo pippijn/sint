@@ -326,7 +326,7 @@ pub struct Enemy {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Hash)]
 pub struct EnemyAttack {
-    pub target_room: RoomId,
+    pub target_room: Option<RoomId>,
     pub target_system: Option<SystemType>,
     pub effect: AttackEffect,
 }

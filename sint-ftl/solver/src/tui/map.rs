@@ -66,12 +66,10 @@ impl<'a> Widget for RoomWidget<'a> {
         };
 
         // Determine Border Style
-        let is_targeted = self
-            .state
-            .enemy
-            .next_attack
-            .as_ref()
-            .is_some_and(|a| a.target_room == self.room_id && a.effect != AttackEffect::Miss);
+        let is_targeted =
+            self.state.enemy.next_attack.as_ref().is_some_and(|a| {
+                a.target_room == Some(self.room_id) && a.effect != AttackEffect::Miss
+            });
 
         let border_style = if is_targeted {
             Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)

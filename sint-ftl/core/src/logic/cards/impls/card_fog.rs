@@ -28,7 +28,7 @@ impl CardBehavior for FogBankCard {
 
     fn modify_telegraph(&self, attack: &mut EnemyAttack) {
         // Mask the attack
-        attack.target_room = 0; // Unknown
+        attack.target_room = None; // Unknown
         attack.effect = AttackEffect::Hidden;
     }
 
@@ -43,11 +43,11 @@ impl CardBehavior for FogBankCard {
             if let Some(sys) = SystemType::from_u32(roll) {
                 attack.target_system = Some(sys);
                 attack.effect = AttackEffect::Fireball;
-                attack.target_room = find_room_with_system(state, sys).unwrap_or(0);
+                attack.target_room = find_room_with_system(state, sys);
             } else {
                 attack.target_system = None;
                 attack.effect = AttackEffect::Miss;
-                attack.target_room = 0;
+                attack.target_room = None;
             }
         }
     }

@@ -76,8 +76,9 @@ fn test_shields_block_damage() {
     // Simulate Enemy Attack
     state.phase = GamePhase::EnemyAction;
     // Set up attack
+    // Set up attack
     state.enemy.next_attack = Some(EnemyAttack {
-        target_room: kitchen,
+        target_room: Some(kitchen),
         target_system: Some(SystemType::Kitchen),
         effect: AttackEffect::Fireball,
     });
@@ -125,8 +126,9 @@ fn test_evasion_blocks_hit() {
 
     // Attack
     state.phase = GamePhase::EnemyAction;
+    // Set up attack
     state.enemy.next_attack = Some(EnemyAttack {
-        target_room: kitchen,
+        target_room: Some(kitchen),
         target_system: Some(SystemType::Kitchen),
         effect: AttackEffect::Fireball,
     });

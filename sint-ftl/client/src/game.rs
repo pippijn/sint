@@ -282,12 +282,15 @@ fn EnemyView(ctx: GameContext) -> impl IntoView {
                     // Attack Telegraph
                     <div style="text-align: right;">
                         {if let Some(attack) = &e.next_attack {
-                            let room_name = s
-                                .map
-                                .rooms
-                                .get(&attack.target_room)
+                            let room_name = attack
+                                .target_room
+                                .and_then(|tid| s.map.rooms.get(&tid))
                                 .map(|r| r.name.as_str())
                                 .unwrap_or("Unknown");
+                            let target_id_str = attack
+                                .target_room
+                                .map(|id| id.to_string())
+                                .unwrap_or_else(|| "?".to_owned());
                             let attack_debug = format!("{:?}", attack.effect);
                             Either::Left(
                                 view! {
@@ -297,7 +300,7 @@ fn EnemyView(ctx: GameContext) -> impl IntoView {
                                     <div style="font-size: 0.9em; margin-top: 5px;">
                                         "Target: "
                                         <span style="color: #fff;">
-                                            {room_name} " (" {attack.target_room} ")"
+                                            {room_name} " (" {target_id_str} ")"
                                         </span>
                                     </div>
                                     <div style="font-size: 0.8em; color: #ccc;">

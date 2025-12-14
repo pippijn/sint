@@ -195,10 +195,14 @@ fn format_planning_context(state: &GameState) -> String {
 
     // 2. Enemy Intent
     if let Some(attack) = &state.enemy.next_attack {
+        let target_str = attack
+            .target_room
+            .map(|id| id.to_string())
+            .unwrap_or_else(|| "Unknown".to_owned());
         writeln!(
             out,
             "[ENEMY] {} targets Room {} with {:?}",
-            state.enemy.name, attack.target_room, attack.effect
+            state.enemy.name, target_str, attack.effect
         )
         .unwrap();
     }

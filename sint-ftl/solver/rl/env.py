@@ -88,7 +88,8 @@ class SintEnv(gym.Env):
             
         # Enemy Intent (2)
         if s['enemy']['next_attack']:
-            obs.append(float(s['enemy']['next_attack']['target_room']))
+            target_room = s['enemy']['next_attack']['target_room']
+            obs.append(float(target_room) if target_room is not None else -1.0)
             obs.append(1.0)
         else:
             obs.extend([-1.0, 0.0])

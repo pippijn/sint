@@ -452,7 +452,7 @@ proptest! {
         state.hull_integrity = 20;
 
         state.enemy.next_attack = Some(EnemyAttack {
-            target_room: 1,
+            target_room: Some(1),
             target_system: Some(SystemType::Bow),
             effect: AttackEffect::Fireball,
         });
@@ -473,7 +473,7 @@ proptest! {
         state.hull_integrity = 20;
 
         state.enemy.next_attack = Some(EnemyAttack {
-            target_room: 1,
+            target_room: Some(1),
             target_system: Some(SystemType::Bow),
             effect: AttackEffect::Fireball,
         });

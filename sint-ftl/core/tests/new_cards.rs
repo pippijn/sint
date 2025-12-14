@@ -75,7 +75,7 @@ fn test_book_reward() {
 
     // Setup: Enemy attack queued
     state.enemy.next_attack = Some(EnemyAttack {
-        target_room: 5,
+        target_room: Some(5),
         target_system: Some(sint_core::types::SystemType::Engine),
         effect: AttackEffect::Fireball,
     });
@@ -99,7 +99,7 @@ fn test_rudderless_hazard_modifier() {
     state.active_situations.push(card);
 
     state.enemy.next_attack = Some(EnemyAttack {
-        target_room: 5,
+        target_room: Some(5),
         target_system: Some(sint_core::types::SystemType::Engine),
         effect: AttackEffect::Fireball,
     });
@@ -148,7 +148,7 @@ fn test_fog_bank_masking() {
 
     // Setup: Initial Attack
     let mut attack = EnemyAttack {
-        target_room: 5,
+        target_room: Some(5),
         target_system: Some(sint_core::types::SystemType::Engine),
         effect: AttackEffect::Fireball,
     };
@@ -156,13 +156,13 @@ fn test_fog_bank_masking() {
     // Act 1: Modify (Mask)
     behavior.modify_telegraph(&mut attack);
 
-    assert_eq!(attack.target_room, 0);
+    assert_eq!(attack.target_room, None);
     assert!(matches!(attack.effect, AttackEffect::Hidden));
 
     // Act 2: Resolve (Reveal)
     behavior.resolve_telegraph(&mut state, &mut attack);
 
-    assert_ne!(attack.target_room, 0, "Target should be revealed");
+    assert!(attack.target_room.is_some(), "Target should be revealed");
     assert!(
         matches!(attack.effect, AttackEffect::Fireball),
         "Effect should revert to Fireball"

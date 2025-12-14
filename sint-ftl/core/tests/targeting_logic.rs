@@ -36,25 +36,27 @@ fn test_enemy_targeting_logic_consistency() {
             .expect("Enemy should have an attack planned");
 
         println!(
-            "Seed {}: Attack targeted Room ID {}",
+            "Seed {}: Attack targeted Room ID {:?}",
             seed, attack.target_room
-        );
-
-        // Assertion 1: The target room MUST exist in the map.
-        assert!(
-            state.map.rooms.contains_key(&attack.target_room),
-            "Target Room ID {} does not exist in the map!",
-            attack.target_room
         );
 
         // Assertion 2: Verify consistency between Target System and Target Room.
         if let Some(sys) = attack.target_system {
             // Case A: A System was targeted.
             // 1. The target room must exist.
+            let room_id = attack
+                .target_room
+                .expect("Attack targeted a system but has no target_room");
+            assert!(
+                state.map.rooms.contains_key(&room_id),
+                "Target Room ID {} does not exist in the map!",
+                room_id
+            );
+
             let room = state
                 .map
                 .rooms
-                .get(&attack.target_room)
+                .get(&room_id)
                 .expect("Attack targets a non-existent room!");
 
             // 2. The target room must actually contain the targeted system.
@@ -63,7 +65,7 @@ fn test_enemy_targeting_logic_consistency() {
                 Some(sys),
                 "Mismatch! Attack targets {:?} but resolved to Room {} which contains {:?}",
                 sys,
-                attack.target_room,
+                room_id,
                 room.system
             );
         } else {

@@ -14,7 +14,7 @@ fn test_leak_deals_hull_damage() {
 
     // Set up a Leak attack
     state.enemy.next_attack = Some(EnemyAttack {
-        target_room: kitchen_id,
+        target_room: Some(kitchen_id),
         target_system: Some(SystemType::Kitchen),
         effect: AttackEffect::Leak,
     });
@@ -43,7 +43,7 @@ fn test_fireball_deals_hull_damage() {
 
     // Set up a Fireball attack
     state.enemy.next_attack = Some(EnemyAttack {
-        target_room: kitchen_id,
+        target_room: Some(kitchen_id),
         target_system: Some(SystemType::Kitchen),
         effect: AttackEffect::Fireball,
     });

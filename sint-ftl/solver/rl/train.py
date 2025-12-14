@@ -1,42 +1,201 @@
 import argparse
 import os
+import time
+import sys
+import select
+import tty
+import termios
+import signal
+from datetime import datetime
 from sb3_contrib import MaskablePPO
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.callbacks import CheckpointCallback, BaseCallback
 from env import SintEnv
 
-class BestModelCallback(BaseCallback):
-    def __init__(self, eval_env, eval_freq=10000, verbose=1):
+from rich.console import Console
+from rich.layout import Layout
+from rich.panel import Panel
+from rich.live import Live
+from rich.table import Table
+from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn
+from rich import box
+
+class TUICallback(BaseCallback):
+    def __init__(self, eval_env, eval_freq=5000, verbose=1):
         super().__init__(verbose)
         self.eval_env = eval_env
         self.eval_freq = eval_freq
         self.best_mean_reward = -float("inf")
+        self.start_time = time.time()
+        self.console = Console()
+        self.is_tty = self.console.is_terminal
+        self.layout = self._setup_layout() if self.is_tty else None
+        self.live = None
+        self.old_settings = None
+        
+        self.stats = {
+            "total_steps": 0,
+            "episodes": 0,
+            "mean_reward": 0.0,
+            "best_reward": -float("inf"),
+            "last_eval_stats": "N/A",
+            "fps": 0,
+        }
+
+    def _setup_layout(self):
+        if not self.is_tty:
+            return None
+        layout = Layout()
+        layout.split_column(
+            Layout(name="header", size=3),
+            Layout(name="main", ratio=1),
+            Layout(name="footer", size=3),
+        )
+        layout["main"].split_row(
+            Layout(name="left", ratio=1),
+            Layout(name="right", ratio=1),
+        )
+        return layout
+
+    def _get_header(self):
+        grid = Table.grid(expand=True)
+        grid.add_column(justify="left", ratio=1)
+        grid.add_column(justify="right", ratio=1)
+        grid.add_row(
+            "[bold white]🚢 Sint-FTL RL Training[/bold white]",
+            f"[bold blue]{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}[/bold blue]"
+        )
+        return Panel(grid, style="white on blue")
+
+    def _get_stats_panel(self):
+        table = Table(box=box.SIMPLE, expand=True)
+        table.add_column("Metric", style="cyan")
+        table.add_column("Value", style="magenta")
+        
+        elapsed = time.time() - self.start_time
+        fps = self.n_calls / elapsed if elapsed > 0 else 0
+        
+        table.add_row("Total Steps", f"{self.n_calls:,}")
+        table.add_row("Elapsed Time", f"{elapsed:.1f}s")
+        table.add_row("Steps/sec (FPS)", f"{fps:.1f}")
+        best_reward_str = f"{self.best_mean_reward:.2f}" if self.best_mean_reward != -float("inf") else "N/A"
+        table.add_row("Best Mean Reward", best_reward_str)
+        
+        return Panel(table, title="[bold]Training Stats[/bold]", border_style="green")
+
+    def _get_eval_panel(self):
+        table = Table(box=box.SIMPLE, expand=True)
+        table.add_column("Last Evaluation", style="yellow")
+        table.add_row(self.stats["last_eval_stats"])
+        return Panel(table, title="[bold]Evaluation Results[/bold]", border_style="yellow")
+
+    def _update_live(self):
+        if self.is_tty:
+            self.layout["header"].update(self._get_header())
+            self.layout["left"].update(self._get_stats_panel())
+            self.layout["right"].update(self._get_eval_panel())
+            self.layout["footer"].update(Panel(f"Training in progress... Step {self.n_calls:,} | Press 'q' to quit", border_style="white"))
+        elif not self.is_tty and self.n_calls % 1000 == 0:
+            elapsed = time.time() - self.start_time
+            fps = self.n_calls / elapsed if elapsed > 0 else 0
+            self.console.print(f"[{datetime.now().strftime('%H:%M:%S')}] Step: {self.n_calls:,} | FPS: {fps:.1f} | Best: {self.best_mean_reward:.2f}")
+
+    def _check_quit(self):
+        if not self.is_tty:
+            return False
+        
+        while select.select([sys.stdin], [], [], 0)[0]:
+            char = sys.stdin.read(1)
+            if char.lower() == 'q':
+                return True
+        return False
+
+    def _run_evaluation(self):
+        rewards = []
+        final_stats = []
+        for _ in range(3):
+            obs, _ = self.eval_env.reset()
+            done = False
+            total_reward = 0
+            steps = 0
+            while not done and steps < 1000:
+                action_masks = self.eval_env.action_masks()
+                action, _ = self.model.predict(obs, action_masks=action_masks, deterministic=True)
+                obs, reward, done, _, _ = self.eval_env.step(action)
+                total_reward += reward
+                steps += 1
+            rewards.append(total_reward)
+            fs = self.eval_env.state
+            final_stats.append(f"Hull={fs['hull_integrity']}, BossHP={fs['enemy']['hp']}, Round={fs['turn_count']}")
+        
+        mean_reward = sum(rewards) / len(rewards)
+        eval_info = f"Mean Reward: {mean_reward:.2f} | Sample: {final_stats[0]}"
+        self.stats["last_eval_stats"] = eval_info
+        
+        if not self.is_tty:
+            self.console.print(f"📊 [bold yellow]Eval at {self.n_calls:,}:[/bold yellow] {eval_info}")
+        
+        if mean_reward > self.best_mean_reward:
+            if not self.is_tty:
+                self.console.print(f"✨ [bold green]New Best Model![/bold green] ({mean_reward:.2f})")
+            self.best_mean_reward = mean_reward
+            self.model.save("solver/rl/models/ppo_sint_best")
+
+    def _on_training_start(self) -> None:
+        if self.is_tty:
+            self.old_settings = termios.tcgetattr(sys.stdin)
+            tty.setcbreak(sys.stdin.fileno())
+            
+            # Restore terminal on signals
+            def signal_handler(sig, frame):
+                self._restore_terminal()
+                sys.exit(0)
+            
+            signal.signal(signal.SIGINT, signal_handler)
+            signal.signal(signal.SIGTERM, signal_handler)
+
+            # Pre-populate layout
+            self._update_live()
+            self.live = Live(self.layout, console=self.console, refresh_per_second=4, screen=True)
+            self.live.start()
+        else:
+            self.console.print("🚀 Starting training (Non-TTY mode)")
+        
+        # Mark as needing initial evaluation
+        self.stats["last_eval_stats"] = "Waiting for first step..."
+        self._update_live()
+
+    def _restore_terminal(self):
+        if self.live:
+            self.live.stop()
+            self.live = None
+        if self.old_settings:
+            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.old_settings)
+            self.old_settings = None
+
+    def _on_training_end(self) -> None:
+        self._restore_terminal()
+        self.console.print("✅ Training finished")
 
     def _on_step(self) -> bool:
+        if self._check_quit():
+            self.console.print("\n[bold red]Stopping training...[/bold red]")
+            return False
+
+        # Run initial evaluation on the first step
+        if self.n_calls == 0:
+            self.stats["last_eval_stats"] = "Running baseline evaluation..."
+            self._update_live()
+            self._run_evaluation()
+            self._update_live()
+
+        if self.n_calls % 100 == 0:
+            self._update_live()
+
         if self.n_calls % self.eval_freq == 0:
-            # Run 3 evaluation episodes
-            rewards = []
-            final_stats = []
-            for _ in range(3):
-                obs, _ = self.eval_env.reset()
-                done = False
-                total_reward = 0
-                while not done:
-                    action_masks = self.eval_env.action_masks()
-                    action, _ = self.model.predict(obs, action_masks=action_masks, deterministic=True)
-                    obs, reward, done, _, _ = self.eval_env.step(action)
-                    total_reward += reward
-                rewards.append(total_reward)
-                fs = self.eval_env.state
-                final_stats.append(f"Hull={fs.hull_integrity}, BossHP={fs.enemy.hp}, Phase={fs.phase.value}")
+            self._run_evaluation()
+            self._update_live()
             
-            mean_reward = sum(rewards) / len(rewards)
-            if mean_reward > self.best_mean_reward:
-                print(f"\n✨ NEW BEST! Mean Reward: {mean_reward:.2f} (was {self.best_mean_reward:.2f})")
-                print(f"   Sample Stats: {final_stats[0]}")
-                self.best_mean_reward = mean_reward
-                # Save best so far
-                self.model.save("solver/rl/models/ppo_sint_best")
         return True
 
 def main():
@@ -68,19 +227,16 @@ def main():
         ent_coef=0.01,
     )
 
-    # Setup checkpointing
+    # Setup callbacks
+    eval_env = SintEnv(num_players=args.num_players)
+    tui_callback = TUICallback(eval_env, eval_freq=5000)
     checkpoint_callback = CheckpointCallback(
         save_freq=20000,
         save_path="solver/rl/models/",
         name_prefix="ppo_sint_checkpoint"
     )
-    
-    # Setup best model callback
-    eval_env = SintEnv(num_players=args.num_players)
-    best_callback = BestModelCallback(eval_env, eval_freq=5000)
 
-    print(f"🚀 Training for {args.steps} steps...")
-    model.learn(total_timesteps=args.steps, callback=[checkpoint_callback, best_callback])
+    model.learn(total_timesteps=args.steps, callback=[checkpoint_callback, tui_callback])
 
     # Save final model
     model.save(args.output)
@@ -104,7 +260,7 @@ def main():
             if steps > 1000: break # Safety break
             
         final_state = eval_env.state
-        print(f"Episode {i+1}: Result={final_state.phase.value}, Hull={final_state.hull_integrity}, BossHP={final_state.enemy.hp}, Steps={steps}, Reward={total_reward:.1f}")
+        print(f"Episode {i+1}: Round={final_state['turn_count']}, Hull={final_state['hull_integrity']}, BossHP={final_state['enemy']['hp']}, Steps={steps}, Reward={total_reward:.1f}")
 
 if __name__ == "__main__":
     main()

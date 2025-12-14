@@ -171,7 +171,7 @@ impl Default for BeamScoringWeights {
             water_penalty: 1.0,
 
             // Situations & Threats
-            active_situation_penalty: 50000.0,
+            active_situation_penalty: 75000.0,
             threat_player_penalty: 5.0,
             threat_system_penalty: 50.0,
             death_penalty: 0.5,
@@ -287,7 +287,7 @@ impl Default for BeamScoringWeights {
 
             bake_reward: 1000.0,
             low_boss_hp_reward: 100000.0,
-            blocking_situation_multiplier: 500.0,
+            blocking_situation_multiplier: 1000.0,
         }
     }
 }
@@ -497,6 +497,13 @@ pub fn score_static(
             if projected_hull <= 0 {
                 // SURVIVAL SUPREMACY: Death is certain, no checkmate possible.
                 checkmate_mult = 0.0;
+            } else if projected_hull <= 2 {
+                // NEAR DEATH: Only allow checkmate if boss is 1-2 HP.
+                if state.enemy.hp > 2 {
+                    checkmate_mult *= 0.01;
+                } else {
+                    checkmate_mult *= 0.5;
+                }
             } else if (state.enemy.hp as f64) > 2.0 {
                 let survival_factor = (projected_hull as f64 / weights.critical_hull_threshold)
                     .max(0.2)
@@ -827,7 +834,7 @@ pub fn score_static(
         let players_in_target = state
             .players
             .values()
-            .filter(|p| p.room_id == attack.target_room)
+            .filter(|p| Some(p.room_id) == attack.target_room)
             .count();
 
         let targets_system = attack.target_system.is_some();
