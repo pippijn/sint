@@ -127,15 +127,15 @@ pub struct BeamScoringWeights {
 impl Default for BeamScoringWeights {
     fn default() -> Self {
         Self {
-            hull_integrity: 25000.0,
-            hull_delta_penalty: 2000.0,
-            enemy_hp: 2500.0,
+            hull_integrity: 50000.0,
+            hull_delta_penalty: 5000.0,
+            enemy_hp: 2000.0,
             player_hp: 20.0,
             ap_balance: 10.0,
 
             // Hazards
-            fire_penalty_base: 60000.0,
-            fire_token_penalty: 5000.0,
+            fire_penalty_base: 100000.0,
+            fire_token_penalty: 10000.0,
             water_penalty: 5000.0,
 
             // Situations & Threats
@@ -151,8 +151,8 @@ impl Default for BeamScoringWeights {
             gunner_working_bonus: 5.0,
             gunner_distance_factor: 50.0,
 
-            firefighter_base_reward: 5000.0,
-            firefighter_distance_factor: 10.0,
+            firefighter_base_reward: 25000.0,
+            firefighter_distance_factor: 20.0,
 
             healing_reward: 1000.0,
             sickbay_distance_factor: 20.0,
@@ -166,14 +166,14 @@ impl Default for BeamScoringWeights {
             situation_resolved_reward: 100000.0,
             system_importance_multiplier: 2.0,
             boss_killing_blow_reward: 10000000.0,
-            inaction_penalty: 5000.0,
+            inaction_penalty: 25000.0,
 
             ammo_stockpile_reward: 500.0,
             loose_ammo_reward: 20.0,
             hazard_proximity_reward: 5.0,
             situation_exposure_penalty: 100.0,
             system_disabled_penalty: 25000.0,
-            shooting_reward: 90000.0,
+            shooting_reward: 10000.0,
 
             scavenger_reward: 2000.0,
             repair_proximity_reward: 2000.0,
@@ -183,15 +183,15 @@ impl Default for BeamScoringWeights {
             situation_exponent: 2.0,
 
             boss_level_reward: 2000.0,
-            turn_penalty: 200.0,
-            step_penalty: 20.0,
+            turn_penalty: 100.0,
+            step_penalty: 100.0,
 
             checkmate_threshold: 20.0,
             checkmate_multiplier: 100.0,
             checkmate_max_mult: 500.0,
 
             // Critical State
-            critical_hull_threshold: 10.0,
+            critical_hull_threshold: 15.0,
             critical_hull_penalty_base: 20000.0,
             critical_hull_penalty_per_hp: 100000.0,
             critical_fire_threshold: 2,
@@ -203,18 +203,18 @@ impl Default for BeamScoringWeights {
 
             // Exponents
             hull_exponent: 2.5,
-            fire_exponent: 3.5,
+            fire_exponent: 4.0,
             cargo_repair_exponent: 1.5,
             hull_risk_exponent: 1.1,
             panic_fire_exponent: 2.5,
             panic_hull_exponent: 2.0,
             checkmate_exponent: 1.8,
             hull_penalty_scaling: 1.1,
-            projected_hull_panic_exponent: 3.0,
+            projected_hull_panic_exponent: 4.0,
 
             fire_panic_threshold_base: 2.0,
             fire_panic_threshold_hull_scaling: 5.0,
-            survival_only_multiplier: 0.1,
+            survival_only_multiplier: 0.2,
 
             // Multipliers
             fire_urgency_mult: 5.0,
@@ -354,7 +354,7 @@ pub fn score_static(
 
     // hazard_multiplier: 1.0 at full health, up to 1.0 / critical_survival_mult at 0 health.
     // DAMPENED: Use a lower ceiling for the hazard multiplier to prevent -100M scores.
-    let max_hazard_ceiling = 4.0;
+    let max_hazard_ceiling = 8.0;
     let hazard_multiplier = 1.0 + (missing_hull_percent * (max_hazard_ceiling - 1.0));
 
     // Penalty scaling based on hull integrity: lower hull = higher penalties for everything else.
@@ -497,8 +497,8 @@ pub fn score_static(
     // Cubic Fire Penalty: Make firefighting > repairing
     // Non-Linear Fire Penalty based on Hull Risk (Inverse Power Function)
     // Use PROJECTED hull to feel the fear.
-    // DAMPENED: Reduced exponent from 2.5 to 1.5 and capped to prevent runaway penalties.
-    let hull_risk_mult = (1.0 + (missing_hull_percent * 5.0).powf(1.5)).min(10.0);
+    // Less dampened: increase the risk multiplier as hull drops.
+    let hull_risk_mult = (1.0 + (missing_hull_percent * 10.0).powf(2.0)).min(20.0);
 
     let mut fire_penalty = (fire_rooms.len() as f64).powf(weights.fire_exponent)
         * weights.fire_penalty_base
@@ -979,18 +979,29 @@ pub fn score_static(
                     let req_n = sol.required_players as usize;
                     let best_n_d = all_distances.get(req_n - 1).cloned().unwrap_or(999);
 
+                    // Situation Importance: Boost reward for critical systems
+                    let is_critical_sys = matches!(
+                        sys,
+                        SystemType::Engine | SystemType::Cannons | SystemType::Bridge
+                    );
+                    let importance_mult = if is_critical_sys {
+                        weights.system_importance_multiplier * hull_penalty_scaler
+                    } else {
+                        survival_multiplier
+                    };
+
                     if best_q_d == 0 && best_n_d == 0 {
-                        details.situations += weights.solution_solver_reward * survival_multiplier;
+                        details.situations += weights.solution_solver_reward * importance_mult;
                     } else {
                         // Pull the qualified person
                         details.situations += (20.0 - best_q_d as f64).max(0.0)
                             * weights.solution_distance_factor
-                            * survival_multiplier;
+                            * importance_mult;
                         // Pull the N-th person
                         if req_n > 1 && best_n_d != 999 {
                             details.situations += (20.0 - best_n_d as f64).max(0.0)
                                 * weights.solution_distance_factor
-                                * survival_multiplier;
+                                * importance_mult;
                         }
                     }
                 }
@@ -1012,6 +1023,16 @@ pub fn score_static(
                         }
                     }
 
+                    let is_critical_sys = matches!(
+                        sys,
+                        SystemType::Engine | SystemType::Cannons | SystemType::Bridge
+                    );
+                    let importance_mult = if is_critical_sys {
+                        weights.system_importance_multiplier * hull_penalty_scaler
+                    } else {
+                        survival_multiplier
+                    };
+
                     if !sources.is_empty() {
                         let mut min_source_dist = 999;
                         for p in state.players.values() {
@@ -1025,7 +1046,7 @@ pub fn score_static(
                         if min_source_dist != 999 {
                             details.situations += (20.0 - min_source_dist as f64).max(0.0)
                                 * weights.situation_logistics_reward
-                                * survival_multiplier;
+                                * importance_mult;
                         }
                     }
                 }
