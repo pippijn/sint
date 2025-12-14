@@ -151,21 +151,21 @@ pub struct BeamScoringWeights {
 impl Default for BeamScoringWeights {
     fn default() -> Self {
         Self {
-            hull_integrity: 500000.0,
+            hull_integrity: 1000000.0,
             hull_delta_penalty: 25000.0,
             enemy_hp: 100000.0,
             player_hp: 100.0,
             ap_balance: 100.0,
 
             // Hazards
-            fire_penalty_base: 1000000.0,
+            fire_penalty_base: 5000000.0,
             fire_token_penalty: 10000.0,
             water_penalty: 5000.0,
 
             // Situations & Threats
             active_situation_penalty: 10000.0,
-            threat_player_penalty: 10.0,
-            threat_system_penalty: 200.0,
+            threat_player_penalty: 100000.0,
+            threat_system_penalty: 500000.0,
             death_penalty: 5000.0,
 
             // Roles
@@ -197,19 +197,19 @@ impl Default for BeamScoringWeights {
             loose_ammo_reward: 100.0,
             hazard_proximity_reward: 5.0,
             situation_exposure_penalty: 100.0,
-            system_disabled_penalty: 250000.0,
+            system_disabled_penalty: 1000000.0,
             shooting_reward: 10000.0,
 
             scavenger_reward: 5000.0,
             repair_proximity_reward: 2000.0,
-            cargo_repair_incentive: 150000.0,
+            cargo_repair_incentive: 1000000.0,
             cargo_repair_proximity_reward: 5.0,
             item_juggling_penalty: 50000.0,
             situation_exponent: 2.0,
 
             boss_level_reward: 1000000.0,
-            turn_penalty: 50.0,
-            step_penalty: 300.0,
+            turn_penalty: 10.0,
+            step_penalty: 1000.0,
             checkmate_system_bonus: 50000.0,
 
             checkmate_threshold: 3.0,
@@ -219,11 +219,11 @@ impl Default for BeamScoringWeights {
             // Critical State
             critical_hull_threshold: 12.0,
             critical_hull_penalty_base: 20000.0,
-            critical_hull_penalty_per_hp: 100000.0,
+            critical_hull_penalty_per_hp: 500000.0,
             critical_fire_threshold: 2,
             critical_fire_penalty_per_token: 2000.0,
             critical_system_hazard_penalty: 100000.0,
-            fire_in_critical_hull_penalty: 1000000.0,
+            fire_in_critical_hull_penalty: 10000000.0,
             critical_survival_mult: 0.4,
             critical_threat_mult: 5.0,
 
@@ -251,13 +251,13 @@ impl Default for BeamScoringWeights {
             gunner_wheelbarrow_penalty: 0.1,
             baker_wheelbarrow_mult: 2.0,
 
-            threat_severe_reward: 100000.0,
+            threat_severe_reward: 2000000.0,
             threat_mitigated_reward: 10000.0,
             threat_hull_risk_mult: 0.5,
             threat_shield_waste_penalty: 100.0,
 
-            rest_round_hazard_multiplier: 5.0,
-            rest_round_vitals_multiplier: 5.0,
+            rest_round_hazard_multiplier: 10.0,
+            rest_round_vitals_multiplier: 10.0,
 
             victory_score: 2000000000.0,
             game_over_score: -1000000000.0,
