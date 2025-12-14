@@ -154,8 +154,8 @@ impl Default for BeamScoringWeights {
             hull_integrity: 100.0,
             hull_delta_penalty: 2.5,
             enemy_hp: 25.0,
-            player_hp: 0.01,
-            ap_balance: 0.15,
+            player_hp: 1.0,
+            ap_balance: 1.0,
 
             // Hazards
             fire_penalty_base: 1000.0,
@@ -172,21 +172,21 @@ impl Default for BeamScoringWeights {
             station_keeping_reward: 0.2,
             gunner_base_reward: 0.5,
             gunner_per_ammo: 1.0,
-            gunner_working_bonus: 0.0005,
-            gunner_distance_factor: 0.01,
+            gunner_working_bonus: 0.1,
+            gunner_distance_factor: 0.5,
 
             firefighter_base_reward: 50.0,
-            firefighter_distance_factor: 0.002,
+            firefighter_distance_factor: 0.5,
 
             healing_reward: 0.5,
-            sickbay_distance_factor: 0.002,
+            sickbay_distance_factor: 0.5,
             sentinel_reward: 0.5,
 
             backtracking_penalty: 0.25,
-            commitment_bonus: 0.005,
+            commitment_bonus: 0.1,
 
             solution_solver_reward: 20.0,
-            solution_distance_factor: 0.002,
+            solution_distance_factor: 0.5,
             situation_logistics_reward: 1.0,
             situation_resolved_reward: 500.0,
             system_importance_multiplier: 5.0,
@@ -195,7 +195,7 @@ impl Default for BeamScoringWeights {
 
             ammo_stockpile_reward: 0.2,
             loose_ammo_reward: 0.01,
-            hazard_proximity_reward: 0.0005,
+            hazard_proximity_reward: 0.5,
             situation_exposure_penalty: 0.01,
             system_disabled_penalty: 100.0,
             shooting_reward: 5.0,
@@ -203,7 +203,7 @@ impl Default for BeamScoringWeights {
             scavenger_reward: 0.5,
             repair_proximity_reward: 0.2,
             cargo_repair_incentive: 20.0,
-            cargo_repair_proximity_reward: 0.0005,
+            cargo_repair_proximity_reward: 0.1,
             item_juggling_penalty: 5.0,
             situation_exponent: 2.0,
 

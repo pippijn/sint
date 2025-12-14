@@ -103,6 +103,28 @@ fn save_solution(sol: &SearchNode, args: &Args) {
         println!("Final Phase: {:?}", sol.state.phase);
         println!("Hull: {}", sol.state.hull_integrity);
         println!("Boss HP: {}", sol.state.enemy.hp);
+
+        // Calculate Tournament Score
+        let mut scorer = sint_solver::scoring::beam::ScoreAccumulator::new();
+        let mut driver = sint_solver::driver::GameDriver::new(GameLogic::new_game(player_ids.clone(), args.seed));
+        let mut last_round = driver.state.turn_count;
+        let history = sol.get_history();
+
+        for (pid, action) in history {
+            if let Ok(_) = driver.apply(pid, action.clone()) {
+                if driver.state.turn_count > last_round {
+                    scorer.on_round_end(&driver.state);
+                    last_round = driver.state.turn_count;
+                }
+            } else {
+                break;
+            }
+        }
+        // Final round record if game ended
+        scorer.on_round_end(&driver.state);
+        let fitness = scorer.finalize(&driver.state);
+        println!("Rounds: {}", driver.state.turn_count);
+        println!("Fitness Score: {:.1}", fitness);
     }
 
     let initial_print = GameLogic::new_game(player_ids, args.seed);

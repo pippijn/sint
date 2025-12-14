@@ -3,6 +3,7 @@ import argparse
 import sys
 import os
 import subprocess
+import re
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Tuple, Optional, Any
 
@@ -39,8 +40,20 @@ def run_single_seed(seed: str, extra_args: List[str], output_path: str, capture_
             output = result.stdout
         else:
             # Stream directly to console
-            ret = subprocess.call(cmd)
-            output = None # Output handled by subprocess
+            # We still need to capture it if we want to parse it for the summary
+            # but the user said for single seed don't capture.
+            # Let's compromise: if we need to parse it, we capture it.
+            result = subprocess.run(
+                cmd, 
+                stdout=subprocess.PIPE, 
+                stderr=subprocess.STDOUT, 
+                text=True, 
+                encoding='utf-8', 
+                errors='replace'
+            )
+            ret = result.returncode
+            output = result.stdout
+            print(output)
     except Exception as e:
         ret = -1
         output = f"System Error executing subprocess: {e}"
@@ -63,6 +76,62 @@ def print_result(seed: str, ret: int, output: Optional[str]) -> None:
         print(f"❌ [Seed {seed}] Failed with exit code {ret}")
     else:
         print(f"✅ [Seed {seed}] Finished")
+
+def print_summary(results: List[Tuple[str, int, Optional[str]]]) -> None:
+    print("\n" + "="*80)
+    print(f"{'AGGREGATE PERFORMANCE REPORT':^80}")
+    print("="*80)
+    print(f"{'Seed':<10} | {'Result':<10} | {'Boss HP':<8} | {'Hull':<5} | {'Rounds':<7} | {'Fitness Score':<15}")
+    print("-" * 80)
+
+    total_fitness = 0.0
+    victories = 0
+    total_hull = 0
+    total_boss_hp = 0
+    total_rounds = 0
+    count = 0
+
+    for seed, ret, output in results:
+        if not output:
+            continue
+        
+        count += 1
+        # Extraction
+        phase_match = re.search(r"Final Phase: (\w+)", output)
+        hull_match = re.search(r"Hull: (-?\d+)", output)
+        boss_hp_match = re.search(r"Boss HP: (\d+)", output)
+        rounds_match = re.search(r"Rounds: (\d+)", output)
+        fitness_match = re.search(r"Fitness Score: ([\d.-]+)", output)
+
+        phase = phase_match.group(1) if phase_match else "Unknown"
+        hull = int(hull_match.group(1)) if hull_match else 0
+        boss_hp = int(boss_hp_match.group(1)) if boss_hp_match else 0
+        rounds = int(rounds_match.group(1)) if rounds_match else 0
+        fitness = float(fitness_match.group(1)) if fitness_match else 0.0
+
+        win = phase == "Victory"
+        if win:
+            victories += 1
+        
+        result_str = "WIN" if win else "LOSS"
+        print(f"{seed:<10} | {result_str:<10} | {boss_hp:<8} | {hull:<5} | {rounds:<7} | {fitness:<15.1f}")
+
+        total_fitness += fitness
+        total_hull += hull
+        total_boss_hp += boss_hp
+        total_rounds += rounds
+
+    if count > 0:
+        print("-" * 80)
+        avg_fitness = total_fitness / count
+        avg_hull = total_hull / count
+        avg_boss_hp = total_boss_hp / count
+        avg_rounds = total_rounds / count
+        win_rate = (victories / count) * 100
+
+        print(f"{'AVERAGE':<10} | {win_rate:>5.1f}% WIN | {avg_boss_hp:<8.1f} | {avg_hull:<5.1f} | {avg_rounds:<7.1f} | {avg_fitness:<15.1f}")
+    
+    print("="*80 + "\n")
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run Solver (Multi-Seed Support)", add_help=False)
@@ -166,6 +235,9 @@ def main() -> None:
         print_result(seed, ret, output)
         if ret != 0:
             failed = True
+
+    # 6. Summary
+    print_summary(results)
 
     if failed:
         sys.exit(1)
