@@ -74,6 +74,9 @@ impl ActionHandler for RepairHandler {
         if !room.hazards.contains(&HazardType::Water) {
             // Special: Cargo allows Hull Repair
             if room.system == Some(SystemType::Cargo) {
+                if room.hazards.contains(&HazardType::Fire) {
+                    return Err(GameError::RoomBlocked);
+                }
                 if state.hull_integrity >= MAX_HULL {
                     return Err(GameError::InvalidAction(
                         "Hull is already at maximum integrity".to_owned(),

@@ -723,27 +723,30 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
             // 1. Drop (Free)
             actions.push(Action::Game(GameAction::Drop { item_index: idx }));
 
-            // 2. Throw (Costs 1 AP)
-            let throw_cost = action_cost(
-                &projected_state,
-                player_id,
-                &GameAction::Throw {
-                    target_player: "".to_owned(),
-                    item_index: idx,
-                },
-            );
-            if p.ap >= throw_cost {
-                for other_p in projected_state.players.values() {
-                    if other_p.id == *player_id {
-                        continue;
-                    }
+            // 2. Throw (Costs 1 AP) - Only Peppernuts
+            if p.inventory[idx] == ItemType::Peppernut {
+                let throw_cost = action_cost(
+                    &projected_state,
+                    player_id,
+                    &GameAction::Throw {
+                        target_player: "".to_owned(),
+                        item_index: idx,
+                    },
+                );
+                if p.ap >= throw_cost {
+                    for other_p in projected_state.players.values() {
+                        if other_p.id == *player_id {
+                            continue;
+                        }
 
-                    // Adjacency check for Throw (Same or adjacent room)
-                    if room.neighbors.contains(&other_p.room_id) || other_p.room_id == p.room_id {
-                        actions.push(Action::Game(GameAction::Throw {
-                            target_player: other_p.id.clone(),
-                            item_index: idx,
-                        }));
+                        // Adjacency check for Throw (Same or adjacent room)
+                        if room.neighbors.contains(&other_p.room_id) || other_p.room_id == p.room_id
+                        {
+                            actions.push(Action::Game(GameAction::Throw {
+                                target_player: other_p.id.clone(),
+                                item_index: idx,
+                            }));
+                        }
                     }
                 }
             }

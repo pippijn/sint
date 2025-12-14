@@ -1,6 +1,6 @@
 use super::ActionHandler;
 use crate::GameError;
-use crate::types::{ChatMessage, EnemyState, GameState, ItemType, SystemType};
+use crate::types::{ChatMessage, EnemyState, GameState, ItemType, PlayerStatus, SystemType};
 use log::info;
 use rand::{Rng, SeedableRng, rngs::StdRng};
 
@@ -109,7 +109,7 @@ impl ActionHandler for ShootHandler {
 
         // Calculate Hit
         let hit = if simulation {
-            true // In simulation, we assume it hits to allow the solver to see the path to victory.
+            false // In simulation, we don't apply damage to avoid side effects in ghost-view
         } else {
             let mut rng = StdRng::seed_from_u64(state.rng_seed);
             let roll: u32 = rng.random_range(1..=6);
@@ -346,6 +346,13 @@ impl ActionHandler for FirstAidHandler {
             .players
             .get(&self.target_player)
             .ok_or(GameError::PlayerNotFound)?;
+
+        if target.status.contains(&PlayerStatus::Fainted) {
+            return Err(GameError::InvalidAction(
+                "Cannot use First Aid on a Fainted player. Use Revive instead.".to_owned(),
+            ));
+        }
+
         let is_self = self.target_player == player_id;
         let is_adjacent = room.neighbors.contains(&target.room_id);
         let is_here = target.room_id == p.room_id;

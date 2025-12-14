@@ -192,7 +192,7 @@ impl Default for BeamScoringWeights {
             situation_resolved_reward: 10000.0,
             system_importance_multiplier: 10.0,
             boss_killing_blow_reward: 10000000.0,
-            inaction_penalty: 1.0,
+            inaction_penalty: 100.0,
 
             // Logistics
             ammo_stockpile_reward: 10000.0,
@@ -226,13 +226,13 @@ impl Default for BeamScoringWeights {
             critical_fire_threshold: 1,
             critical_fire_penalty_per_token: 50.0,
             critical_system_hazard_penalty: 500.0,
-            fire_in_critical_hull_penalty: 100000.0,
+            fire_in_critical_hull_penalty: 50000000.0,
             critical_survival_mult: 0.5,
             critical_threat_mult: 2.0,
 
             // Exponents
             hull_exponent: 2.0,
-            fire_exponent: 3.0,
+            fire_exponent: 4.0,
             cargo_repair_exponent: 1.5,
             hull_risk_exponent: 1.2,
             panic_fire_exponent: 2.5,
@@ -294,6 +294,24 @@ pub fn calculate_score(
 ) -> ScoreDetails {
     let mut details = score_static(current, history, weights, distances);
     details += score_transition(parent, current, weights);
+
+    // Meaningful Action Bonus: Reward productive actions
+    if let Some((_pid, action)) = history.last() {
+        if matches!(
+            action,
+            GameAction::Extinguish
+                | GameAction::Repair
+                | GameAction::Shoot
+                | GameAction::Bake
+                | GameAction::RaiseShields
+                | GameAction::EvasiveManeuvers
+                | GameAction::FirstAid { .. }
+                | GameAction::Revive { .. }
+        ) {
+            details.logistics += 50.0;
+            details.total += 50.0;
+        }
+    }
 
     // Commitment Bonus: Reward moving towards hazards
     if let Some((last_pid, last_act)) = history.last()
@@ -471,7 +489,10 @@ pub fn score_static(
         // Survival Override: If we are in critical condition, dampen bloodlust.
         // Finishing the boss IS survival, but only if it happens SOON.
         if is_critical {
-            if (state.enemy.hp as f64) > 2.0 {
+            if projected_hull <= 0 {
+                // SURVIVAL SUPREMACY: Death is certain, no checkmate possible.
+                checkmate_mult = 0.0;
+            } else if (state.enemy.hp as f64) > 2.0 {
                 let survival_factor = (projected_hull as f64 / weights.critical_hull_threshold)
                     .max(0.2)
                     .min(1.0);
@@ -481,7 +502,7 @@ pub fn score_static(
                     checkmate_mult *= weights.survival_only_multiplier;
                 }
             } else {
-                // Boss is at 1-2 HP. GO FOR IT.
+                // Boss is at 1-2 HP and we are NOT dead yet. GO FOR IT.
                 // We even boost it further to ensure it outweighs panic
                 checkmate_mult *= 1.5;
             }

@@ -174,26 +174,25 @@ impl ActionHandler for ThrowHandler {
             return Err(GameError::InvalidAction("Target not in range".to_owned()));
         }
 
-        // Check Target Capacity
+        // Only Peppernuts can be thrown
         let item_to_throw = &p.inventory[self.item_index];
-        if *item_to_throw == ItemType::Peppernut {
-            let nut_count = target
-                .inventory
-                .iter()
-                .filter(|i| **i == ItemType::Peppernut)
-                .count();
-            let has_wheelbarrow = target.inventory.contains(&ItemType::Wheelbarrow);
-            let limit = if has_wheelbarrow { 5 } else { 1 };
+        if *item_to_throw != ItemType::Peppernut {
+            return Err(GameError::InvalidAction(
+                "Only Peppernuts can be thrown".to_owned(),
+            ));
+        }
 
-            if nut_count >= limit {
-                return Err(GameError::InventoryFull);
-            }
-        } else {
-            // Special Item Limit
-            let has_special = target.inventory.iter().any(|i| *i != ItemType::Peppernut);
-            if has_special {
-                return Err(GameError::InventoryFull);
-            }
+        // Check Target Capacity
+        let nut_count = target
+            .inventory
+            .iter()
+            .filter(|i| **i == ItemType::Peppernut)
+            .count();
+        let has_wheelbarrow = target.inventory.contains(&ItemType::Wheelbarrow);
+        let limit = if has_wheelbarrow { 5 } else { 1 };
+
+        if nut_count >= limit {
+            return Err(GameError::InventoryFull);
         }
 
         Ok(())

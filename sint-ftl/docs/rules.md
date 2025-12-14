@@ -47,6 +47,7 @@ The Enemy targets specific **Systems** determined by a **2d6 Dice Roll**. The Ro
 | **8** | **Bridge** | *Steering.* Action: **"Raise Shields"** (2 AP). Blocks **all** incoming **Damage** events this round. | - |
 | **9** | **Sickbay** | *Heal.* Action: **"First Aid"** (1 AP). Restore 1 HP to self or adjacent player. | - |
 | **10** | **Storage** | *Vault.* Secure storage. Items here are safe from Water damage. | **5 Peppernuts** |
+| **11-12** | **Miss** | *Lucky Break.* The enemy attack misses the ship entirely. | - |
 
 *   **Hallway / Empty Rooms:** Transit areas. Cannot be directly targeted by the enemy (no system ID), but hazards can spread to them.
 
@@ -70,7 +71,7 @@ The Enemy targets specific **Systems** determined by a **2d6 Dice Roll**. The Ro
 2.  **Interact:** Perform the specific Room Action (Bake, Shoot, Shield, etc.).
 3.  **Extinguish:** Remove 1 Fire token from current room (Removes **2** if holding **Extinguisher**).
 4.  **Repair:** Remove 1 Water token from current room. If in **Cargo** and no Water is present, restores **1 Hull Integrity** (Max 20).
-5.  **Throw:** Toss 1 Peppernut to a player in an adjacent room (100% success).
+5.  **Throw:** Toss 1 Peppernut to a player in an adjacent room (100% success). Only Peppernuts can be thrown; special items must be dropped and picked up.
 6.  **Pick Up:** Add item from room to inventory.
 7.  **Drop:** Drop item from inventory to room (**Free**).
 8.  **Revive:** Help a Fainted player in the same room (Revives them immediately with 1 HP).
@@ -132,8 +133,7 @@ The game does not have fixed turns. It plays in a series of **Rounds**, each con
 *   **Spread:** If >= 2 Fire tokens in a room (>= 1 in Cargo), it has a 50% chance to spread to adjacent rooms.
 
 ### **WATER (Blue Token)**
-*   **Effect:** Disables Room Function. Destroys all loose **Items** in the room (except in **Storage**).
-*   **Danger:** Does not damage Hull directly, but renders systems useless and destroys ammo.
+*   **Effect:** Disables Room Function. Destroys all loose **Peppernuts** in the room (except in **Storage**). Special items (Extinguisher, Wheelbarrow, etc.) are **NOT** destroyed by water.
 *   **Cleanup:** Requires 'Repair' (Mop).
 
 ## **6. COMMUNICATION**
