@@ -22,18 +22,18 @@ pub struct RlScoringWeights {
 impl Default for RlScoringWeights {
     fn default() -> Self {
         Self {
-            victory_reward: 100.0,
-            defeat_penalty: -100.0,
-            boss_damage_reward: 10.0,
-            hull_damage_penalty: 5.0,
+            victory_reward: 1000.0,
+            defeat_penalty: -200.0,
+            boss_damage_reward: 5.0,
+            hull_damage_penalty: 10.0,
             fire_extinguish_reward: 1.0,
             system_repair_reward: 1.0,
             situation_resolve_reward: 5.0,
             item_pickup_reward: 0.1,
-            item_drop_penalty: 0.15,
+            item_drop_penalty: 0.2,
             shooting_reward: 0.2,
-            turn_penalty: 0.5,
-            step_penalty: 0.01,
+            turn_penalty: 1.0,
+            step_penalty: 0.2,
         }
     }
 }

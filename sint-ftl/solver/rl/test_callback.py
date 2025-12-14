@@ -49,6 +49,41 @@ class TestCallbackRewardCapture(unittest.TestCase):
         
         print(f"Captured actions correctly: {counts}")
 
+    def test_reward_breakdown_capture(self):
+        """Verify that TUICallback correctly captures the detailed reward breakdown."""
+        eval_env = SintEnv(num_players=4)
+        callback = TUICallback(eval_env, eval_freq=1000)
+        callback._stop_training = False
+        
+        # Mock breakdown from a sub-environment
+        mock_breakdown = {
+            "vitals": 0.1,
+            "hazards": 1.0,
+            "offense": 2.0,
+            "total": 3.1
+        }
+        
+        # Mock training_env requirements
+        class MockEnv:
+            def get_attr(self, name):
+                if name == "last_details": return [mock_breakdown]
+                if name == "history": return [[("P1", "Move 0")]]
+                if name == "state": return [{"hull_integrity": 20, "enemy": {"hp": 5}, "phase": "TacticalPlanning"}]
+                return None
+        
+        callback.model = type('obj', (object,), {'get_env': lambda: MockEnv()})
+        callback.locals = {
+            'rewards': [0.1],
+            'dones': [False],
+            'actions': [0]
+        }
+        callback.n_calls = 1
+        
+        callback._on_step()
+        
+        self.assertEqual(callback.stats["latest_reward_breakdown"], mock_breakdown)
+        print(f"Captured breakdown correctly: {callback.stats['latest_reward_breakdown']}")
+
     def test_vectorized_action_handling(self):
         """Verify that record_action handles various input types."""
         eval_env = SintEnv(num_players=4)

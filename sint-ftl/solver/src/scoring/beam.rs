@@ -156,7 +156,7 @@ pub struct BeamScoringWeights {
 impl Default for BeamScoringWeights {
     fn default() -> Self {
         Self {
-            hull_integrity: 200.0,
+            hull_integrity: 1000.0,
             hull_delta_penalty: 2.0,
             enemy_hp: 1000.0,
             player_hp: 1.0,
@@ -167,7 +167,7 @@ impl Default for BeamScoringWeights {
             system_broken_penalty: 50000.0,
 
             // Hazards
-            fire_penalty_base: 10000.0,
+            fire_penalty_base: 20000.0,
             fire_token_penalty: 2000.0,
             water_penalty: 1.0,
 
@@ -201,7 +201,7 @@ impl Default for BeamScoringWeights {
             situation_resolved_reward: 10000.0,
             system_importance_multiplier: 10.0,
             boss_killing_blow_reward: 10000000.0,
-            inaction_penalty: 20000.0,
+            inaction_penalty: 5000.0,
 
             // Logistics
             ammo_stockpile_reward: 10000.0,
@@ -209,7 +209,7 @@ impl Default for BeamScoringWeights {
             hazard_proximity_reward: 50.0,
             situation_exposure_penalty: 0.01,
             system_disabled_penalty: 10000.0,
-            shooting_reward: 2000000.0,
+            shooting_reward: 500000.0,
             scavenger_reward: 100.0,
             repair_proximity_reward: 50.0,
             cargo_repair_incentive: 10000.0,
@@ -219,8 +219,8 @@ impl Default for BeamScoringWeights {
 
             // Progression
             boss_level_reward: 100000.0,
-            turn_penalty: 10000.0,
-            step_penalty: 1.0,
+            turn_penalty: 2000.0,
+            step_penalty: 100.0,
             checkmate_system_bonus: 5000.0,
 
             // Checkmate
@@ -262,7 +262,7 @@ impl Default for BeamScoringWeights {
             gunner_en_route_mult: 0.2,
             gunner_wheelbarrow_penalty: 0.1,
             baker_wheelbarrow_mult: 3.0,
-            gunner_coordination_bonus: 100000.0,
+            gunner_coordination_bonus: 20000.0,
 
             threat_severe_reward: 5000.0,
             threat_mitigated_reward: 100.0,

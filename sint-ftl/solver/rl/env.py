@@ -19,16 +19,19 @@ from ai.game_types import GameState, GameAction, Action, GamePhase, ItemType, Ha
 class SintEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
 
-    def __init__(self, num_players=6, seed=12345, test_mode=False):
+    def __init__(self, num_players=6, seed=12345, test_mode=False, max_steps=1500):
         super(SintEnv, self).__init__()
         self.num_players = num_players
         self.player_ids = [f"P{i+1}" for i in range(num_players)]
         self.initial_seed = seed
         self.session_id = str(uuid.uuid4())
         self.test_mode = test_mode
+        self.max_steps = max_steps
+        self.current_steps = 0
         self.state: Optional[Dict[str, Any]] = None
         self.history: List[Tuple[str, Any]] = []
         self.last_score = 0.0
+        self.last_details: Dict[str, float] = {}
         
         # Action space: 
         self.action_space = spaces.Discrete(46)
@@ -155,18 +158,21 @@ class SintEnv(gym.Env):
             self.initial_seed = np.random.randint(0, 1000000)
         
         self.history = []
+        self.current_steps = 0
         
         # Use verify_linear to get initial state
         result = sint_solver.verify_linear(self.player_ids, self.initial_seed, self.history)
         self.state = result['final_state']
         assert self.state is not None, "State should not be None after reset"
         self.last_score = result['rl_score']
+        self.last_details = result['rl_details']
         
         obs = self._get_obs()
         assert obs.shape == self.observation_space.shape, f"Obs shape {obs.shape} != {self.observation_space.shape}"
         return obs, {}
 
     def step(self, action_idx):
+        self.current_steps += 1
         active_id = self._get_active_player_id()
         if not active_id:
             return self._get_obs(), 0.0, True, False, {}
@@ -191,15 +197,34 @@ class SintEnv(gym.Env):
         self.state = result['final_state']
         assert self.state is not None, "State should not be None after step"
 
-        # Reward is the delta in dense rl_score
-        current_score = result['rl_score']
-        reward = current_score # rl_score in solver/src/scoring/rl.rs is already a delta-based score or immediate reward
-        self.last_score = current_score
-        done = self.state['phase'] in ['Victory', 'GameOver']
+        reward = result['rl_score']
+        self.last_details = result['rl_details']
+        
+        terminated = self.state['phase'] in ['Victory', 'GameOver']
+        truncated = self.current_steps >= self.max_steps
+        
+        # If we timed out without winning or losing, apply a failure penalty
+        if truncated and not terminated:
+            timeout_penalty = 200.0
+            reward -= timeout_penalty
+            if "vitals" in self.last_details:
+                self.last_details["vitals"] -= timeout_penalty
+                self.last_details["total"] -= timeout_penalty
+
+        done = terminated or truncated
             
         obs = self._get_obs()
+        
+        info = {}
+        if done:
+            info["terminal_state"] = self.state
+            info["terminal_history"] = list(self.history)
+            info["terminal_details"] = self.last_details
+            if truncated and not terminated:
+                info["TimeLimit.truncated"] = True
+
         assert isinstance(reward, (float, int, np.float32)), f"Reward should be numeric, got {type(reward)}"
-        return obs, float(reward), done, False, {}
+        return obs, float(reward), terminated, truncated, info
 
     def _is_recoverable(self, error):
         # Errors that just mean "round in progress" or "round finished" are fine for RL

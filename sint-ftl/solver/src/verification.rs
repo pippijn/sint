@@ -1,3 +1,4 @@
+use crate::scoring::ScoreDetails;
 use crate::scoring::beam::{BeamScoringWeights, ScoreAccumulator, calculate_score};
 use crate::scoring::rhea::{RheaScoringWeights, score_rhea};
 use crate::scoring::rl::{RlScoringWeights, score_rl};
@@ -35,6 +36,7 @@ pub struct VerificationResult {
     pub beam_score: f64,
     pub rhea_score: f64,
     pub rl_score: f64,
+    pub rl_details: ScoreDetails,
 }
 
 pub type RoundActions = Vec<(String, GameAction)>;
@@ -379,7 +381,8 @@ pub fn run_verification(
     .total;
 
     let rl_weights = RlScoringWeights::default();
-    let rl_score = score_rl(&parent_state, &state, &borrowed_history, &rl_weights).total;
+    let rl_details = score_rl(&parent_state, &state, &borrowed_history, &rl_weights);
+    let rl_score = rl_details.total;
 
     // Check outcome
     let is_victory = state.phase == GamePhase::Victory;
@@ -393,6 +396,7 @@ pub fn run_verification(
         beam_score,
         rhea_score,
         rl_score,
+        rl_details,
     }
 }
 
@@ -638,7 +642,8 @@ pub fn run_verification_linear(
     .total;
 
     let rl_weights = RlScoringWeights::default();
-    let rl_score = score_rl(&parent_state, &state, &borrowed_history, &rl_weights).total;
+    let rl_details = score_rl(&parent_state, &state, &borrowed_history, &rl_weights);
+    let rl_score = rl_details.total;
 
     let is_victory = state.phase == GamePhase::Victory;
     VerificationResult {
@@ -651,5 +656,6 @@ pub fn run_verification_linear(
         beam_score,
         rhea_score,
         rl_score,
+        rl_details,
     }
 }

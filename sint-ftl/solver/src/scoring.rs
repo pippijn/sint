@@ -2,8 +2,10 @@ pub mod beam;
 pub mod rhea;
 pub mod rl;
 
+use serde::{Deserialize, Serialize};
+
 /// Detailed breakdown of the scoring components for debugging and analysis.
-#[derive(Debug, Clone, Copy, Default, PartialEq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
 pub struct ScoreDetails {
     pub total: f64,
     pub vitals: f64,           // Hull, Player HP, Victory/GameOver
