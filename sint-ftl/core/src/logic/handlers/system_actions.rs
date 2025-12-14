@@ -107,8 +107,10 @@ impl ActionHandler for ShootHandler {
             p.inventory.remove(idx);
         }
 
-        if !simulation {
-            // Calculate Hit
+        // Calculate Hit
+        let hit = if simulation {
+            true // In simulation, we assume it hits to allow the solver to see the path to victory.
+        } else {
             let mut rng = StdRng::seed_from_u64(state.rng_seed);
             let roll: u32 = rng.random_range(1..=6);
             state.rng_seed = rng.random();
@@ -122,34 +124,35 @@ impl ActionHandler for ShootHandler {
                     threshold = t;
                 }
             }
-
-            if roll >= threshold {
-                state.enemy.hp -= 1;
-
-                if state.enemy.hp <= 0 {
-                    if state.boss_level >= crate::logic::MAX_BOSS_LEVEL - 1 {
-                        state.phase = crate::types::GamePhase::Victory;
-                        state.chat_log.push(ChatMessage {
-                            sender: "SYSTEM".to_owned(),
-                            text: "VICTORY! All bosses defeated!".to_owned(),
-                            timestamp: 0,
-                        });
-                    } else {
-                        state.enemy.state = EnemyState::Defeated;
-                        state.chat_log.push(ChatMessage {
-                            sender: "SYSTEM".to_owned(),
-                            text: format!("{} Defeated! Taking a breather...", state.enemy.name),
-                            timestamp: 0,
-                        });
-                    }
-                }
-            } else {
-                // Miss
+            if roll < threshold {
                 state.chat_log.push(ChatMessage {
                     sender: "SYSTEM".to_owned(),
                     text: format!("{} missed the shot! (Rolled {})", player_id, roll),
                     timestamp: 0,
                 });
+            }
+            roll >= threshold
+        };
+
+        if hit {
+            state.enemy.hp -= 1;
+
+            if state.enemy.hp <= 0 {
+                if state.boss_level >= crate::logic::MAX_BOSS_LEVEL - 1 {
+                    state.phase = crate::types::GamePhase::Victory;
+                    state.chat_log.push(ChatMessage {
+                        sender: "SYSTEM".to_owned(),
+                        text: "VICTORY! All bosses defeated!".to_owned(),
+                        timestamp: 0,
+                    });
+                } else {
+                    state.enemy.state = EnemyState::Defeated;
+                    state.chat_log.push(ChatMessage {
+                        sender: "SYSTEM".to_owned(),
+                        text: format!("{} Defeated! Taking a breather...", state.enemy.name),
+                        timestamp: 0,
+                    });
+                }
             }
         }
 

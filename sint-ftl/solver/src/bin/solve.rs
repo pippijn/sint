@@ -41,7 +41,7 @@ struct Args {
     strategy: Strategy,
 
     /// Beam Width (Number of states to keep per step)
-    #[arg(short, long, default_value_t = 300)]
+    #[arg(short, long, default_value_t = 1000)]
     beam_width: usize,
 
     /// RHEA Horizon

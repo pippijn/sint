@@ -151,14 +151,14 @@ pub struct BeamScoringWeights {
 impl Default for BeamScoringWeights {
     fn default() -> Self {
         Self {
-            hull_integrity: 100000.0,
-            hull_delta_penalty: 5000.0,
-            enemy_hp: 25000.0,
+            hull_integrity: 500000.0,
+            hull_delta_penalty: 25000.0,
+            enemy_hp: 100000.0,
             player_hp: 100.0,
             ap_balance: 100.0,
 
             // Hazards
-            fire_penalty_base: 250000.0,
+            fire_penalty_base: 1000000.0,
             fire_token_penalty: 10000.0,
             water_penalty: 5000.0,
 
@@ -169,18 +169,18 @@ impl Default for BeamScoringWeights {
             death_penalty: 5000.0,
 
             // Roles
-            station_keeping_reward: 10000.0,
+            station_keeping_reward: 2000.0,
             gunner_base_reward: 5000.0,
             gunner_per_ammo: 10000.0,
             gunner_working_bonus: 5.0,
             gunner_distance_factor: 100.0,
 
-            firefighter_base_reward: 50000.0,
+            firefighter_base_reward: 500000.0,
             firefighter_distance_factor: 20.0,
 
             healing_reward: 5000.0,
             sickbay_distance_factor: 20.0,
-            sentinel_reward: 25000.0,
+            sentinel_reward: 5000.0,
 
             backtracking_penalty: 200.0,
             commitment_bonus: 50.0,
@@ -197,33 +197,33 @@ impl Default for BeamScoringWeights {
             loose_ammo_reward: 100.0,
             hazard_proximity_reward: 5.0,
             situation_exposure_penalty: 100.0,
-            system_disabled_penalty: 100000.0,
+            system_disabled_penalty: 250000.0,
             shooting_reward: 10000.0,
 
             scavenger_reward: 5000.0,
             repair_proximity_reward: 2000.0,
-            cargo_repair_incentive: 10.0,
+            cargo_repair_incentive: 150000.0,
             cargo_repair_proximity_reward: 5.0,
             item_juggling_penalty: 50000.0,
             situation_exponent: 2.0,
 
             boss_level_reward: 1000000.0,
             turn_penalty: 50.0,
-            step_penalty: 500.0,
+            step_penalty: 300.0,
             checkmate_system_bonus: 50000.0,
 
-            checkmate_threshold: 20.0,
+            checkmate_threshold: 3.0,
             checkmate_multiplier: 100.0,
             checkmate_max_mult: 2000.0,
 
             // Critical State
-            critical_hull_threshold: 15.0,
+            critical_hull_threshold: 12.0,
             critical_hull_penalty_base: 20000.0,
             critical_hull_penalty_per_hp: 100000.0,
             critical_fire_threshold: 2,
             critical_fire_penalty_per_token: 2000.0,
             critical_system_hazard_penalty: 100000.0,
-            fire_in_critical_hull_penalty: 500000.0,
+            fire_in_critical_hull_penalty: 1000000.0,
             critical_survival_mult: 0.4,
             critical_threat_mult: 5.0,
 
@@ -240,7 +240,7 @@ impl Default for BeamScoringWeights {
 
             fire_panic_threshold_base: 2.0,
             fire_panic_threshold_hull_scaling: 5.0,
-            survival_only_multiplier: 0.5,
+            survival_only_multiplier: 0.4,
 
             // Multipliers
             fire_urgency_mult: 5.0,
@@ -251,8 +251,8 @@ impl Default for BeamScoringWeights {
             gunner_wheelbarrow_penalty: 0.1,
             baker_wheelbarrow_mult: 2.0,
 
-            threat_severe_reward: 2000.0,
-            threat_mitigated_reward: 500.0,
+            threat_severe_reward: 100000.0,
+            threat_mitigated_reward: 10000.0,
             threat_hull_risk_mult: 0.5,
             threat_shield_waste_penalty: 100.0,
 
@@ -275,8 +275,8 @@ impl Default for BeamScoringWeights {
             firefighter_panic_scaling: 9.0,
 
             bake_reward: 5000.0,
-            low_boss_hp_reward: 1000000.0,
-            blocking_situation_multiplier: 10.0,
+            low_boss_hp_reward: 5000000.0,
+            blocking_situation_multiplier: 50.0,
         }
     }
 }
@@ -383,10 +383,10 @@ pub fn score_static(
 
     let projected_hull =
         state.hull_integrity - fire_damage as i32 - (fire_spread_sources as f64 * weights.fire_spread_projected_damage) as i32;
-    // If fires will kill us this round, it's over.
-    if projected_hull <= 0 {
-        details.total = weights.game_over_score;
-        return details;
+    // If fires will kill us this round, apply massive penalty but don't prune yet.
+    // This allows "death or glory" plays to win before the fire damage applies.
+    if projected_hull <= 0 && state.phase != GamePhase::Victory {
+        details.panic += weights.game_over_score;
     }
 
     // Use PROJECTED hull for scaling
@@ -518,6 +518,7 @@ pub fn score_static(
             weights.survival_only_multiplier
         };
         details.offense *= dampening;
+        details.situations *= dampening;
     }
 
     if state.enemy.hp <= 0 {
@@ -716,7 +717,7 @@ pub fn score_static(
                 1.0 + (MAX_HULL as f64 - state.hull_integrity as f64).powf(1.2) / 10.0;
             if is_severe {
                 details.threats +=
-                    weights.threat_severe_reward * hull_urgency_mult * survival_multiplier; // High value for mitigating a real threat
+                    weights.threat_severe_reward * hull_urgency_mult * hazard_multiplier; // High value for mitigating a real threat
             } else {
                 details.threats += weights.threat_mitigated_reward; // Small value for safety
             }
@@ -955,10 +956,10 @@ pub fn score_static(
             let panic_mult = 1.0 + (missing_hull_percent * weights.firefighter_panic_scaling);
 
             if best_target_dist == 0 {
-                emergency_score += weights.firefighter_base_reward * panic_mult * hazard_multiplier;
+                emergency_score += (weights.firefighter_base_reward / 2.0) * panic_mult * hazard_multiplier;
             } else {
                 emergency_score += (20.0 - best_target_dist as f64).max(0.0)
-                    * weights.firefighter_distance_factor
+                    * (weights.firefighter_distance_factor / 2.0)
                     * panic_mult
                     * hazard_multiplier;
             }
@@ -966,7 +967,7 @@ pub fn score_static(
             // Critical Bonus (was "Targeted Repair")
             if is_critical_target {
                 emergency_score += (20.0 - best_target_dist as f64).max(0.0)
-                    * weights.repair_proximity_reward
+                    * (weights.repair_proximity_reward / 2.0)
                     * hazard_multiplier;
             }
 

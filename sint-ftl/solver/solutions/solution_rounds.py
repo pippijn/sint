@@ -180,67 +180,185 @@ def r12(players, rounds_log):
 def r13(players, rounds_log):
     p1, p2, p3, p4, p5, p6 = players
     with RoundScope(players, rounds_log):
-        # Move costs +1 due to Rudderless (Total 2 AP per move)
-        # P1: Solve Man Overboard in Room 1 (Moves: 2x2=4, Interact: 1) = 5 AP
-        p1.action("Move 0"); p1.action("Move 1"); p1.action("Interact"); p1.action("Pass")
-        # P2, P3, P4: Repair Hull in Room 3
-        p2.action("Move 0"); p2.action("Move 3"); p2.action("Repair"); p2.action("Pass")
-        p3.action("Move 0"); p3.action("Move 3"); p3.action("Repair"); p3.action("Pass")
-        p4.action("Move 0"); p4.action("Move 3"); p4.action("Repair"); p4.action("Pass")
+        # Rest Round: 6 AP each. No hazards present. Hull starts at 15. Max is 20.
+        # P1: Solve Man Overboard in Room 1 (Moves 2, Interact 1, Moves to 3: 2, Repair 1) = 6 AP. Hull 15 -> 16.
+        p1.action("Move 0"); p1.action("Move 1"); p1.action("Interact")
+        p1.action("Move 0"); p1.action("Move 3"); p1.action("Repair")
+        # P2: Repair in Room 3 (Moves 2, Repair 4) = 6 AP. Hull 16 -> 20.
+        p2.action("Move 0"); p2.action("Move 3"); p2.action("Repair"); p2.action("Repair"); p2.action("Repair"); p2.action("Repair")
+        # P3: To Bridge (Room 7) (Moves 2, Pass)
+        p3.action("Move 0"); p3.action("Move 7"); p3.action("Pass")
+        # P4: Stay in Room 0 or move to Room 8 (Sickbay) to heal if needed
+        p4.action("Move 0"); p4.action("Move 8"); p4.action("Pass")
         # P5, P6: Reload in Room 5
-        p5.action("Move 0"); p5.action("Move 5"); p5.action("Bake"); p5.action("Pass")
-        p6.action("Move 0"); p6.action("Move 5"); p6.action("PickUp Peppernut"); p6.action("Pass")
+        p5.action("Move 0"); p5.action("Move 5"); p5.action("Bake"); p5.action("PickUp Peppernut"); p5.action("Move 0"); p5.action("Pass")
+        p6.action("Move 0"); p6.action("Move 5"); p6.action("PickUp Peppernut"); p6.action("Move 0"); p6.action("Pass")
 
 def r14(players, rounds_log):
     p1, p2, p3, p4, p5, p6 = players
     with RoundScope(players, rounds_log):
-        # P3 to Bridge
+        # P3 to Bridge (Room 7)
         p3.action("Move 0"); p3.action("Move 7")
-        # P1, P2, P4 to Kitchen
+        # P4 to Engine (Room 4) - wait, check where extinguisher is.
+        # P4 already has extinguisher.
+        # P1, P2 to Kitchen (Room 5)
         p1.action("Move 0"); p1.action("Move 5")
         p2.action("Move 0"); p2.action("Move 5")
-        p4.action("Move 0"); p4.action("Move 5")
-        # P5, P6 to Cannons
+        # P5, P6 to Cannons (Room 6)
         p5.action("Move 0"); p5.action("Move 6")
         p6.action("Move 0"); p6.action("Move 6")
+        # P4 moves to Room 3 (Cargo) to prepare for fires
+        p4.action("Move 0"); p4.action("Move 3")
 
 def r15(players, rounds_log):
     p1, p2, p3, p4, p5, p6 = players
     with RoundScope(players, rounds_log):
-        # P3 shields
+        # P3 raises shields
         p3.action("RaiseShields")
-        # P1, P2, P4 reload
+        # P4 clears fire in Room 3 (Wait, Room 2 was targeted, but fires spread)
+        # Actually Room 3 is hit often.
+        p4.action("Extinguish"); p4.action("Repair")
+        # P1, P2 reload
         p1.action("PickUp Peppernut"); p1.action("Move 0")
         p2.action("PickUp Peppernut"); p2.action("Move 0")
-        p4.action("PickUp Peppernut"); p4.action("Move 0")
-        # P5, P6 shoot
-        p5.action("Shoot"); p5.action("Pass")
+        # P5 clears jam
+        p5.action("Interact"); p5.action("Pass")
+        # P6 shoots
         p6.action("Shoot"); p6.action("Pass")
 
 def r16(players, rounds_log):
     p1, p2, p3, p4, p5, p6 = players
     with RoundScope(players, rounds_log):
-        # P3 shields
-        p3.action("RaiseShields")
-        # P1, P2, P4 move to 6 and shoot
+        # Blown to Room 0
+        p3.action("Move 7"); p3.action("Pass")
+        # P4 moves to Room 3
+        p4.action("Move 3"); p4.action("Pass")
+        # P1, P2 move to Cannons
         p1.action("Move 6"); p1.action("Shoot")
         p2.action("Move 6"); p2.action("Shoot")
-        p4.action("Move 6"); p4.action("Shoot")
-        # P5, P6 reload? (Kitchen is empty, Storage has nuts)
-        p5.action("Move 0"); p5.action("Move 9")
-        p6.action("Move 0"); p6.action("Move 9")
+        # P5 clears fires in Room 0 or 9
+        p5.action("Extinguish"); p5.action("Pass")
+        # P6 reload
+        p6.action("Move 5"); p6.action("Bake")
 
 def r17(players, rounds_log):
     p1, p2, p3, p4, p5, p6 = players
     with RoundScope(players, rounds_log):
-        # P3 shields
+        # P3 raises shields
         p3.action("RaiseShields")
-        # P5, P6 reload from Storage
-        p5.action("PickUp Peppernut"); p5.action("Move 0")
+        # P4 clears Cargo
+        p4.action("Extinguish"); p4.action("Repair")
+        # P1, P2 shoot
+        p1.action("Shoot"); p1.action("Pass")
+        p2.action("Shoot"); p2.action("Pass")
+        # P5 clears fire in 9
+        p5.action("Move 9"); p5.action("Extinguish")
+        # P6 pick nut
         p6.action("PickUp Peppernut"); p6.action("Move 0")
-        # Others shoot remaining Super Peppernuts (Recipe gave 2 each)
+
+def r18(players, rounds_log):
+    p1, p2, p3, p4, p5, p6 = players
+    with RoundScope(players, rounds_log):
+        # P3 raises shields
+        p3.action("RaiseShields")
+        # P5, P6 already in Room 0. move to Sickbay (Room 8)
+        p5.action("Move 8"); p5.action("Pass")
+        p6.action("Move 8"); p6.action("Pass")
+        # P1, P2, P4 move to reload
+        p1.action("Move 0"); p1.action("Move 5")
+        p2.action("Move 0"); p2.action("Move 5")
+        p4.action("Move 0"); p4.action("Move 9")
+
+def r19(players, rounds_log):
+    p1, p2, p3, p4, p5, p6 = players
+    with RoundScope(players, rounds_log):
+        # Storm blew everyone to Room 0.
+        # P3 moves to Bridge (Room 7)
+        p3.action("Move 7"); p3.action("Pass")
+        # P5, P6 move to Sickbay (Room 8)
+        p5.action("Move 8"); p5.action("Pass")
+        p6.action("Move 8"); p6.action("Pass")
+        # Reloading
+        p1.action("Move 5"); p1.action("PickUp Peppernut")
+        p2.action("Move 5"); p2.action("PickUp Peppernut")
+        p4.action("Move 9"); p4.action("PickUp Peppernut")
+
+def r20(players, rounds_log):
+    p1, p2, p3, p4, p5, p6 = players
+    with RoundScope(players, rounds_log):
+        # P3 raises shields
+        p3.action("RaiseShields")
+        # P5, P6 heal in Sickbay
+        p5.action("FirstAid P5"); p5.action("Move 0")
+        p6.action("FirstAid P6"); p6.action("Move 0")
+        # P1, P2, P4 move to Cannons (Room 6)
+        p1.action("Move 0"); p1.action("Move 6")
+        p2.action("Move 0"); p2.action("Move 6")
+        p4.action("Move 0"); p4.action("Move 6")
+
+def r21(players, rounds_log):
+    p1, p2, p3, p4, p5, p6 = players
+    with RoundScope(players, rounds_log):
+        # P3 raises shields
+        p3.action("RaiseShields")
+        # P5 moves to Cargo (Room 3) to clear hazards
+        p5.action("Move 3"); p5.action("Extinguish")
+        # P6 moves to reload
+        p6.action("Move 5"); p6.action("Bake")
+        # P1, P2, P4 shoot
         p1.action("Shoot"); p1.action("Pass")
         p2.action("Shoot"); p2.action("Pass")
         p4.action("Shoot"); p4.action("Pass")
 
-rounds_list = [r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15, r16, r17]
+def r22(players, rounds_log):
+    p1, p2, p3, p4, p5, p6 = players
+    with RoundScope(players, rounds_log):
+        # P3 raises shields
+        p3.action("RaiseShields")
+        # P5 clears Cargo
+        p5.action("Repair"); p5.action("Repair")
+        # P6 picks up nut and moves to 0
+        p6.action("PickUp Peppernut"); p6.action("Move 0")
+        # P1, P2, P4 move to reload
+        p1.action("Move 0"); p1.action("Move 5")
+        p2.action("Move 0"); p2.action("Move 5")
+        p4.action("Move 0"); p4.action("Move 9")
+
+def r23(players, rounds_log):
+    p1, p2, p3, p4, p5, p6 = players
+    with RoundScope(players, rounds_log):
+        # P3 raises shields
+        p3.action("RaiseShields")
+        # P5 repairs hull
+        p5.action("Repair"); p5.action("Repair")
+        # Reloading
+        p1.action("PickUp Peppernut"); p1.action("Move 0")
+        p2.action("PickUp Peppernut"); p2.action("Move 0")
+        p4.action("PickUp Peppernut"); p4.action("Move 0")
+        # P6 moves to shoot
+        p6.action("Move 6"); p6.action("Shoot")
+
+def r24(players, rounds_log):
+    p1, p2, p3, p4, p5, p6 = players
+    with RoundScope(players, rounds_log):
+        # P3 raises shields
+        p3.action("RaiseShields")
+        # Final shots
+        p1.action("Move 6"); p1.action("Shoot")
+        p2.action("Move 6"); p2.action("Shoot")
+        p4.action("Move 6"); p4.action("Shoot")
+        p6.action("Shoot"); p6.action("Pass")
+        p5.action("Repair"); p5.action("Repair")
+
+def r25(players, rounds_log):
+    p1, p2, p3, p4, p5, p6 = players
+    with RoundScope(players, rounds_log):
+        # P3 raises shields
+        p3.action("RaiseShields")
+        p1.action("Shoot"); p1.action("Pass")
+        p2.action("Shoot"); p2.action("Pass")
+        p4.action("Shoot"); p4.action("Pass")
+        p6.action("Pass")
+        p5.action("Repair"); p5.action("Pass")
+
+rounds_list = [r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15, r16, r17, r18, r19, r20, r21, r22, r23, r24, r25]
