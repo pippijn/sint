@@ -171,7 +171,7 @@ impl Default for BeamScoringWeights {
             water_penalty: 1.0,
 
             // Situations & Threats
-            active_situation_penalty: 1.0,
+            active_situation_penalty: 50000.0,
             threat_player_penalty: 5.0,
             threat_system_penalty: 50.0,
             death_penalty: 0.5,
@@ -287,7 +287,7 @@ impl Default for BeamScoringWeights {
 
             bake_reward: 1000.0,
             low_boss_hp_reward: 100000.0,
-            blocking_situation_multiplier: 100.0,
+            blocking_situation_multiplier: 500.0,
         }
     }
 }
@@ -399,21 +399,14 @@ pub fn score_static(
         .map(|r| r.hazards.iter().filter(|h| **h == HazardType::Fire).count())
         .sum();
 
-    // PROJECTED DAMAGE: System health loss and potential hull explosion.
-    let mut fire_hull_damage = 0;
-    for room in state.map.rooms.values() {
-        let cnt = room
-            .hazards
-            .iter()
-            .filter(|h| **h == HazardType::Fire)
-            .count() as u32;
-        if cnt > 0 && room.system_health > 0 {
-            if room.system_health <= cnt {
-                fire_hull_damage += 1;
-            }
-        }
-    }
-    let fire_damage = fire_hull_damage;
+    // PROJECTED DAMAGE: Structural Burn
+    // If a room contains Fire at the end of the round, the ship takes -1 Hull Damage.
+    let fire_damage = state
+        .map
+        .rooms
+        .values()
+        .filter(|r| r.hazards.contains(&HazardType::Fire))
+        .count();
 
     let mut telegraphed_hull_damage = 0;
     if let Some(attack) = &state.enemy.next_attack
@@ -707,11 +700,19 @@ pub fn score_static(
                 sys,
                 SystemType::Engine | SystemType::Cannons | SystemType::Bridge
             ) {
-                let has_disabling_hazard =
-                    room.is_broken || room.hazards.contains(&HazardType::Water);
+                let has_disabling_hazard = room.is_broken
+                    || room.hazards.contains(&HazardType::Water)
+                    || room.hazards.contains(&HazardType::Fire);
 
-                // Penalty for the system being currently disabled
-                if has_disabling_hazard {
+                let is_blocked_by_situation = state.active_situations.iter().any(|card| {
+                    card.solution
+                        .as_ref()
+                        .map(|s| s.target_system == Some(sys))
+                        .unwrap_or(false)
+                });
+
+                // Penalty for the system being currently disabled or blocked
+                if has_disabling_hazard || is_blocked_by_situation {
                     details.hazards -= weights.system_disabled_penalty
                         * weights.system_importance_multiplier
                         * hull_penalty_scaler;
@@ -996,6 +997,24 @@ pub fn score_static(
             let mut gunner_score = 0.0;
             let dist = distances.min_distance(p.room_id, &cannon_rooms);
 
+            // Check if Cannons are operational
+            let cannon_operational = cannon_rooms.iter().any(|&rid| {
+                if let Some(r) = state.map.rooms.get(&rid) {
+                    let is_blocked = state.active_situations.iter().any(|card| {
+                        card.solution
+                            .as_ref()
+                            .map(|s| s.target_system == Some(SystemType::Cannons))
+                            .unwrap_or(false)
+                    });
+                    !r.is_broken
+                        && !r.hazards.contains(&HazardType::Fire)
+                        && !r.hazards.contains(&HazardType::Water)
+                        && !is_blocked
+                } else {
+                    false
+                }
+            });
+
             // Distance heuristic: Pull players with ammo to cannons
             // Note: Not multiplied by peppernuts to prevent hoarding abuse
             gunner_score += (weights.gunner_dist_range - dist as f64).max(0.0)
@@ -1007,12 +1026,8 @@ pub fn score_static(
                 gunner_score +=
                     weights.gunner_per_ammo * peppernuts as f64 + weights.gunner_base_reward;
                 // Bonus if Cannons system is working
-                for &rid in &cannon_rooms {
-                    if let Some(r) = state.map.rooms.get(&rid)
-                        && !r.hazards.contains(&HazardType::Fire)
-                    {
-                        gunner_score += weights.gunner_working_bonus;
-                    }
+                if cannon_operational {
+                    gunner_score += weights.gunner_working_bonus;
                 }
             } else {
                 // En route: Small reward per nut to encourage picking up, but not hoarding
@@ -1023,6 +1038,11 @@ pub fn score_static(
             if has_wheelbarrow && peppernuts < 5 {
                 gunner_score *= weights.gunner_wheelbarrow_penalty;
             }
+
+            if !cannon_operational {
+                gunner_score *= 0.1; // Drastically reduce value if cannon can't fire
+            }
+
             details.logistics += gunner_score;
 
             // NEW: Potential Damage (Static Reward for holding ammo)
@@ -1034,6 +1054,11 @@ pub fn score_static(
             if state.enemy.hp == 1 {
                 pot_damage *= 100.0;
             }
+
+            if !cannon_operational {
+                pot_damage = 0.0; // No potential damage if cannon is jammed/broken
+            }
+
             details.offense += pot_damage;
         }
 

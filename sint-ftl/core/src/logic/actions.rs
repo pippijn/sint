@@ -11,10 +11,19 @@ use rand::{Rng, SeedableRng, rngs::StdRng};
 use uuid::Uuid;
 
 fn deterministic_uuid(state: &mut GameState) -> Uuid {
-    let mut rng = StdRng::seed_from_u64(state.rng_seed);
+    // We use a combination of the main seed, the current queue length, and the sequence ID
+    // to generate a stable but unique UUID for each proposed action WITHOUT advancing
+    // the main rng_seed. This keeps the planning phase "safe".
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    use std::hash::Hash;
+    state.rng_seed.hash(&mut hasher);
+    state.proposal_queue.len().hash(&mut hasher);
+    state.sequence_id.hash(&mut hasher);
+    let hash = std::hash::Hasher::finish(&hasher);
+
+    let mut rng = StdRng::seed_from_u64(hash);
     let mut bytes = [0u8; 16];
     rng.fill(&mut bytes);
-    state.rng_seed = rng.random();
 
     // Set UUID v4 bits manually to ensure it looks valid
     bytes[6] = (bytes[6] & 0x0f) | 0x40; // Version 4
@@ -504,7 +513,12 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
                 resolution::process_round_end(&mut state);
 
                 // Check for Game Over after card effects
-                if state.hull_integrity <= 0 {
+                let crew_wiped = state
+                    .players
+                    .values()
+                    .all(|p| p.status.contains(&PlayerStatus::Fainted));
+
+                if state.hull_integrity <= 0 || crew_wiped {
                     state.phase = GamePhase::GameOver;
                     return Ok(state);
                 }
