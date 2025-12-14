@@ -12,6 +12,12 @@ fn test_ap_reset_on_round_transition() {
     let mut driver = GameDriver::new(state);
     assert_eq!(driver.state.phase, GamePhase::TacticalPlanning);
 
+    // Clear situations to ensure deterministic AP
+    driver.state.active_situations.clear();
+    for p in driver.state.players.values_mut() {
+        p.ap = 2;
+    }
+
     let turn = driver.state.turn_count;
 
     // Everyone passes
@@ -54,6 +60,7 @@ fn test_ap_reset_after_boss_defeat() {
     state.enemy.hp = 1;
 
     let mut driver = GameDriver::new(state);
+    driver.state.active_situations.clear();
 
     // Shoot boss
     // We need a hit. ShootHandler uses RNG.
@@ -91,7 +98,7 @@ fn test_ap_reset_after_boss_defeat() {
 
 #[test]
 fn test_faint_and_respawn_ap() {
-    let player_ids = vec!["P1".to_owned()];
+    let player_ids = vec!["P1".to_owned(), "P2".to_owned()];
     let seed = 2236;
     let mut state = GameLogic::new_game(player_ids.clone(), seed);
 
@@ -107,9 +114,19 @@ fn test_faint_and_respawn_ap() {
     state.players.get_mut("P1").unwrap().hp = 1;
 
     let mut driver = GameDriver::new(state);
+    driver.state.active_situations.clear();
 
-    // Pass to trigger end of round hazards
+    // P1 passes, P2 stays alive
     driver.apply("P1", GameAction::Pass).unwrap();
+    driver.apply("P2", GameAction::Pass).unwrap();
+
+    println!(
+        "Final State: Phase={:?}, Turn={}, P1 HP={}, Room={}",
+        driver.state.phase,
+        driver.state.turn_count,
+        driver.state.players["P1"].hp,
+        driver.state.players["P1"].room_id
+    );
 
     // P1 should have fainted and respawned
     let p = &driver.state.players["P1"];

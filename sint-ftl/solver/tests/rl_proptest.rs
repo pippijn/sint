@@ -71,7 +71,10 @@ proptest! {
         let pickup_act = GameAction::PickUp { item_type: ItemType::Peppernut };
         let history = [(PlayerId::from("P1"), pickup_act.clone())];
         let borrowed_history: Vec<_> = history.iter().collect();
-        let next_state = GameLogic::apply_action(current_state.clone(), "P1", Action::Game(pickup_act), None).unwrap();
+        let mut next_state = GameLogic::apply_action(current_state.clone(), "P1", Action::Game(pickup_act), None).unwrap();
+        // Resolve to ensure inventory changes are reflected in scoring
+        sint_core::logic::resolution::resolve_proposal_queue(&mut next_state, false);
+
         total_juggling_reward += score_rl(&current_state, &next_state, &borrowed_history, &weights).total;
         current_state = next_state;
 
@@ -79,7 +82,9 @@ proptest! {
         let drop_act = GameAction::Drop { item_index: 0 };
         let history = [(PlayerId::from("P1"), drop_act.clone())];
         let borrowed_history: Vec<_> = history.iter().collect();
-        let next_state = GameLogic::apply_action(current_state.clone(), "P1", Action::Game(drop_act), None).unwrap();
+        let mut next_state = GameLogic::apply_action(current_state.clone(), "P1", Action::Game(drop_act), None).unwrap();
+        sint_core::logic::resolution::resolve_proposal_queue(&mut next_state, false);
+
         total_juggling_reward += score_rl(&current_state, &next_state, &borrowed_history, &weights).total;
 
         prop_assert!(total_juggling_reward < 0.0, "Item juggling (PickUp + Drop) should be net-negative, got {}", total_juggling_reward);

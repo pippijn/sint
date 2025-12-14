@@ -151,12 +151,15 @@ pub struct BeamScoringWeights {
     pub bake_reward: f64,
     pub low_boss_hp_reward: f64,
     pub blocking_situation_multiplier: f64,
+
+    pub system_ready_bonus: f64,
+    pub wasted_defense_penalty: f64,
 }
 
 impl Default for BeamScoringWeights {
     fn default() -> Self {
         Self {
-            hull_integrity: 1000.0,
+            hull_integrity: 10000.0,
             hull_delta_penalty: 2.0,
             enemy_hp: 1000.0,
             player_hp: 1.0,
@@ -169,7 +172,7 @@ impl Default for BeamScoringWeights {
             // Hazards
             fire_penalty_base: 20000.0,
             fire_token_penalty: 2000.0,
-            water_penalty: 1.0,
+            water_penalty: 5000.0,
 
             // Situations & Threats
             active_situation_penalty: 75000.0,
@@ -192,7 +195,7 @@ impl Default for BeamScoringWeights {
             sentinel_reward: 100.0,
 
             // Anti-Oscillation
-            backtracking_penalty: 10.0,
+            backtracking_penalty: 50.0,
             commitment_bonus: 10.0,
 
             solution_solver_reward: 500.0,
@@ -208,7 +211,7 @@ impl Default for BeamScoringWeights {
             loose_ammo_reward: 100.0,
             hazard_proximity_reward: 50.0,
             situation_exposure_penalty: 0.01,
-            system_disabled_penalty: 10000.0,
+            system_disabled_penalty: 50000.0,
             shooting_reward: 500000.0,
             scavenger_reward: 100.0,
             repair_proximity_reward: 50.0,
@@ -219,8 +222,8 @@ impl Default for BeamScoringWeights {
 
             // Progression
             boss_level_reward: 100000.0,
-            turn_penalty: 2000.0,
-            step_penalty: 100.0,
+            turn_penalty: 10000.0,
+            step_penalty: 50.0,
             checkmate_system_bonus: 5000.0,
 
             // Checkmate
@@ -240,8 +243,8 @@ impl Default for BeamScoringWeights {
             critical_threat_mult: 2.0,
 
             // Exponents
-            hull_exponent: 2.0,
-            fire_exponent: 4.0,
+            hull_exponent: 1.5,
+            fire_exponent: 2.0,
             cargo_repair_exponent: 1.5,
             hull_risk_exponent: 1.2,
             panic_fire_exponent: 2.5,
@@ -290,6 +293,9 @@ impl Default for BeamScoringWeights {
             bake_reward: 1000.0,
             low_boss_hp_reward: 100000.0,
             blocking_situation_multiplier: 1000.0,
+
+            system_ready_bonus: 2000.0,
+            wasted_defense_penalty: 10000.0,
         }
     }
 }
@@ -455,6 +461,13 @@ pub fn score_static(
     // survival_multiplier: 1.0 at full health, down to critical_survival_mult at 0 health.
     let survival_multiplier = 1.0 - (missing_hull_percent * (1.0 - weights.critical_survival_mult));
 
+    // Offensive Survival Multiplier: Be more aggressive when boss is low
+    let offense_survival_multiplier = if state.enemy.hp <= 10 {
+        1.0
+    } else {
+        survival_multiplier
+    };
+
     // hazard_multiplier: 1.0 at full health, up to 1.0 / critical_survival_mult at 0 health.
     // DAMPENED: Use a lower ceiling for the hazard multiplier to prevent -100M scores.
     let hazard_multiplier = 1.0 + (missing_hull_percent * (weights.max_hazard_multiplier - 1.0));
@@ -593,7 +606,7 @@ pub fn score_static(
         * weights.enemy_hp
         * checkmate_mult
         * bloodlust_mult
-        * survival_multiplier;
+        * offense_survival_multiplier;
 
     // NEW: Low Boss HP Reward
     if state.enemy.hp > 0 && state.enemy.hp <= 5 {
@@ -879,7 +892,7 @@ pub fn score_static(
     } else {
         // No attack coming, but shields up? Wasted AP mostly, but small safety bonus
         if protected {
-            details.threats -= weights.threat_shield_waste_penalty;
+            details.threats -= weights.wasted_defense_penalty;
         }
     }
 
@@ -967,6 +980,27 @@ pub fn score_static(
             && room.hazards.is_empty()
         {
             details.logistics += weights.sentinel_reward;
+        }
+
+        // --- NEW: System Ready Bonus ---
+        if let Some(room) = state.map.rooms.get(&p.room_id)
+            && let Some(sys) = room.system
+            && !room.is_broken
+            && room.hazards.is_empty()
+        {
+            let is_ready = match sys {
+                SystemType::Cannons => p.inventory.contains(&ItemType::Peppernut),
+                SystemType::Cargo => true, // Can always repair hull if no hazards
+                SystemType::Engine => p.ap >= 2,
+                SystemType::Bridge => p.ap >= 2,
+                SystemType::Kitchen => true,
+                SystemType::Sickbay => true, // Could check if anyone needs healing but being there is good
+                _ => true,
+            };
+
+            if is_ready {
+                details.logistics += weights.system_ready_bonus;
+            }
         }
 
         // Dynamic Role Override: Critical Health (Seek Healing)
@@ -1365,7 +1399,7 @@ pub fn score_static(
     for (idx, item) in history.iter().enumerate() {
         let (pid, act) = *item;
         if matches!(act, GameAction::Shoot) && state.enemy.hp >= 0 {
-            let mut reward = weights.shooting_reward * survival_multiplier;
+            let mut reward = weights.shooting_reward * offense_survival_multiplier;
 
             // Finishing Blow Incentive: Massive reward for a successful kill in the trajectory
             if state.enemy.hp <= 0 {
@@ -1425,13 +1459,6 @@ pub fn score_static(
             }
         }
 
-        // Inaction Penalty: Penalize repeated Pass/VoteReady by the same player
-        if matches!(act, GameAction::Pass | GameAction::VoteReady { .. })
-            && let Some(prev_act) = last_action_by_player.get(pid)
-            && matches!(prev_act, GameAction::Pass | GameAction::VoteReady { .. })
-        {
-            details.anti_oscillation -= weights.inaction_penalty;
-        }
         last_action_by_player.insert(pid.clone(), act);
 
         // Item Juggling Penalty: Penalize PickUp followed by Drop
@@ -1485,6 +1512,20 @@ pub fn score_static(
                 .push((idx, *to_room));
         }
     }
+
+    // Inaction Penalty: Penalize if NO player did anything productive in this batch
+
+    let batch_is_productive = history.iter().any(|(_actor, act)| {
+        !matches!(
+            act,
+            GameAction::Pass | GameAction::VoteReady { .. } | GameAction::Chat { .. }
+        )
+    });
+
+    if !batch_is_productive && !history.is_empty() {
+        details.anti_oscillation -= weights.inaction_penalty;
+    }
+
     for (pid, moves) in player_moves {
         if moves.len() < 3 {
             continue;

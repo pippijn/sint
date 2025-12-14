@@ -1,7 +1,8 @@
 use super::ScoreDetails;
+use sint_core::logic::actions::action_cost;
 use sint_core::logic::cards::get_behavior;
 use sint_core::types::CardSentiment;
-use sint_core::types::{GamePhase, GameState, HazardType, MAX_HULL};
+use sint_core::types::{GamePhase, GameState, HazardType};
 
 #[derive(Debug, Clone)]
 pub struct RlScoringWeights {
@@ -9,33 +10,49 @@ pub struct RlScoringWeights {
     pub defeat_penalty: f64,
     pub boss_damage_reward: f64,
     pub hull_damage_penalty: f64,
-    pub fire_extinguish_reward: f64,
+    pub hazard_cleanup_reward: f64,
     pub system_repair_reward: f64,
+    pub system_health_restore_reward: f64,
     pub situation_resolve_reward: f64,
     pub item_pickup_reward: f64,
     pub item_drop_penalty: f64,
-    pub shooting_reward: f64,
     pub defensive_action_reward: f64,
+    pub constant_survival_reward: f64,
     pub turn_penalty: f64,
-    pub step_penalty: f64,
+    pub step_penalty_per_ap: f64,
 }
 
 impl Default for RlScoringWeights {
     fn default() -> Self {
         Self {
+            // Ultimate goal, large enough to dominate any single trajectory.
             victory_reward: 1000.0,
+            // High penalty to discourage hull loss/crew wipe.
             defeat_penalty: -200.0,
+            // Dense signal for offensive progress; scales with enemy HP.
             boss_damage_reward: 5.0,
+            // High cost per hull point to encourage defense and repairs.
             hull_damage_penalty: 10.0,
-            fire_extinguish_reward: 1.5,
+            // Reward for extinguishing/moping; outweighs the AP cost.
+            hazard_cleanup_reward: 1.5,
+            // Reward for restoring a broken system to a functional state.
             system_repair_reward: 1.5,
+            // Incremental reward for partial system repairs (system health increase).
+            system_health_restore_reward: 0.5,
+            // Reward for solving negative card events (Situations).
             situation_resolve_reward: 5.0,
+            // Net positive (+0.3) for gathering resources after 1 AP step penalty.
             item_pickup_reward: 0.4,
-            item_drop_penalty: 0.4,
-            shooting_reward: 0.5,
+            // Anti-hacking: must be > pickup + survival (0.4 + 0.1) to make loops negative.
+            item_drop_penalty: 0.6,
+            // Immediate feedback for using shields/evasion against telegraphed threats.
             defensive_action_reward: 0.5,
-            turn_penalty: 2.0,
-            step_penalty: 0.2,
+            // Density signal for staying alive; avoids bias towards high-health states.
+            constant_survival_reward: 0.1,
+            // Discourages stalling; must be > survival bonus + turn impact.
+            turn_penalty: 2.2,
+            // Scales the time-cost of actions linearly with their AP usage.
+            step_penalty_per_ap: 0.1,
         }
     }
 }
@@ -69,11 +86,11 @@ pub fn score_rl(
     }
 
     // 3. Action-based Rewards (Dense signals from history)
-    if let Some((_pid, action)) = history.last() {
+    let mut last_ap_cost = 1;
+    if let Some((pid, action)) = history.last() {
+        last_ap_cost = action_cost(parent, pid, action);
+
         match action {
-            sint_core::types::GameAction::Shoot => {
-                details.offense += weights.shooting_reward;
-            }
             sint_core::types::GameAction::RaiseShields
             | sint_core::types::GameAction::EvasiveManeuvers => {
                 // Reward defensive actions if an attack is telegraphed
@@ -111,7 +128,34 @@ pub fn score_rl(
         .sum();
 
     if current_fire < parent_fire {
-        details.hazards += (parent_fire - current_fire) as f64 * weights.fire_extinguish_reward;
+        details.hazards += (parent_fire - current_fire) as f64 * weights.hazard_cleanup_reward;
+    }
+
+    let parent_water: usize = parent
+        .map
+        .rooms
+        .values()
+        .map(|r| {
+            r.hazards
+                .iter()
+                .filter(|h| **h == HazardType::Water)
+                .count()
+        })
+        .sum();
+    let current_water: usize = current
+        .map
+        .rooms
+        .values()
+        .map(|r| {
+            r.hazards
+                .iter()
+                .filter(|h| **h == HazardType::Water)
+                .count()
+        })
+        .sum();
+
+    if current_water < parent_water {
+        details.hazards += (parent_water - current_water) as f64 * weights.hazard_cleanup_reward;
     }
 
     let parent_broken = parent.map.rooms.values().filter(|r| r.is_broken).count();
@@ -119,6 +163,14 @@ pub fn score_rl(
 
     if current_broken < parent_broken {
         details.hazards += (parent_broken - current_broken) as f64 * weights.system_repair_reward;
+    }
+
+    let parent_health: u32 = parent.map.rooms.values().map(|r| r.system_health).sum();
+    let current_health: u32 = current.map.rooms.values().map(|r| r.system_health).sum();
+
+    if current_health > parent_health {
+        details.hazards +=
+            (current_health - parent_health) as f64 * weights.system_health_restore_reward;
     }
 
     // 5. Situations Delta
@@ -150,10 +202,11 @@ pub fn score_rl(
     if current.turn_count > parent.turn_count {
         details.progression -= weights.turn_penalty;
     }
-    details.progression -= weights.step_penalty;
+    // Scale step penalty by the AP cost of the action
+    details.progression -= (last_ap_cost as f64) * weights.step_penalty_per_ap;
 
-    // Additional "Survival" density: reward remaining alive each turn
-    details.vitals += (current.hull_integrity as f64 / MAX_HULL as f64) * 0.1;
+    // Additional "Survival" density: constant reward for remaining alive
+    details.vitals += weights.constant_survival_reward;
 
     details.total = details.vitals
         + details.hazards

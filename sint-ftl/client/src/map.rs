@@ -489,11 +489,20 @@ fn RoomCard(room: Room, ctx: GameContext, door_dir: Option<DoorDirection>) -> im
                                 } else {
                                     "#4caf50"
                                 };
-                                Either::Left(view! {
-                                    <span style=format!("font-size: 0.7em; font-weight: bold; color: {};", hp_color)>
-                                        {format!("HP: {}/{}", room.system_health, sint_core::types::SYSTEM_HEALTH)}
-                                    </span>
-                                })
+                                Either::Left(
+                                    view! {
+                                        <span style=format!(
+                                            "font-size: 0.7em; font-weight: bold; color: {};",
+                                            hp_color,
+                                        )>
+                                            {format!(
+                                                "HP: {}/{}",
+                                                room.system_health,
+                                                sint_core::types::SYSTEM_HEALTH,
+                                            )}
+                                        </span>
+                                    },
+                                )
                             } else {
                                 Either::Right(())
                             }}
