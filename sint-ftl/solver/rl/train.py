@@ -40,6 +40,9 @@ class TUICallback(BaseCallback):
             "best_reward": -float("inf"),
             "last_eval_stats": "N/A",
             "fps": 0,
+            "latest_round": 0,
+            "latest_trajectory": "N/A",
+            "latest_state_summary": "N/A",
         }
 
     def _setup_layout(self):
@@ -53,7 +56,11 @@ class TUICallback(BaseCallback):
         )
         layout["main"].split_row(
             Layout(name="left", ratio=1),
-            Layout(name="right", ratio=1),
+            Layout(name="right", ratio=2),
+        )
+        layout["right"].split_column(
+            Layout(name="eval", ratio=1),
+            Layout(name="io", ratio=2),
         )
         return layout
 
@@ -78,6 +85,7 @@ class TUICallback(BaseCallback):
         table.add_row("Total Steps", f"{self.n_calls:,}")
         table.add_row("Elapsed Time", f"{elapsed:.1f}s")
         table.add_row("Steps/sec (FPS)", f"{fps:.1f}")
+        table.add_row("Current Round", f"{self.stats['latest_round']}")
         best_reward_str = f"{self.best_mean_reward:.2f}" if self.best_mean_reward != -float("inf") else "N/A"
         table.add_row("Best Mean Reward", best_reward_str)
         
@@ -89,11 +97,23 @@ class TUICallback(BaseCallback):
         table.add_row(self.stats["last_eval_stats"])
         return Panel(table, title="[bold]Evaluation Results[/bold]", border_style="yellow")
 
+    def _get_io_panel(self):
+        grid = Table.grid(expand=True)
+        grid.add_column(style="cyan")
+        total_steps = self.stats.get("total_trajectory_steps", 0)
+        grid.add_row(f"[bold]Latest Trajectory (Last 12 of {total_steps} steps):[/bold]")
+        grid.add_row(self.stats["latest_trajectory"])
+        grid.add_row("")
+        grid.add_row("[bold]Latest State Summary:[/bold]")
+        grid.add_row(self.stats["latest_state_summary"])
+        return Panel(grid, title="[bold]Last Input/Output[/bold]", border_style="magenta")
+
     def _update_live(self):
         if self.is_tty:
             self.layout["header"].update(self._get_header())
             self.layout["left"].update(self._get_stats_panel())
-            self.layout["right"].update(self._get_eval_panel())
+            self.layout["right"]["eval"].update(self._get_eval_panel())
+            self.layout["right"]["io"].update(self._get_io_panel())
             self.layout["footer"].update(Panel(f"Training in progress... Step {self.n_calls:,} | Press 'q' to quit", border_style="white"))
         elif not self.is_tty and self.n_calls % 1000 == 0:
             elapsed = time.time() - self.start_time
@@ -182,6 +202,41 @@ class TUICallback(BaseCallback):
             self.console.print("\n[bold red]Stopping training...[/bold red]")
             return False
 
+        # Update latest state/trajectory from training_env (live progress)
+        if self.training_env is not None:
+            try:
+                # SB3 VecEnvs allow retrieving attributes from sub-environments
+                states = self.training_env.get_attr("state")
+                histories = self.training_env.get_attr("history")
+                
+                if states and states[0]:
+                    s = states[0]
+                    self.stats["latest_round"] = s.get("turn_count", 0)
+                    
+                    # State Summary
+                    self.stats["latest_state_summary"] = (
+                        f"Hull: {s['hull_integrity']} | "
+                        f"Boss HP: {s['enemy']['hp']} | "
+                        f"Phase: {s['phase']} | "
+                        f"Active Players: {sum(1 for p in s['players'].values() if p['ap'] > 0)}"
+                    )
+
+                if histories and histories[0]:
+                    # Flatten history to get a continuous list of (player, action)
+                    flat_history = [item for sublist in histories[0] for item in sublist]
+                    total_traj_steps = len(flat_history)
+                    last_12 = flat_history[-12:]
+                    
+                    log_lines = []
+                    for p, a in last_12:
+                        log_lines.append(f"  {p}: {a}")
+                    
+                    self.stats["latest_trajectory"] = "\n".join(log_lines)
+                    self.stats["total_trajectory_steps"] = total_traj_steps
+            except Exception:
+                # Attributes might not be ready in the first few calls
+                pass
+
         # Run initial evaluation on the first step
         if self.n_calls == 0:
             self.stats["last_eval_stats"] = "Running baseline evaluation..."
@@ -241,26 +296,6 @@ def main():
     # Save final model
     model.save(args.output)
     print(f"✅ Model saved to {args.output}")
-
-    # --- Final Evaluation ---
-    print("\n📊 Final Evaluation (5 Episodes):")
-    eval_env = SintEnv(num_players=args.num_players)
-    for i in range(5):
-        obs, _ = eval_env.reset()
-        done = False
-        total_reward = 0
-        steps = 0
-        while not done:
-            # Use action masks for deterministic prediction
-            action_masks = eval_env.action_masks()
-            action, _ = model.predict(obs, action_masks=action_masks, deterministic=True)
-            obs, reward, done, _, _ = eval_env.step(action)
-            total_reward += reward
-            steps += 1
-            if steps > 1000: break # Safety break
-            
-        final_state = eval_env.state
-        print(f"Episode {i+1}: Round={final_state['turn_count']}, Hull={final_state['hull_integrity']}, BossHP={final_state['enemy']['hp']}, Steps={steps}, Reward={total_reward:.1f}")
 
 if __name__ == "__main__":
     main()

@@ -82,7 +82,7 @@ class SolverBindings:
     """
 
     @classmethod
-    def verify_solution(cls, player_ids: List[str], seed: int, rounds: List[List[Tuple[str, Any]]]) -> Dict[str, Any]:
+    def verify_solution(cls, player_ids: List[str], seed: int, rounds: List[List[Tuple[str, Any]]], session_id: Optional[str] = None) -> Dict[str, Any]:
         # Convert GameAction models to dicts if they are Pydantic objects,
         # but keep them as is if they are strings or already dicts.
         rust_rounds = []
@@ -95,7 +95,7 @@ class SolverBindings:
                     round_actions.append((pid, act))
             rust_rounds.append(round_actions)
             
-        result = sint_solver.verify_solution(player_ids, seed, rust_rounds)
+        result = sint_solver.verify_solution(player_ids, seed, rust_rounds, session_id)
         return cast(Dict[str, Any], result)
 
     @classmethod

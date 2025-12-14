@@ -1618,11 +1618,7 @@ impl ScoreAccumulator {
         score += self.total_hull_integral * 10.0;
         score -= self.total_hazard_integral * 5.0;
         score -= self.total_enemy_hp_integral * 20.0;
-        if self.victory {
-            score -= self.rounds_survived as f64 * 100.0;
-        } else {
-            score += self.rounds_survived as f64 * 100.0;
-        }
+        score -= self.rounds_survived as f64 * 100.0;
         score
     }
 }

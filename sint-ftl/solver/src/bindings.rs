@@ -1,5 +1,6 @@
 #[cfg(feature = "python")]
 use crate::verification::run_verification;
+use once_cell::sync::Lazy;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 #[cfg(feature = "python")]
@@ -10,6 +11,18 @@ use pythonize::{depythonize, pythonize};
 use sint_core::logic::GameLogic;
 #[cfg(feature = "python")]
 use sint_core::types::{GameAction, GameState};
+use std::collections::HashMap;
+use std::sync::Mutex;
+
+#[cfg(feature = "python")]
+struct SessionState {
+    state: GameState,
+    history: Vec<Vec<(String, GameAction)>>,
+}
+
+#[cfg(feature = "python")]
+static SESSION_CACHE: Lazy<Mutex<HashMap<String, SessionState>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
 
 #[cfg(feature = "python")]
 fn parse_rounds(rounds_list: &Bound<'_, PyAny>) -> PyResult<Vec<Vec<(String, GameAction)>>> {
@@ -33,17 +46,67 @@ fn parse_rounds(rounds_list: &Bound<'_, PyAny>) -> PyResult<Vec<Vec<(String, Gam
 
 #[cfg(feature = "python")]
 #[pyfunction]
+#[pyo3(signature = (player_ids, seed, rounds_list, session_id=None))]
 fn verify_solution(
     py: Python,
     player_ids: Vec<String>,
     seed: u64,
     rounds_list: Bound<'_, PyAny>,
+    session_id: Option<String>,
 ) -> PyResult<Py<PyAny>> {
-    let initial_state = GameLogic::new_game(player_ids, seed);
-
     let rounds = parse_rounds(&rounds_list)?;
 
-    let result = run_verification(initial_state, rounds);
+    let initial_state = if let Some(sid) = &session_id {
+        let mut cache = SESSION_CACHE.lock().unwrap();
+        if let Some(cached) = cache.get(sid) {
+            // If the cached history is a prefix of the new rounds, we can resume
+            if rounds.starts_with(&cached.history) {
+                let state = cached.state.clone();
+                let remaining_rounds = rounds[cached.history.len()..].to_vec();
+                let result = run_verification(state.clone(), remaining_rounds);
+
+                // Update cache with the new final state
+                cache.insert(
+                    sid.clone(),
+                    SessionState {
+                        state: result.final_state.clone(),
+                        history: rounds.clone(),
+                    },
+                );
+
+                let py_result = pythonize(py, &result).map_err(|e| {
+                    PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string())
+                })?;
+
+                if !result.success {
+                    if let Some(summary) = result.failure_summary() {
+                        if let Ok(dict) = py_result.clone().cast_into::<PyDict>() {
+                            let _ = dict.set_item("failure_summary", summary);
+                        }
+                    }
+                }
+                return Ok(py_result.into());
+            }
+        }
+        // Fallback: Start from scratch and initialize cache
+        let state = GameLogic::new_game(player_ids, seed);
+        state
+    } else {
+        GameLogic::new_game(player_ids, seed)
+    };
+
+    let result = run_verification(initial_state, rounds.clone());
+
+    if let Some(sid) = session_id {
+        let mut cache = SESSION_CACHE.lock().unwrap();
+        cache.insert(
+            sid,
+            SessionState {
+                state: result.final_state.clone(),
+                history: rounds,
+            },
+        );
+    }
 
     let py_result = pythonize(py, &result)
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;

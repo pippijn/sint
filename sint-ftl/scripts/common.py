@@ -107,8 +107,8 @@ def build_bindings(force: bool = False) -> None:
 
     print('🔨 Building Python Bindings...')
     # Skip generic cargo build --all, let maturin handle it
-    run_cmd('maturin develop', cwd=os.path.join(ROOT_DIR, 'core'))
-    run_cmd('maturin develop', cwd=os.path.join(ROOT_DIR, 'solver'))
+    run_cmd('maturin develop --release', cwd=os.path.join(ROOT_DIR, 'core'))
+    run_cmd('maturin develop --release', cwd=os.path.join(ROOT_DIR, 'solver'))
     
     # Generate Python types from the new bindings
     generate_python_types()

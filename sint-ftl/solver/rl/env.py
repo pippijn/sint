@@ -4,29 +4,36 @@ from gymnasium import spaces
 import sint_core
 import sint_solver
 import json
-from typing import Optional, List, Dict, Any
+import uuid
+from typing import Optional, List, Dict, Any, Tuple
 import os
 import sys
 
 # Add the project root to sys.path to import ai/game_types.py
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(project_root)
+sys.path.append(os.path.join(project_root, "ai"))
+
 from ai.game_types import GameState, GameAction, Action, GamePhase, ItemType, HazardType, CardId, SystemType
 
 class SintEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
 
-    def __init__(self, num_players=4, seed=12345):
+    def __init__(self, num_players=6, seed=12345):
         super(SintEnv, self).__init__()
         self.num_players = num_players
         self.player_ids = [f"P{i+1}" for i in range(num_players)]
         self.initial_seed = seed
+        self.session_id = str(uuid.uuid4())
         self.state: Optional[Dict[str, Any]] = None
+        self.history: List[List[Tuple[str, Any]]] = [[]]
+        self.last_score = 0.0
         
         # Action space: 
-        self.action_space = spaces.Discrete(41)
+        self.action_space = spaces.Discrete(46)
         
         # Observation space (simplified)
-        self.observation_space = spaces.Box(low=-1000, high=1000000, shape=(185,), dtype=np.float32)
+        self.observation_space = spaces.Box(low=-1000, high=1000000, shape=(203,), dtype=np.float32)
 
     def _get_obs(self):
         if not self.state:
@@ -48,7 +55,7 @@ class SintEnv(gym.Env):
         # Rooms (10 rooms * 9 = 90)
         rooms = s['map']['rooms']
         for i in range(10):
-            room = rooms.get(i)
+            room = rooms.get(str(i)) if str(i) in rooms else rooms.get(i)
             if room:
                 obs.append(float(room['hazards'].count('Fire')))
                 obs.append(float(room['hazards'].count('Water')))
@@ -63,10 +70,10 @@ class SintEnv(gym.Env):
             else:
                 obs.extend([0.0] * 9)
         
-        # Players (4 players * 9 = 36)
+        # Players (6 players * 9 = 54)
         active_player_id = self._get_active_player_id()
         players = s['players']
-        for i in range(4):
+        for i in range(6):
             pid = f"P{i+1}"
             p = players.get(pid)
             if p:
@@ -99,6 +106,8 @@ class SintEnv(gym.Env):
     def _get_active_player_id(self):
         if not self.state: return None
         players = self.state['players']
+        # The solver logic auto-votes ready for players with 0 AP.
+        # So we only care about players who still have AP AND are not ready.
         for pid in self.player_ids:
             p = players.get(pid)
             if p and not p['is_ready'] and p['ap'] > 0:
@@ -107,50 +116,18 @@ class SintEnv(gym.Env):
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
-        if seed is None:
-            seed = self.initial_seed
+        if seed is not None:
+            self.initial_seed = seed
         
-        # Initialize game
-        self.state = sint_core.new_game(self.player_ids, seed)
+        self.history = [[]]
+        self.last_score = 0.0
         
-        # Stabilize state (advance to TacticalPlanning if needed)
-        self._stabilize()
+        # Use verify_solution to get initial state (advances to first TacticalPlanning)
+        result = sint_solver.verify_solution(self.player_ids, self.initial_seed, self.history, self.session_id)
+        self.state = result['final_state']
+        self.last_score = result['score']
         
         return self._get_obs(), {}
-
-    def _stabilize(self):
-        limit = 100
-        while limit > 0:
-            limit -= 1
-            if self.state['phase'] in ['Victory', 'GameOver']:
-                break
-            
-            active_id = self._get_active_player_id()
-            if self.state['phase'] == 'TacticalPlanning' and active_id:
-                break
-            
-            # Auto-advance
-            unready = [pid for pid, p in self.state['players'].items() if not p['is_ready']]
-            if not unready:
-                break
-                
-            if self.state['phase'] == 'TacticalPlanning':
-                for pid in unready:
-                    if self.state['players'][pid]['ap'] <= 0:
-                        self._apply_raw_action(pid, {"type": "VoteReady", "payload": {"ready": True}})
-                        break
-                else:
-                    break
-            else:
-                pid = unready[0]
-                self._apply_raw_action(pid, {"type": "VoteReady", "payload": {"ready": True}})
-                
-    def _apply_raw_action(self, player_id, action_dict):
-        try:
-            self.state = sint_core.apply_action_with_id(self.state, player_id, action_dict, None)
-            return True
-        except Exception:
-            return False
 
     def step(self, action_idx):
         active_id = self._get_active_player_id()
@@ -158,20 +135,38 @@ class SintEnv(gym.Env):
             return self._get_obs(), 0.0, True, False, {}
             
         game_action = self._map_action(action_idx, active_id)
-        success = self._apply_raw_action(active_id, game_action)
         
-        if not success:
-            reward = -10.0
-        else:
-            self._stabilize()
-            try:
-                reward = sint_solver.compute_score_rhea(self.state)
-                reward = reward / 1000.0
-            except Exception:
-                reward = 0.0
+        # Record the action
+        self.history[-1].append((active_id, game_action))
         
+        # Verify trajectory
+        result = sint_solver.verify_solution(self.player_ids, self.initial_seed, self.history, self.session_id)
+        
+        # Handle "Round advanced ... Block has extra actions" error
+        # This happens if our current action caused the round to finish and advance.
+        if result.get('error') and "Round advanced" in str(result['error']):
+            last_action = self.history[-1].pop()
+            self.history.append([last_action])
+            result = sint_solver.verify_solution(self.player_ids, self.initial_seed, self.history, self.session_id)
+
+        # Update state
+        self.state = result['final_state']
+        
+        # Reward is the delta in score
+        reward = result['score'] - self.last_score
+        self.last_score = result['score']
+        
+        # Penalty for failed actions (that were not caught by action_masks)
+        if result.get('error') and not self._is_recoverable(result['error']):
+            reward -= 10.0
+            
         done = self.state['phase'] in ['Victory', 'GameOver']
         return self._get_obs(), float(reward), done, False, {}
+
+    def _is_recoverable(self, error):
+        # Errors that just mean "round in progress" or "round finished" are fine for RL
+        err_str = str(error)
+        return "still have AP" in err_str or "Round advanced" in err_str
 
     def _map_action(self, idx, player_id):
         if idx < 10:
@@ -195,18 +190,16 @@ class SintEnv(gym.Env):
             return {"type": "PickUp", "payload": {"item_type": item_type.value}}
         elif 22 <= idx <= 26:
             return {"type": "Drop", "payload": {"item_index": int(idx - 22)}}
-        elif 27 <= idx <= 30:
+        elif 27 <= idx <= 32:
             target_id = f"P{int(idx - 27 + 1)}"
             return {"type": "Throw", "payload": {"item_index": 0, "target_player": target_id}}
-        elif 31 <= idx <= 34:
-            target_id = f"P{int(idx - 31 + 1)}"
+        elif 33 <= idx <= 38:
+            target_id = f"P{int(idx - 33 + 1)}"
             return {"type": "FirstAid", "payload": {"target_player": target_id}}
-        elif 35 <= idx <= 38:
-            target_id = f"P{int(idx - 35 + 1)}"
+        elif 39 <= idx <= 44:
+            target_id = f"P{int(idx - 39 + 1)}"
             return {"type": "Revive", "payload": {"target_player": target_id}}
-        elif idx == 39:
-            return {"type": "VoteReady", "payload": {"ready": True}}
-        elif idx == 40:
+        elif idx == 45:
             return {"type": "Pass"}
         return {"type": "Pass"}
 
@@ -214,15 +207,15 @@ class SintEnv(gym.Env):
         # For MaskablePPO
         active_id = self._get_active_player_id()
         if not active_id:
-            return np.zeros(41, dtype=bool)
+            return np.zeros(46, dtype=bool)
             
-        masks = np.zeros(41, dtype=bool)
+        masks = np.zeros(46, dtype=bool)
         valid_actions = sint_core.get_valid_actions(self.state, active_id)
         
         # valid_actions is a list of dicts like [{"type": "Move", "payload": {...}}, ...]
         valid_types = [a['type'] for a in valid_actions]
         
-        for i in range(41):
+        for i in range(46):
             act = self._map_action(i, active_id)
             if act["type"] in valid_types:
                 masks[i] = True
