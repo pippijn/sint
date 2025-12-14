@@ -159,77 +159,77 @@ pub struct BeamScoringWeights {
 impl Default for BeamScoringWeights {
     fn default() -> Self {
         Self {
-            hull_integrity: 10000.0,
-            hull_delta_penalty: 2.0,
-            enemy_hp: 1000.0,
+            hull_integrity: 20000.0,
+            hull_delta_penalty: 10000.0,
+            enemy_hp: 5000.0,
             player_hp: 1.0,
-            ap_balance: 10.0,
+            ap_balance: 20.0,
 
             // Systems
             system_health_reward: 50.0,
             system_broken_penalty: 50000.0,
 
             // Hazards
-            fire_penalty_base: 20000.0,
-            fire_token_penalty: 2000.0,
-            water_penalty: 5000.0,
+            fire_penalty_base: 75000.0,
+            fire_token_penalty: 10000.0,
+            water_penalty: 20000.0,
 
             // Situations & Threats
-            active_situation_penalty: 75000.0,
-            threat_player_penalty: 5.0,
-            threat_system_penalty: 50.0,
+            active_situation_penalty: 100000.0,
+            threat_player_penalty: 20.0,
+            threat_system_penalty: 200.0,
             death_penalty: 0.5,
 
             // Roles
             station_keeping_reward: 10.0,
-            gunner_base_reward: 1000.0,
-            gunner_per_ammo: 500.0,
-            gunner_working_bonus: 200.0,
-            gunner_distance_factor: 10.0,
+            gunner_base_reward: 2000.0,
+            gunner_per_ammo: 1000.0,
+            gunner_working_bonus: 500.0,
+            gunner_distance_factor: 20.0,
 
-            firefighter_base_reward: 5000.0,
-            firefighter_distance_factor: 500.0,
+            firefighter_base_reward: 15000.0,
+            firefighter_distance_factor: 1000.0,
 
-            healing_reward: 10.0,
+            healing_reward: 20.0,
             sickbay_distance_factor: 1.0,
-            sentinel_reward: 100.0,
+            sentinel_reward: 200.0,
 
             // Anti-Oscillation
-            backtracking_penalty: 50.0,
-            commitment_bonus: 10.0,
+            backtracking_penalty: 100.0,
+            commitment_bonus: 20.0,
 
-            solution_solver_reward: 500.0,
-            solution_distance_factor: 1.0,
-            situation_logistics_reward: 100.0,
-            situation_resolved_reward: 10000.0,
-            system_importance_multiplier: 10.0,
-            boss_killing_blow_reward: 10000000.0,
-            inaction_penalty: 5000.0,
+            solution_solver_reward: 1000.0,
+            solution_distance_factor: 2.0,
+            situation_logistics_reward: 500.0,
+            situation_resolved_reward: 25000.0,
+            system_importance_multiplier: 15.0,
+            boss_killing_blow_reward: 20000000.0,
+            inaction_penalty: 50000.0,
 
             // Logistics
-            ammo_stockpile_reward: 10000.0,
-            loose_ammo_reward: 100.0,
-            hazard_proximity_reward: 50.0,
+            ammo_stockpile_reward: 25000.0,
+            loose_ammo_reward: 200.0,
+            hazard_proximity_reward: 100.0,
             situation_exposure_penalty: 0.01,
-            system_disabled_penalty: 50000.0,
-            shooting_reward: 500000.0,
-            scavenger_reward: 100.0,
-            repair_proximity_reward: 50.0,
-            cargo_repair_incentive: 10000.0,
-            cargo_repair_proximity_reward: 100.0,
-            item_juggling_penalty: 5000.0,
-            situation_exponent: 2.0,
+            system_disabled_penalty: 75000.0,
+            shooting_reward: 1500000.0,
+            scavenger_reward: 200.0,
+            repair_proximity_reward: 100.0,
+            cargo_repair_incentive: 15000.0,
+            cargo_repair_proximity_reward: 200.0,
+            item_juggling_penalty: 10000.0,
+            situation_exponent: 2.5,
 
             // Progression
-            boss_level_reward: 100000.0,
-            turn_penalty: 10000.0,
-            step_penalty: 50.0,
-            checkmate_system_bonus: 5000.0,
+            boss_level_reward: 200000.0,
+            turn_penalty: 5000.0,
+            step_penalty: 100.0,
+            checkmate_system_bonus: 10000.0,
 
             // Checkmate
-            checkmate_threshold: 10.0,
-            checkmate_multiplier: 100000.0,
-            checkmate_max_mult: 1000000.0,
+            checkmate_threshold: 20.0,
+            checkmate_multiplier: 250000.0,
+            checkmate_max_mult: 2500000.0,
 
             // Critical State
             critical_hull_threshold: 12.0,
