@@ -326,6 +326,9 @@ fn apply_game_action(
 }
 
 fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
+    if state.phase == GamePhase::Victory || state.phase == GamePhase::GameOver {
+        return Ok(state);
+    }
     match state.phase {
         GamePhase::Lobby => {
             state.phase = GamePhase::MorningReport;
@@ -419,7 +422,9 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
             // Check if any player still has AP
             let any_ap_left = state.players.values().any(|p| p.ap > 0);
 
-            if any_ap_left {
+            if state.phase == GamePhase::Victory || state.phase == GamePhase::GameOver {
+                // Stay in terminal state
+            } else if any_ap_left {
                 // Back to Planning
                 state.phase = GamePhase::TacticalPlanning;
                 for p in state.players.values_mut() {
