@@ -270,7 +270,7 @@ impl Player {
             5
         } else {
             let used_slots = self.special_item_count();
-            if used_slots >= 2 { 0 } else { 2 - used_slots }
+            2_usize.saturating_sub(used_slots)
         }
     }
 

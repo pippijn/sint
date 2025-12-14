@@ -1,5 +1,6 @@
 #[cfg(feature = "python")]
 use crate::verification::run_verification;
+#[cfg(feature = "python")]
 use once_cell::sync::Lazy;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
@@ -11,7 +12,9 @@ use pythonize::{depythonize, pythonize};
 use sint_core::logic::GameLogic;
 #[cfg(feature = "python")]
 use sint_core::types::{GameAction, GameState};
+#[cfg(feature = "python")]
 use std::collections::HashMap;
+#[cfg(feature = "python")]
 use std::sync::Mutex;
 
 #[cfg(feature = "python")]

@@ -632,10 +632,10 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
             actions.push(Action::Game(GameAction::VoteReady { ready: true }));
             // Use ORIGINAL state AP for Pass. If they queued actions, they can't Pass
             // until they either Undo them or resolve them.
-            if let Some(p_orig) = state.players.get(player_id) {
-                if p_orig.ap > 0 {
-                    actions.push(Action::Game(GameAction::Pass));
-                }
+            if let Some(p_orig) = state.players.get(player_id)
+                && p_orig.ap > 0
+            {
+                actions.push(Action::Game(GameAction::Pass));
             }
         }
         _ => {}

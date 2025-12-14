@@ -67,13 +67,8 @@ pub fn score_rl(
     }
 
     // 3. Action-based Rewards (Dense signals from history)
-    if let Some((_pid, action)) = history.last() {
-        match action {
-            sint_core::types::GameAction::Shoot => {
-                details.offense += weights.shooting_reward;
-            }
-            _ => {}
-        }
+    if let Some((_pid, sint_core::types::GameAction::Shoot)) = history.last() {
+        details.offense += weights.shooting_reward;
     }
 
     // 3. Hull Integrity Delta

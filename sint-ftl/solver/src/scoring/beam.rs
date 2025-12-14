@@ -192,7 +192,7 @@ impl Default for BeamScoringWeights {
             sentinel_reward: 100.0,
 
             // Anti-Oscillation
-            backtracking_penalty: 50.0,
+            backtracking_penalty: 10.0,
             commitment_bonus: 10.0,
 
             solution_solver_reward: 500.0,
@@ -201,7 +201,7 @@ impl Default for BeamScoringWeights {
             situation_resolved_reward: 10000.0,
             system_importance_multiplier: 10.0,
             boss_killing_blow_reward: 10000000.0,
-            inaction_penalty: 5000.0,
+            inaction_penalty: 20000.0,
 
             // Logistics
             ammo_stockpile_reward: 10000.0,
@@ -209,7 +209,7 @@ impl Default for BeamScoringWeights {
             hazard_proximity_reward: 50.0,
             situation_exposure_penalty: 0.01,
             system_disabled_penalty: 10000.0,
-            shooting_reward: 1000000.0,
+            shooting_reward: 2000000.0,
             scavenger_reward: 100.0,
             repair_proximity_reward: 50.0,
             cargo_repair_incentive: 10000.0,
@@ -219,7 +219,7 @@ impl Default for BeamScoringWeights {
 
             // Progression
             boss_level_reward: 100000.0,
-            turn_penalty: 2000.0,
+            turn_penalty: 10000.0,
             step_penalty: 1.0,
             checkmate_system_bonus: 5000.0,
 
@@ -262,7 +262,7 @@ impl Default for BeamScoringWeights {
             gunner_en_route_mult: 0.2,
             gunner_wheelbarrow_penalty: 0.1,
             baker_wheelbarrow_mult: 3.0,
-            gunner_coordination_bonus: 10000.0,
+            gunner_coordination_bonus: 100000.0,
 
             threat_severe_reward: 5000.0,
             threat_mitigated_reward: 100.0,
@@ -306,8 +306,8 @@ pub fn calculate_score(
     details += score_transition(parent, current, weights);
 
     // Meaningful Action Bonus: Reward productive actions
-    if let Some((_pid, action)) = history.last() {
-        if matches!(
+    if let Some((_pid, action)) = history.last()
+        && matches!(
             action,
             GameAction::Extinguish
                 | GameAction::Repair
@@ -317,10 +317,10 @@ pub fn calculate_score(
                 | GameAction::EvasiveManeuvers
                 | GameAction::FirstAid { .. }
                 | GameAction::Revive { .. }
-        ) {
-            details.logistics += 50.0;
-            details.total += 50.0;
-        }
+        )
+    {
+        details.logistics += 50.0;
+        details.total += 50.0;
     }
 
     // Commitment Bonus: Reward moving towards hazards
@@ -507,9 +507,8 @@ pub fn score_static(
                     checkmate_mult *= 0.5;
                 }
             } else if (state.enemy.hp as f64) > 2.0 {
-                let survival_factor = (projected_hull as f64 / weights.critical_hull_threshold)
-                    .max(0.2)
-                    .min(1.0);
+                let survival_factor =
+                    (projected_hull as f64 / weights.critical_hull_threshold).clamp(0.2, 1.0);
                 checkmate_mult *= survival_factor;
 
                 if (state.enemy.hp as f64) > weights.critical_survival_boss_hp_threshold {
@@ -518,7 +517,7 @@ pub fn score_static(
             } else {
                 // Boss is at 1-2 HP and we are NOT dead yet. GO FOR IT.
                 // But scale by health to ensure we don't start next boss at 1 HP.
-                let survival_factor = (projected_hull as f64 / MAX_HULL as f64).max(0.1).min(1.0);
+                let survival_factor = (projected_hull as f64 / MAX_HULL as f64).clamp(0.1, 1.0);
                 checkmate_mult *= 1.5 * survival_factor;
             }
         }
@@ -961,14 +960,13 @@ pub fn score_static(
         // --- NEW: Sentinel Reward ---
         if let Some(room) = state.map.rooms.get(&p.room_id)
             && let Some(sys) = room.system
-        {
-            if matches!(
+            && matches!(
                 sys,
                 SystemType::Cannons | SystemType::Engine | SystemType::Bridge
-            ) && room.hazards.is_empty()
-            {
-                details.logistics += weights.sentinel_reward;
-            }
+            )
+            && room.hazards.is_empty()
+        {
+            details.logistics += weights.sentinel_reward;
         }
 
         // Dynamic Role Override: Critical Health (Seek Healing)
@@ -1348,14 +1346,14 @@ pub fn score_static(
     details.logistics += total_nuts as f64 * 500.0;
 
     // Kitchen Proximity: Pull players towards kitchen if ammo is low
-    if total_nuts < 10 {
-        if let Some(kitchen_id) = find_room_with_system(state, SystemType::Kitchen) {
-            let mut k_set = HashSet::new();
-            k_set.insert(kitchen_id);
-            for p in state.players.values() {
-                let d = distances.min_distance(p.room_id, &k_set);
-                details.logistics += (20.0 - d as f64).max(0.0) * 100.0;
-            }
+    if total_nuts < 10
+        && let Some(kitchen_id) = find_room_with_system(state, SystemType::Kitchen)
+    {
+        let mut k_set = HashSet::new();
+        k_set.insert(kitchen_id);
+        for p in state.players.values() {
+            let d = distances.min_distance(p.room_id, &k_set);
+            details.logistics += (20.0 - d as f64).max(0.0) * 100.0;
         }
     }
 
@@ -1389,14 +1387,14 @@ pub fn score_static(
 
         if matches!(act, GameAction::Bake) {
             let mut nuts_in_room = 0;
-            if let Some(room_id) = state.players.get(pid).map(|p| p.room_id) {
-                if let Some(room) = state.map.rooms.get(&room_id) {
-                    nuts_in_room = room
-                        .items
-                        .iter()
-                        .filter(|i| **i == ItemType::Peppernut)
-                        .count();
-                }
+            if let Some(room_id) = state.players.get(pid).map(|p| p.room_id)
+                && let Some(room) = state.map.rooms.get(&room_id)
+            {
+                nuts_in_room = room
+                    .items
+                    .iter()
+                    .filter(|i| **i == ItemType::Peppernut)
+                    .count();
             }
             if nuts_in_room < 10 {
                 let mut b_reward = weights.bake_reward;
@@ -1444,11 +1442,11 @@ pub fn score_static(
                 if prev_pid != pid {
                     // Special case: Someone else threw an item to us.
                     // If we drop it immediately, it's juggling.
-                    if let GameAction::Throw { target_player, .. } = prev_act {
-                        if target_player == pid {
-                            found_pickup = true;
-                            break;
-                        }
+                    if let GameAction::Throw { target_player, .. } = prev_act
+                        && target_player == pid
+                    {
+                        found_pickup = true;
+                        break;
                     }
                     continue;
                 }

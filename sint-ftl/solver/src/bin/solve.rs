@@ -131,7 +131,7 @@ fn save_solution(sol: &SearchNode, args: &Args) {
         let history = sol.get_history();
 
         for (pid, action) in history {
-            if let Ok(_) = driver.apply(pid, action.clone()) {
+            if driver.apply(pid, action.clone()).is_ok() {
                 if driver.state.turn_count > last_round {
                     scorer.on_round_end(&driver.state);
                     last_round = driver.state.turn_count;

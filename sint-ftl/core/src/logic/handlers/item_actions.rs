@@ -86,12 +86,10 @@ impl ActionHandler for DropHandler {
 
         // Cannot drop Wheelbarrow if holding excess Peppernuts
         let item_to_drop = &p.inventory[self.item_index];
-        if *item_to_drop == ItemType::Wheelbarrow {
-            if p.peppernut_count() > 2 {
-                return Err(GameError::InvalidAction(
-                    "Cannot drop Wheelbarrow while holding >2 Peppernuts".to_owned(),
-                ));
-            }
+        if *item_to_drop == ItemType::Wheelbarrow && p.peppernut_count() > 2 {
+            return Err(GameError::InvalidAction(
+                "Cannot drop Wheelbarrow while holding >2 Peppernuts".to_owned(),
+            ));
         }
         Ok(())
     }
