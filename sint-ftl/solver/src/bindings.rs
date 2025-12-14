@@ -11,15 +11,6 @@ use sint_core::types::{GameAction, GameState};
 
 #[cfg(feature = "python")]
 #[pyfunction]
-fn format_game_state(_py: Python, state_dict: Bound<'_, PyAny>) -> PyResult<String> {
-    let state: GameState = depythonize(&state_dict).map_err(|e| {
-        PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid game state: {}", e))
-    })?;
-    Ok(crate::verification::format_game_state(&state))
-}
-
-#[cfg(feature = "python")]
-#[pyfunction]
 fn verify_solution(
     py: Python,
     initial_state_dict: Bound<'_, PyAny>,
@@ -136,6 +127,5 @@ fn sint_solver(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(get_trajectory_log, m)?)?;
     m.add_function(wrap_pyfunction!(compute_score, m)?)?;
     m.add_function(wrap_pyfunction!(compute_score_rhea, m)?)?;
-    m.add_function(wrap_pyfunction!(format_game_state, m)?)?;
     Ok(())
 }

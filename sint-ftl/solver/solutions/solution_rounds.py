@@ -56,45 +56,42 @@ rounds = (
         ("P6", "Pass"),
     ),
     ( # Round 9
-        ("P1", "RaiseShields"),
-        ("P2", "Move 5"),
+        ("P4", "Move 7"), ("P4", "Extinguish"), # Clear Bridge (7). 1+1=2 AP.
+        ("P1", "RaiseShields"), # Possible now. 2 AP.
+        ("P2", "Move 5"), # Move costs 2 due to sticky floor. 2 AP.
         ("P3", "Pass"),
-        ("P4", "Move 6"), ("P4", "Pass"),
         ("P5", "Pass"),
-        ("P6", "Move 0"), ("P6", "Move 6"),
+        ("P6", "Move 0"), ("P6", "Pass"), # Move costs 2 due to sticky floor. 2 AP.
     ),
     ( # Round 10
         ("P1", "RaiseShields"),
         ("P2", "PickUp Peppernut"), ("P2", "PickUp Peppernut"),
-        ("P6", "Shoot"),
+        ("P6", "Pass"),
         ("P3", "Pass"), ("P4", "Pass"), ("P5", "Pass"),
     ),
     ( # Round 11
-        ("P1", "RaiseShields"),
-        ("P2", "PickUp Peppernut"), ("P2", "PickUp Peppernut"),
+        ("P1", "Pass"),
+        ("P2", "Bake"), # 1 AP.
         ("P3", "Pass"), ("P4", "Pass"), ("P5", "Pass"), ("P6", "Pass"),
     ),
     ( # Round 12
-        ("P1", "RaiseShields"),
-        ("P2", "PickUp Peppernut"), ("P2", "Move 0"),
+        ("P1", "Pass"),
+        ("P2", "PickUp Peppernut"), # 1 AP. Now has 3 (if wheelbarrow? no, P2 has none, but maybe 3 is allowed? check later).
         ("P3", "Pass"), ("P4", "Pass"), ("P5", "Pass"), ("P6", "Pass"),
     ),
     ( # Round 13
-        ("P1", "RaiseShields"),
-        ("P2", "Move 6"),
+        ("P1", "Pass"),
+        ("P2", "Bake"),
         ("P3", "Pass"), ("P4", "Pass"), ("P5", "Pass"), ("P6", "Pass"),
     ),
     ( # Round 14
-        ("P1", "RaiseShields"),
-        ("P2", "Drop 1"), ("P2", "Drop 1"), ("P2", "Drop 1"), ("P2", "Drop 1"), ("P2", "Drop 1"),
-        ("P3", "PickUp Peppernut"), ("P3", "Shoot"),
-        ("P4", "PickUp Peppernut"), ("P4", "Shoot"),
-        ("P5", "PickUp Peppernut"), ("P5", "Shoot"),
-        ("P6", "PickUp Peppernut"), ("P6", "Shoot"),
+        ("P1", "Pass"),
+        ("P2", "Pass"),
+        ("P3", "Pass"), ("P4", "Pass"), ("P5", "Pass"), ("P6", "Pass"),
     ),
     ( # Round 15
-        ("P1", "RaiseShields"),
-        ("P3", "PickUp Peppernut"), ("P3", "Shoot"),
-        ("P4", "Pass"), ("P5", "Pass"), ("P6", "Pass"), ("P2", "Pass"),
+        ("P1", "Pass"),
+        ("P2", "Pass"),
+        ("P3", "Pass"), ("P4", "Pass"), ("P5", "Pass"), ("P6", "Pass"),
     ),
 )

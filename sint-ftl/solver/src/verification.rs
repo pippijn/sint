@@ -251,41 +251,6 @@ pub fn parse_solution_text(text: &str) -> ParsedSolution {
     (rounds, seed, players)
 }
 
-pub fn format_game_state(state: &GameState) -> String {
-    let mut out = String::new();
-    out.push_str(&format!(
-        "Hull: {} | Enemy HP: {} | Phase: {:?} | Turn: {}\n",
-        state.hull_integrity, state.enemy.hp, state.phase, state.turn_count
-    ));
-    if let Some(attack) = &state.enemy.next_attack {
-        out.push_str(&format!(
-            "Enemy Telegraph: {:?} at Room {:?}\n",
-            attack.effect, attack.target_room
-        ));
-    }
-    for (pid, p) in state.players.iter() {
-        let inv: Vec<_> = p.inventory.iter().map(|i| format!("{:?}", i)).collect();
-        out.push_str(&format!(
-            "  {}: Room {} | HP {} | AP {} | Inv {:?}\n",
-            pid, p.room_id, p.hp, p.ap, inv
-        ));
-    }
-    for (rid, r) in state.map.rooms.iter() {
-        if !r.hazards.is_empty() || !r.items.is_empty() {
-            let items: Vec<_> = r.items.iter().map(|i| format!("{:?}", i)).collect();
-            out.push_str(&format!(
-                "  Room {} ({}): Hazards {:?} | Items {:?}\n",
-                rid, r.name, r.hazards, items
-            ));
-        }
-    }
-    if !state.active_situations.is_empty() {
-        let titles: Vec<_> = state.active_situations.iter().map(|s| &s.title).collect();
-        out.push_str(&format!("Active Situations: {:?}\n", titles));
-    }
-    out
-}
-
 pub fn run_verification(
     initial_state: GameState,
     user_rounds: Vec<RoundActions>,

@@ -109,8 +109,3 @@ class SolverBindings:
             else:
                 rust_history.append((pid, act))
         return cast(List[str], sint_solver.get_trajectory_log(rust_state, rust_history))
-
-    @classmethod
-    def format_game_state(cls, state: GameState) -> str:
-        rust_state = SintBindings._to_rust_friendly(state)
-        return cast(str, sint_solver.format_game_state(rust_state))

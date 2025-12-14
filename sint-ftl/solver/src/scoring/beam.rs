@@ -166,7 +166,7 @@ impl Default for BeamScoringWeights {
             system_broken_penalty: 50000.0,
 
             // Hazards
-            fire_penalty_base: 20000.0,
+            fire_penalty_base: 10000.0,
             fire_token_penalty: 2000.0,
             water_penalty: 1.0,
 
@@ -191,7 +191,7 @@ impl Default for BeamScoringWeights {
             sentinel_reward: 100.0,
 
             // Anti-Oscillation
-            backtracking_penalty: 1.0,
+            backtracking_penalty: 50.0,
             commitment_bonus: 10.0,
 
             solution_solver_reward: 500.0,
@@ -200,7 +200,7 @@ impl Default for BeamScoringWeights {
             situation_resolved_reward: 10000.0,
             system_importance_multiplier: 10.0,
             boss_killing_blow_reward: 10000000.0,
-            inaction_penalty: 1000.0,
+            inaction_penalty: 5000.0,
 
             // Logistics
             ammo_stockpile_reward: 10000.0,
@@ -218,7 +218,7 @@ impl Default for BeamScoringWeights {
 
             // Progression
             boss_level_reward: 100000.0,
-            turn_penalty: 500.0,
+            turn_penalty: 1000.0,
             step_penalty: 1.0,
             checkmate_system_bonus: 5000.0,
 
@@ -229,7 +229,7 @@ impl Default for BeamScoringWeights {
 
             // Critical State
             critical_hull_threshold: 12.0,
-            critical_hull_penalty_base: 5000.0,
+            critical_hull_penalty_base: 10000.0,
             critical_hull_penalty_per_hp: 1000.0,
             critical_fire_threshold: 1,
             critical_fire_penalty_per_token: 50.0,
@@ -251,7 +251,7 @@ impl Default for BeamScoringWeights {
 
             fire_panic_threshold_base: 1.0,
             fire_panic_threshold_hull_scaling: 5.0,
-            survival_only_multiplier: 1.0,
+            survival_only_multiplier: 0.1,
 
             // Multipliers
             fire_urgency_mult: 10.0,
