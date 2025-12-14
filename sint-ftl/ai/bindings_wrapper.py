@@ -82,10 +82,9 @@ class SolverBindings:
     """
 
     @classmethod
-    def verify_solution(cls, initial_state: GameState, rounds: List[List[Tuple[str, Any]]]) -> Dict[str, Any]:
-        rust_state = SintBindings._to_rust_friendly(initial_state)
-        
-        # Convert GameAction models to dicts
+    def verify_solution(cls, player_ids: List[str], seed: int, rounds: List[List[Tuple[str, Any]]]) -> Dict[str, Any]:
+        # Convert GameAction models to dicts if they are Pydantic objects,
+        # but keep them as is if they are strings or already dicts.
         rust_rounds = []
         for r in rounds:
             round_actions = []
@@ -96,8 +95,8 @@ class SolverBindings:
                     round_actions.append((pid, act))
             rust_rounds.append(round_actions)
             
-        result = sint_solver.verify_solution(rust_state, rust_rounds)
-        return cast(Dict[str, Any], SintBindings._to_pydantic_friendly(result))
+        result = sint_solver.verify_solution(player_ids, seed, rust_rounds)
+        return cast(Dict[str, Any], result)
 
     @classmethod
     def get_trajectory_log(cls, initial_state: GameState, history: List[Tuple[str, Any]]) -> List[str]:

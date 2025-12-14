@@ -12,16 +12,18 @@ def main() -> None:
     from solution_rounds import rounds
     seed = 2236
     player_ids = ["P1", "P2", "P3", "P4", "P5", "P6"]
-    state = SintBindings.new_game(player_ids, seed)
     
-    print("--- EXECUTING SOLUTION ---")
+    print("--- EXECUTING SOLUTION (SEED BASED) ---")
     
-    result = SolverBindings.verify_solution(state, rounds)
+    result = SolverBindings.verify_solution(player_ids, seed, rounds)
     
     if not result["success"]:
         print("❌ FAILURE!")
         print(result.get("failure_summary"))
         if result.get('history'):
+                # We still need a state for trajectory logging if we want to see it
+                from bindings_wrapper import SintBindings
+                state = SintBindings.new_game(player_ids, seed)
                 history = result['history']
                 logs = SolverBindings.get_trajectory_log(state, history)
                 for l in logs:

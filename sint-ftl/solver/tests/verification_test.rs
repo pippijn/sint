@@ -27,12 +27,24 @@ fn test_parse_game_action() {
             item_type: ItemType::Extinguisher
         }
     );
-    assert_eq!(parse_game_action("Drop 1"), GameAction::Drop { item_index: 1 });
+    assert_eq!(
+        parse_game_action("Drop 1"),
+        GameAction::Drop { item_index: 1 }
+    );
     assert_eq!(parse_game_action("Pass"), GameAction::Pass);
-    assert_eq!(parse_game_action("Ready"), GameAction::VoteReady { ready: true });
-    assert_eq!(parse_game_action("VoteReady"), GameAction::VoteReady { ready: true });
+    assert_eq!(
+        parse_game_action("Ready"),
+        GameAction::VoteReady { ready: true }
+    );
+    assert_eq!(
+        parse_game_action("VoteReady"),
+        GameAction::VoteReady { ready: true }
+    );
     assert_eq!(parse_game_action("RaiseShields"), GameAction::RaiseShields);
-    assert_eq!(parse_game_action("EvasiveManeuvers"), GameAction::EvasiveManeuvers);
+    assert_eq!(
+        parse_game_action("EvasiveManeuvers"),
+        GameAction::EvasiveManeuvers
+    );
     assert_eq!(parse_game_action("Lookout"), GameAction::Lookout);
     assert_eq!(parse_game_action("Interact"), GameAction::Interact);
     assert_eq!(
@@ -78,7 +90,7 @@ fn test_run_verification_smoke() {
     let result = run_verification(state, solution);
 
     // It should not be a victory yet, but it should be successful in terms of execution
-    assert!(!result.success); 
+    assert!(!result.success);
     assert!(result.error.is_none());
     // After two rounds of actions, it should have reached at least Round 2's TacticalPlanning
     // or even finished it and be in Execution of Round 2.
@@ -95,11 +107,7 @@ fn test_run_verification_unfinished_round() {
 
     // P1 has 2 AP. This block only provides 1 Move action (1 AP).
     // The round is not finished.
-    let solution = vec![
-        vec![
-            ("P1".to_string(), GameAction::Move { to_room: 1 }),
-        ],
-    ];
+    let solution = vec![vec![("P1".to_string(), GameAction::Move { to_room: 1 })]];
 
     let result = run_verification(state, solution);
 
@@ -108,6 +116,9 @@ fn test_run_verification_unfinished_round() {
     if let Some(sint_core::GameError::InvalidAction(msg)) = &result.error {
         assert!(msg.contains("but players still have AP"));
     } else {
-        panic!("Expected InvalidAction error with AP message, got {:?}", result.error);
+        panic!(
+            "Expected InvalidAction error with AP message, got {:?}",
+            result.error
+        );
     }
 }

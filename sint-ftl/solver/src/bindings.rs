@@ -7,26 +7,19 @@ use pyo3::types::PyDict;
 #[cfg(feature = "python")]
 use pythonize::{depythonize, pythonize};
 #[cfg(feature = "python")]
+use sint_core::logic::GameLogic;
+#[cfg(feature = "python")]
 use sint_core::types::{GameAction, GameState};
 
 #[cfg(feature = "python")]
-#[pyfunction]
-fn verify_solution(
-    py: Python,
-    initial_state_dict: Bound<'_, PyAny>,
-    rounds_list: Bound<'_, PyAny>,
-) -> PyResult<Py<PyAny>> {
-    let initial_state: GameState = depythonize(&initial_state_dict).map_err(|e| {
-        PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid initial state: {}", e))
-    })?;
-
-    let rounds: Vec<Vec<(String, GameAction)>> = if let Ok(r) = depythonize(&rounds_list) {
-        r
+fn parse_rounds(rounds_list: &Bound<'_, PyAny>) -> PyResult<Vec<Vec<(String, GameAction)>>> {
+    if let Ok(r) = depythonize(rounds_list) {
+        Ok(r)
     } else {
-        let raw_rounds: Vec<Vec<(String, String)>> = depythonize(&rounds_list).map_err(|e| {
+        let raw_rounds: Vec<Vec<(String, String)>> = depythonize(rounds_list).map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid rounds list: {}", e))
         })?;
-        raw_rounds
+        Ok(raw_rounds
             .into_iter()
             .map(|round| {
                 round
@@ -34,8 +27,21 @@ fn verify_solution(
                     .map(|(pid, cmd)| (pid, crate::verification::parse_game_action(&cmd)))
                     .collect()
             })
-            .collect()
-    };
+            .collect())
+    }
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+fn verify_solution(
+    py: Python,
+    player_ids: Vec<String>,
+    seed: u64,
+    rounds_list: Bound<'_, PyAny>,
+) -> PyResult<Py<PyAny>> {
+    let initial_state = GameLogic::new_game(player_ids, seed);
+
+    let rounds = parse_rounds(&rounds_list)?;
 
     let result = run_verification(initial_state, rounds);
 
