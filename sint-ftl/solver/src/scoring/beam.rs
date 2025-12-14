@@ -153,12 +153,12 @@ impl Default for BeamScoringWeights {
         Self {
             hull_integrity: 1000000.0,
             hull_delta_penalty: 25000.0,
-            enemy_hp: 100000.0,
+            enemy_hp: 250000.0,
             player_hp: 100.0,
-            ap_balance: 100.0,
+            ap_balance: 1500.0,
 
             // Hazards
-            fire_penalty_base: 5000000.0,
+            fire_penalty_base: 10000000.0,
             fire_token_penalty: 10000.0,
             water_penalty: 5000.0,
 
@@ -182,37 +182,37 @@ impl Default for BeamScoringWeights {
             sickbay_distance_factor: 20.0,
             sentinel_reward: 5000.0,
 
-            backtracking_penalty: 200.0,
+            backtracking_penalty: 2500.0,
             commitment_bonus: 50.0,
 
             solution_solver_reward: 200000.0,
             solution_distance_factor: 20.0,
             situation_logistics_reward: 10000.0,
-            situation_resolved_reward: 500000.0,
+            situation_resolved_reward: 5000000.0,
             system_importance_multiplier: 5.0,
             boss_killing_blow_reward: 2000000000.0,
-            inaction_penalty: 25000.0,
+            inaction_penalty: 50000.0,
 
             ammo_stockpile_reward: 2000.0,
             loose_ammo_reward: 100.0,
             hazard_proximity_reward: 5.0,
             situation_exposure_penalty: 100.0,
             system_disabled_penalty: 1000000.0,
-            shooting_reward: 10000.0,
+            shooting_reward: 50000.0,
 
             scavenger_reward: 5000.0,
             repair_proximity_reward: 2000.0,
-            cargo_repair_incentive: 1000000.0,
+            cargo_repair_incentive: 200000.0,
             cargo_repair_proximity_reward: 5.0,
             item_juggling_penalty: 50000.0,
             situation_exponent: 2.0,
 
             boss_level_reward: 1000000.0,
             turn_penalty: 10.0,
-            step_penalty: 1000.0,
+            step_penalty: 2000.0,
             checkmate_system_bonus: 50000.0,
 
-            checkmate_threshold: 3.0,
+            checkmate_threshold: 8.0,
             checkmate_multiplier: 100.0,
             checkmate_max_mult: 2000.0,
 
@@ -223,7 +223,7 @@ impl Default for BeamScoringWeights {
             critical_fire_threshold: 2,
             critical_fire_penalty_per_token: 2000.0,
             critical_system_hazard_penalty: 100000.0,
-            fire_in_critical_hull_penalty: 10000000.0,
+            fire_in_critical_hull_penalty: 50000000.0,
             critical_survival_mult: 0.4,
             critical_threat_mult: 5.0,
 
@@ -238,9 +238,9 @@ impl Default for BeamScoringWeights {
             hull_penalty_scaling: 1.1,
             projected_hull_panic_exponent: 4.0,
 
-            fire_panic_threshold_base: 2.0,
+            fire_panic_threshold_base: 1.0,
             fire_panic_threshold_hull_scaling: 5.0,
-            survival_only_multiplier: 0.4,
+            survival_only_multiplier: 0.1,
 
             // Multipliers
             fire_urgency_mult: 5.0,
@@ -259,7 +259,7 @@ impl Default for BeamScoringWeights {
             rest_round_hazard_multiplier: 10.0,
             rest_round_vitals_multiplier: 10.0,
 
-            victory_score: 2000000000.0,
+            victory_score: 10000000000.0,
             game_over_score: -1000000000.0,
             victory_hull_multiplier: 10000.0,
             fire_spread_projected_damage: 0.5,
@@ -276,7 +276,7 @@ impl Default for BeamScoringWeights {
 
             bake_reward: 5000.0,
             low_boss_hp_reward: 5000000.0,
-            blocking_situation_multiplier: 50.0,
+            blocking_situation_multiplier: 200.0,
         }
     }
 }
@@ -977,7 +977,7 @@ pub fn score_static(
 
             // Extinguisher Bonus
             if best_target_is_fire && has_extinguisher {
-                emergency_score *= 1.5;
+                emergency_score *= 2.0;
             }
 
             details.hazards += emergency_score;
