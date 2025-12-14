@@ -681,8 +681,20 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
                         None
                     }
                 }
-                SystemType::Bridge => Some(GameAction::RaiseShields),
-                SystemType::Engine => Some(GameAction::EvasiveManeuvers),
+                SystemType::Bridge => {
+                    if !projected_state.shields_active {
+                        Some(GameAction::RaiseShields)
+                    } else {
+                        None
+                    }
+                }
+                SystemType::Engine => {
+                    if !projected_state.evasion_active {
+                        Some(GameAction::EvasiveManeuvers)
+                    } else {
+                        None
+                    }
+                }
                 SystemType::Bow => Some(GameAction::Lookout),
                 _ => None,
             };

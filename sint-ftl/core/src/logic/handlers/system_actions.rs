@@ -187,6 +187,11 @@ impl ActionHandler for RaiseShieldsHandler {
         if !room.hazards.is_empty() {
             return Err(GameError::RoomBlocked);
         }
+        if state.shields_active {
+            return Err(GameError::InvalidAction(
+                "Shields are already active".to_owned(),
+            ));
+        }
         Ok(())
     }
 
@@ -233,6 +238,11 @@ impl ActionHandler for EvasiveManeuversHandler {
         }
         if !room.hazards.is_empty() {
             return Err(GameError::RoomBlocked);
+        }
+        if state.evasion_active {
+            return Err(GameError::InvalidAction(
+                "Evasive maneuvers are already active".to_owned(),
+            ));
         }
         Ok(())
     }

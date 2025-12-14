@@ -209,7 +209,7 @@ impl Default for BeamScoringWeights {
             hazard_proximity_reward: 50.0,
             situation_exposure_penalty: 0.01,
             system_disabled_penalty: 10000.0,
-            shooting_reward: 500000.0,
+            shooting_reward: 1000000.0,
             scavenger_reward: 100.0,
             repair_proximity_reward: 50.0,
             cargo_repair_incentive: 10000.0,
@@ -219,7 +219,7 @@ impl Default for BeamScoringWeights {
 
             // Progression
             boss_level_reward: 100000.0,
-            turn_penalty: 1000.0,
+            turn_penalty: 2000.0,
             step_penalty: 1.0,
             checkmate_system_bonus: 5000.0,
 
@@ -262,7 +262,7 @@ impl Default for BeamScoringWeights {
             gunner_en_route_mult: 0.2,
             gunner_wheelbarrow_penalty: 0.1,
             baker_wheelbarrow_mult: 3.0,
-            gunner_coordination_bonus: 5000.0,
+            gunner_coordination_bonus: 10000.0,
 
             threat_severe_reward: 5000.0,
             threat_mitigated_reward: 100.0,

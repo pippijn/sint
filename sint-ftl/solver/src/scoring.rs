@@ -1,5 +1,6 @@
 pub mod beam;
 pub mod rhea;
+pub mod rl;
 
 /// Detailed breakdown of the scoring components for debugging and analysis.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]

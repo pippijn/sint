@@ -1,7 +1,10 @@
-use crate::scoring::beam::ScoreAccumulator;
+use crate::scoring::beam::{BeamScoringWeights, ScoreAccumulator, calculate_score};
+use crate::scoring::rhea::{RheaScoringWeights, score_rhea};
+use crate::scoring::rl::{RlScoringWeights, score_rl};
 use serde::{Deserialize, Serialize};
 use sint_core::GameError;
 use sint_core::logic::GameLogic;
+use sint_core::logic::pathfinding::MapDistances;
 use sint_core::types::{Action, GameAction, GamePhase, GameState, ItemType};
 
 fn get_hazard_emoji(h: &sint_core::types::HazardType) -> &'static str {
@@ -29,6 +32,9 @@ pub struct VerificationResult {
     pub error: Option<GameError>,
     pub failed_action: Option<(String, GameAction)>,
     pub score: f64,
+    pub beam_score: f64,
+    pub rhea_score: f64,
+    pub rl_score: f64,
 }
 
 pub type RoundActions = Vec<(String, GameAction)>;
@@ -203,13 +209,17 @@ pub fn run_verification(
     let mut scorer = ScoreAccumulator::new();
     let mut last_round = state.turn_count;
 
-    for round_actions in user_rounds.into_iter() {
+    let mut parent_state = state.clone();
+    let mut last_round_actions: Vec<(String, GameAction)> = Vec::new();
+    let mut error = None;
+    let mut failed_action = None;
+
+    'outer: for round_actions in user_rounds.into_iter() {
         if state.phase == GamePhase::GameOver || state.phase == GamePhase::Victory {
             break;
         }
 
         // 1. Advance through Non-Interactive Phases (MorningReport, etc.)
-        // We expect the state to eventually reach TacticalPlanning or GameOver
         let mut loop_safety = 0;
         while state.phase != GamePhase::TacticalPlanning
             && state.phase != GamePhase::GameOver
@@ -217,14 +227,8 @@ pub fn run_verification(
         {
             loop_safety += 1;
             if loop_safety > 100 {
-                return VerificationResult {
-                    success: false,
-                    history: full_history,
-                    final_state: state.clone(),
-                    error: Some(GameError::InvalidAction("Stuck in phase transition".into())),
-                    failed_action: None,
-                    score: scorer.finalize(&state),
-                };
+                error = Some(GameError::InvalidAction("Stuck in phase transition".into()));
+                break 'outer;
             }
 
             // Auto-Vote Ready for everyone in non-planning phases
@@ -270,48 +274,35 @@ pub fn run_verification(
         }
 
         // 2. We are now in TacticalPlanning (presumably). Apply actions for this block.
-        // Record the round number at start of block
         let round_start_turn = state.turn_count;
+        let mut current_round_actions = Vec::new();
 
         for (pid, action) in round_actions {
-            // Check if we accidentally drifted to next round prematurely?
-            // If state.turn_count > round_start_turn, that means the previous action triggered a round end.
-            // But we still have actions in the block! This violates "Block = One Round".
-            // However, maybe the user wants to supply actions for Morning phase?
-            // But we auto-skipped Morning.
-            // So strictly speaking, all actions in this block should belong to round_start_turn.
             if state.turn_count > round_start_turn {
-                return VerificationResult {
-                    success: false,
-                    history: full_history,
-                    final_state: state.clone(),
-                    error: Some(GameError::InvalidAction(format!(
-                        "Round advanced to {} while still executing actions for block representing Round {}. Block has extra actions.",
-                        state.turn_count, round_start_turn
-                    ))),
-                    failed_action: Some((pid, action)),
-                    score: scorer.finalize(&state),
-                };
+                error = Some(GameError::InvalidAction(format!(
+                    "Round advanced to {} while still executing actions for block representing Round {}. Block has extra actions.",
+                    state.turn_count, round_start_turn
+                )));
+                failed_action = Some((pid, action));
+                break 'outer;
             }
 
             let core_act = Action::Game(action.clone());
+            parent_state = state.clone();
             match GameLogic::apply_action(state.clone(), &pid, core_act, None) {
                 Ok(s) => {
                     full_history.push((pid.clone(), action.clone()));
+                    current_round_actions.push((pid.clone(), action.clone()));
                     state = s;
                 }
                 Err(e) => {
-                    return VerificationResult {
-                        success: false,
-                        history: full_history,
-                        final_state: state.clone(),
-                        error: Some(e),
-                        failed_action: Some((pid, action)),
-                        score: scorer.finalize(&state),
-                    };
+                    error = Some(e);
+                    failed_action = Some((pid, action));
+                    break 'outer;
                 }
             }
         }
+        last_round_actions = current_round_actions;
 
         // 3. Block finished. Ensure round completion.
         if state.turn_count == round_start_turn && state.phase == GamePhase::TacticalPlanning {
@@ -324,20 +315,14 @@ pub fn run_verification(
                 .collect();
 
             if !players_with_ap.is_empty() {
-                return VerificationResult {
-                    success: false,
-                    history: full_history,
-                    final_state: state.clone(),
-                    error: Some(GameError::InvalidAction(format!(
-                        "Round {} block finished, but players still have AP: {:?}",
-                        round_start_turn, players_with_ap
-                    ))),
-                    failed_action: None,
-                    score: scorer.finalize(&state),
-                };
+                error = Some(GameError::InvalidAction(format!(
+                    "Round {} block finished, but players still have AP: {:?}",
+                    round_start_turn, players_with_ap
+                )));
+                break 'outer;
             }
 
-            // Auto-ready remaining players (who must have 0 AP) to trigger phase transition
+            // Auto-ready remaining players
             loop {
                 if state.phase != GamePhase::TacticalPlanning {
                     break;
@@ -375,14 +360,296 @@ pub fn run_verification(
         }
     }
 
+    // Scoring
+    let rhea_weights = RheaScoringWeights::default();
+    let rhea_score = score_rhea(&state, &rhea_weights).total;
+
+    let beam_weights = BeamScoringWeights::default();
+    let distances = MapDistances::new(&state.map);
+    let borrowed_history: Vec<&(sint_core::types::PlayerId, GameAction)> =
+        last_round_actions.iter().collect();
+
+    let beam_score = calculate_score(
+        &parent_state,
+        &state,
+        &borrowed_history,
+        &beam_weights,
+        &distances,
+    )
+    .total;
+
+    let rl_weights = RlScoringWeights::default();
+    let rl_score = score_rl(&parent_state, &state, &borrowed_history, &rl_weights).total;
+
     // Check outcome
     let is_victory = state.phase == GamePhase::Victory;
     VerificationResult {
-        success: is_victory,
+        success: is_victory && error.is_none(),
         history: full_history,
         final_state: state.clone(),
-        error: None,
-        failed_action: None,
+        error,
+        failed_action,
         score: scorer.finalize(&state),
+        beam_score,
+        rhea_score,
+        rl_score,
+    }
+}
+
+pub fn run_verification_linear(
+    initial_state: GameState,
+    actions: Vec<(String, GameAction)>,
+) -> VerificationResult {
+    let mut state = initial_state;
+    let mut full_history = Vec::new();
+    let mut scorer = ScoreAccumulator::new();
+    let mut last_round = state.turn_count;
+
+    let mut parent_state = state.clone();
+    let mut current_round_actions: Vec<(String, GameAction)> = Vec::new();
+    let mut error = None;
+    let mut failed_action = None;
+
+    for (pid, action) in actions {
+        if state.phase == GamePhase::GameOver || state.phase == GamePhase::Victory {
+            break;
+        }
+
+        // 1. Auto-advance through non-interactive phases
+        let mut loop_safety = 0;
+        while state.phase != GamePhase::TacticalPlanning
+            && state.phase != GamePhase::GameOver
+            && state.phase != GamePhase::Victory
+        {
+            loop_safety += 1;
+            if loop_safety > 100 {
+                error = Some(GameError::InvalidAction("Stuck in phase transition".into()));
+                break;
+            }
+
+            let next_unready = state
+                .players
+                .values()
+                .filter(|p| !p.is_ready)
+                .map(|p| p.id.clone())
+                .min();
+
+            if let Some(p_id) = next_unready {
+                let act = GameAction::VoteReady { ready: true };
+                let core_act = Action::Game(act.clone());
+                if let Ok(s) = GameLogic::apply_action(state.clone(), &p_id, core_act, None) {
+                    state = s;
+                    full_history.push((p_id, act));
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+
+            if state.turn_count > last_round {
+                scorer.on_round_end(&state);
+                last_round = state.turn_count;
+                current_round_actions.clear();
+            }
+        }
+        if error.is_some() {
+            break;
+        }
+
+        if state.phase == GamePhase::GameOver || state.phase == GamePhase::Victory {
+            break;
+        }
+
+        parent_state = state.clone();
+
+        // 2. Apply the action
+        let core_act = Action::Game(action.clone());
+        match GameLogic::apply_action(state.clone(), &pid, core_act, None) {
+            Ok(mut s) => {
+                // In linear mode, we want immediate resolution for Tactical actions
+                // to provide dense feedback.
+                if s.phase == GamePhase::TacticalPlanning {
+                    sint_core::logic::resolution::resolve_proposal_queue(&mut s, false);
+                }
+
+                full_history.push((pid.clone(), action.clone()));
+                current_round_actions.push((pid.clone(), action.clone()));
+                state = s;
+            }
+            Err(e) => {
+                error = Some(e);
+                failed_action = Some((pid, action));
+                break;
+            }
+        }
+
+        // If no one has AP left, auto-ready everyone to advance phase
+        if state.phase == GamePhase::TacticalPlanning {
+            let no_ap_anywhere = state.players.values().all(|p| p.ap == 0 || p.is_ready);
+            if no_ap_anywhere {
+                loop {
+                    if state.phase != GamePhase::TacticalPlanning {
+                        break;
+                    }
+                    let next_unready = state
+                        .players
+                        .values()
+                        .filter(|p| !p.is_ready)
+                        .map(|p| p.id.clone())
+                        .min();
+                    if let Some(pid) = next_unready {
+                        let act = Action::Game(GameAction::VoteReady { ready: true });
+                        if let Ok(s) = GameLogic::apply_action(state.clone(), &pid, act, None) {
+                            state = s;
+                        } else {
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+
+        if state.turn_count > last_round {
+            scorer.on_round_end(&state);
+            last_round = state.turn_count;
+            current_round_actions.clear();
+        }
+    }
+
+    // 3. Final auto-advance through non-interactive phases to reach next TacticalPlanning
+    let mut loop_safety = 0;
+    while error.is_none()
+        && state.phase != GamePhase::TacticalPlanning
+        && state.phase != GamePhase::GameOver
+        && state.phase != GamePhase::Victory
+    {
+        loop_safety += 1;
+        if loop_safety > 100 {
+            error = Some(GameError::InvalidAction("Stuck in phase transition".into()));
+            break;
+        }
+
+        let next_unready = state
+            .players
+            .values()
+            .filter(|p| !p.is_ready)
+            .map(|p| p.id.clone())
+            .min();
+
+        if let Some(p_id) = next_unready {
+            let act = GameAction::VoteReady { ready: true };
+            let core_act = Action::Game(act.clone());
+            if let Ok(s) = GameLogic::apply_action(state.clone(), &p_id, core_act, None) {
+                state = s;
+                full_history.push((p_id, act));
+            } else {
+                break;
+            }
+        } else {
+            break;
+        }
+
+        if state.turn_count > last_round {
+            scorer.on_round_end(&state);
+        }
+    }
+
+    // 4. Auto-ready everyone with 0 AP in TacticalPlanning and advance if possible
+    let mut loop_safety = 0;
+    while error.is_none()
+        && (state.phase == GamePhase::TacticalPlanning
+            || (state.phase != GamePhase::GameOver && state.phase != GamePhase::Victory))
+    {
+        loop_safety += 1;
+        if loop_safety > 200 {
+            error = Some(GameError::InvalidAction("Stuck in phase transition".into()));
+            break;
+        }
+
+        if state.phase == GamePhase::TacticalPlanning {
+            let next_unready_0ap = state
+                .players
+                .values()
+                .filter(|p| !p.is_ready && p.ap == 0)
+                .map(|p| p.id.clone())
+                .min();
+
+            if let Some(pid) = next_unready_0ap {
+                let act = Action::Game(GameAction::VoteReady { ready: true });
+                if let Ok(s) = GameLogic::apply_action(state.clone(), &pid, act, None) {
+                    state = s;
+                    continue; // Check again
+                }
+            }
+        }
+
+        // If not in TacticalPlanning or everyone with 0AP is ready, try to advance next_unready generally
+        if state.phase != GamePhase::TacticalPlanning
+            && state.phase != GamePhase::GameOver
+            && state.phase != GamePhase::Victory
+        {
+            let next_unready = state
+                .players
+                .values()
+                .filter(|p| !p.is_ready)
+                .map(|p| p.id.clone())
+                .min();
+
+            if let Some(pid) = next_unready {
+                let act = Action::Game(GameAction::VoteReady { ready: true });
+                if let Ok(s) = GameLogic::apply_action(state.clone(), &pid, act, None) {
+                    state = s;
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+        } else {
+            // In TacticalPlanning with no 0AP players unready, or terminal state
+            break;
+        }
+
+        if state.turn_count > last_round {
+            scorer.on_round_end(&state);
+            last_round = state.turn_count;
+        }
+    }
+
+    // Final scoring
+    let rhea_weights = RheaScoringWeights::default();
+    let rhea_score = score_rhea(&state, &rhea_weights).total;
+
+    let beam_weights = BeamScoringWeights::default();
+    let distances = MapDistances::new(&state.map);
+    let borrowed_history: Vec<&(sint_core::types::PlayerId, GameAction)> =
+        current_round_actions.iter().collect();
+
+    let beam_score = calculate_score(
+        &parent_state,
+        &state,
+        &borrowed_history,
+        &beam_weights,
+        &distances,
+    )
+    .total;
+
+    let rl_weights = RlScoringWeights::default();
+    let rl_score = score_rl(&parent_state, &state, &borrowed_history, &rl_weights).total;
+
+    let is_victory = state.phase == GamePhase::Victory;
+    VerificationResult {
+        success: is_victory && error.is_none(),
+        history: full_history,
+        final_state: state.clone(),
+        error,
+        failed_action,
+        score: scorer.finalize(&state),
+        beam_score,
+        rhea_score,
+        rl_score,
     }
 }

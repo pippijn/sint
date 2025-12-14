@@ -190,11 +190,71 @@ fn compute_score_rhea(_py: Python, state_dict: Bound<'_, PyAny>) -> PyResult<f64
 }
 
 #[cfg(feature = "python")]
+#[pyfunction]
+fn compute_score_rl(
+    _py: Python,
+    parent_dict: Bound<'_, PyAny>,
+    current_dict: Bound<'_, PyAny>,
+    history_list: Bound<'_, PyAny>,
+) -> PyResult<f64> {
+    let parent: GameState = depythonize(&parent_dict).map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid parent state: {}", e))
+    })?;
+
+    let current: GameState = depythonize(&current_dict).map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid current state: {}", e))
+    })?;
+
+    let history: Vec<(String, GameAction)> = depythonize(&history_list).map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid history list: {}", e))
+    })?;
+
+    let borrowed_history: Vec<&(String, GameAction)> = history.iter().collect();
+
+    let weights = crate::scoring::rl::RlScoringWeights::default();
+    let details = crate::scoring::rl::score_rl(&parent, &current, &borrowed_history, &weights);
+
+    Ok(details.total)
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+#[pyo3(signature = (player_ids, seed, actions_list, initial_state=None))]
+fn verify_linear(
+    py: Python,
+    player_ids: Vec<String>,
+    seed: u64,
+    actions_list: Bound<'_, PyAny>,
+    initial_state: Option<Bound<'_, PyAny>>,
+) -> PyResult<Py<PyAny>> {
+    let actions: Vec<(String, GameAction)> = depythonize(&actions_list).map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid actions list: {}", e))
+    })?;
+
+    let state = if let Some(s_dict) = initial_state {
+        depythonize(&s_dict).map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid initial state: {}", e))
+        })?
+    } else {
+        GameLogic::new_game(player_ids, seed)
+    };
+
+    let result = crate::verification::run_verification_linear(state, actions);
+
+    let py_result = pythonize(py, &result)
+        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+
+    Ok(py_result.into())
+}
+
+#[cfg(feature = "python")]
 #[pymodule]
 fn sint_solver(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(verify_solution, m)?)?;
+    m.add_function(wrap_pyfunction!(verify_linear, m)?)?;
     m.add_function(wrap_pyfunction!(get_trajectory_log, m)?)?;
     m.add_function(wrap_pyfunction!(compute_score, m)?)?;
     m.add_function(wrap_pyfunction!(compute_score_rhea, m)?)?;
+    m.add_function(wrap_pyfunction!(compute_score_rl, m)?)?;
     Ok(())
 }
