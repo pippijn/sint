@@ -1,4 +1,5 @@
 use super::{
+    MAX_PLAYER_AP,
     cards::{self, get_behavior},
     find_room_with_system_in_map,
     pathfinding::find_path,
@@ -56,7 +57,7 @@ fn apply_meta_action(
                 name,
                 room_id: start_room,
                 hp: 3,
-                ap: 2,
+                ap: MAX_PLAYER_AP,
                 inventory: vec![].into(),
                 status: vec![].into(),
                 is_ready: false,
@@ -333,7 +334,7 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
 
             // Reset AP (Start of Game)
             for p in state.players.values_mut() {
-                p.ap = 2;
+                p.ap = MAX_PLAYER_AP;
             }
 
             cards::draw_card(&mut state);
@@ -466,7 +467,7 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
                         timestamp: 0,
                     });
                 } else {
-                    // Start Rest
+                    // Start Rest (1 round)
                     state.is_resting = true;
                     state.chat_log.push(ChatMessage {
                         sender: "SYSTEM".to_owned(),
@@ -477,8 +478,13 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
             }
 
             // Reset AP (New Round)
+            let base_ap = if state.is_resting {
+                MAX_PLAYER_AP * 3
+            } else {
+                MAX_PLAYER_AP
+            };
             for p in state.players.values_mut() {
-                p.ap = 2;
+                p.ap = base_ap;
             }
 
             if !state.is_resting {

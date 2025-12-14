@@ -58,7 +58,7 @@ impl GameLogic {
                 name: format!("Player {}", i + 1),
                 room_id: start_room,
                 hp: 3,
-                ap: 2,
+                ap: MAX_PLAYER_AP,
                 inventory: vec![].into(),
                 status: vec![].into(),
                 is_ready: false,

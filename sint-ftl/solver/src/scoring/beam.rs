@@ -124,13 +124,13 @@ impl Default for BeamScoringWeights {
     fn default() -> Self {
         Self {
             hull_integrity: 10000.0,
-            hull_delta_penalty: 100.0,
+            hull_delta_penalty: 500.0,
             enemy_hp: 2500.0,
             player_hp: 20.0,
             ap_balance: 10.0,
 
             // Hazards
-            fire_penalty_base: 15000.0,
+            fire_penalty_base: 30000.0,
             fire_token_penalty: 5000.0,
             water_penalty: 100.0,
 
@@ -142,12 +142,12 @@ impl Default for BeamScoringWeights {
 
             // Roles
             station_keeping_reward: 10000.0,
-            gunner_base_reward: 2000.0,
-            gunner_per_ammo: 2000.0,
+            gunner_base_reward: 5000.0,
+            gunner_per_ammo: 5000.0,
             gunner_working_bonus: 5.0,
             gunner_distance_factor: 50.0,
 
-            firefighter_base_reward: 800.0,
+            firefighter_base_reward: 5000.0,
             firefighter_distance_factor: 10.0,
 
             healing_reward: 1000.0,
@@ -158,7 +158,7 @@ impl Default for BeamScoringWeights {
 
             solution_solver_reward: 20000.0,
             solution_distance_factor: 10.0,
-            situation_logistics_reward: 2500.0,
+            situation_logistics_reward: 5000.0,
             situation_resolved_reward: 100000.0,
             system_importance_multiplier: 2.0,
             boss_killing_blow_reward: 10000000.0,
@@ -169,31 +169,31 @@ impl Default for BeamScoringWeights {
             hazard_proximity_reward: 5.0,
             situation_exposure_penalty: 100.0,
             system_disabled_penalty: 5000.0,
-            shooting_reward: 20000.0,
+            shooting_reward: 50000.0,
 
-            scavenger_reward: 50.0,
-            repair_proximity_reward: 100.0,
+            scavenger_reward: 1000.0,
+            repair_proximity_reward: 1000.0,
             cargo_repair_incentive: 10.0,
             cargo_repair_proximity_reward: 5.0,
-            item_juggling_penalty: 1000.0,
+            item_juggling_penalty: 5000.0,
             situation_exponent: 2.0,
 
             boss_level_reward: 2000.0,
             turn_penalty: 500.0,
             step_penalty: 10.0,
 
-            checkmate_threshold: 15.0,
+            checkmate_threshold: 20.0,
             checkmate_multiplier: 100.0,
             checkmate_max_mult: 500.0,
 
             // Critical State
-            critical_hull_threshold: 4.0,
+            critical_hull_threshold: 8.0,
             critical_hull_penalty_base: 20000.0,
             critical_hull_penalty_per_hp: 10000.0,
             critical_fire_threshold: 2,
             critical_fire_penalty_per_token: 2000.0,
             critical_system_hazard_penalty: 4000.0,
-            fire_in_critical_hull_penalty: 100000.0,
+            fire_in_critical_hull_penalty: 200000.0,
             critical_survival_mult: 0.4,
             critical_threat_mult: 5.0,
 
@@ -222,8 +222,8 @@ impl Default for BeamScoringWeights {
             threat_hull_risk_mult: 0.5,
             threat_shield_waste_penalty: 100.0,
 
-            rest_round_hazard_multiplier: 2.0,
-            rest_round_vitals_multiplier: 2.0,
+            rest_round_hazard_multiplier: 5.0,
+            rest_round_vitals_multiplier: 5.0,
         }
     }
 }
@@ -740,16 +740,17 @@ pub fn score_static(
             assigned_room = None;
         }
 
-        // Dynamic Role Override: Fire Panic
-        // If there is ANY fire, only Gunners stick to their posts (unless fire is in Cannons).
-        // Everyone else becomes a firefighter.
-        if fire_count_total > 0 {
+        // Dynamic Role Override: Hazard Panic
+        // If there is ANY hazard, only Gunners stick to their posts (unless hazard is in Cannons).
+        // Everyone else becomes an emergency responder.
+        let total_hazards = fire_count_total + water_count;
+        if total_hazards > 0 {
             if matches!(p.id.as_str(), "P5" | "P6") {
-                // Gunners only leave if it's really bad or fire is IN the cannons
-                if fire_count_total >= weights.critical_fire_threshold
+                // Gunners only leave if it's really bad or hazard is IN the cannons
+                if total_hazards >= weights.critical_fire_threshold
                     || find_room_with_system(state, SystemType::Cannons)
                         .and_then(|id| state.map.rooms.get(&id))
-                        .is_some_and(|r| r.hazards.contains(&HazardType::Fire))
+                        .is_some_and(|r| !r.hazards.is_empty())
                 {
                     assigned_room = None;
                 }
@@ -1066,6 +1067,7 @@ pub fn score_static(
                     }
                     GameAction::Move { .. }
                     | GameAction::Shoot
+                    | GameAction::Throw { .. }
                     | GameAction::FirstAid { .. }
                     | GameAction::Revive { .. }
                     | GameAction::Repair
