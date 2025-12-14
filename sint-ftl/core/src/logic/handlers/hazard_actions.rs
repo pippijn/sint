@@ -71,26 +71,34 @@ impl ActionHandler for RepairHandler {
             .get(&p.room_id)
             .ok_or(GameError::RoomNotFound)?;
 
-        if !room.hazards.contains(&HazardType::Water) {
-            // Special: Cargo allows Hull Repair
-            if room.system == Some(SystemType::Cargo) {
-                if room.hazards.contains(&HazardType::Fire) {
-                    return Err(GameError::RoomBlocked);
-                }
-                if state.hull_integrity >= MAX_HULL {
-                    return Err(GameError::InvalidAction(
-                        "Hull is already at maximum integrity".to_owned(),
-                    ));
-                }
-                return Ok(());
-            }
-
-            return Err(GameError::InvalidAction(format!(
-                "No water to repair in {} ({})",
-                room.name, room.id
-            )));
+        // General Rule: Can't repair anything if hazards are present (except repairing the Water itself)
+        if room.hazards.contains(&HazardType::Fire) {
+            return Err(GameError::RoomBlocked);
         }
-        Ok(())
+
+        if room.hazards.contains(&HazardType::Water) {
+            return Ok(());
+        }
+
+        // No water, check for broken or damaged system
+        if room.is_broken || room.system_health < crate::types::SYSTEM_HEALTH {
+            return Ok(());
+        }
+
+        // No water, no broken system, check Cargo Hull Repair
+        if room.system == Some(SystemType::Cargo) {
+            if state.hull_integrity >= MAX_HULL {
+                return Err(GameError::InvalidAction(
+                    "Hull is already at maximum integrity".to_owned(),
+                ));
+            }
+            return Ok(());
+        }
+
+        Err(GameError::InvalidAction(format!(
+            "Nothing to repair in {} ({})",
+            room.name, room.id
+        )))
     }
 
     fn execute(
@@ -109,6 +117,11 @@ impl ActionHandler for RepairHandler {
         if let Some(room) = state.map.rooms.get_mut(&room_id) {
             if let Some(idx) = room.hazards.iter().position(|&h| h == HazardType::Water) {
                 room.hazards.remove(idx);
+            } else if room.system_health < crate::types::SYSTEM_HEALTH {
+                room.system_health += 1;
+                if room.system_health == crate::types::SYSTEM_HEALTH {
+                    room.is_broken = false;
+                }
             } else if room.system == Some(SystemType::Cargo) && state.hull_integrity < MAX_HULL {
                 state.hull_integrity += 1;
             }

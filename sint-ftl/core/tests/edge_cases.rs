@@ -1,4 +1,4 @@
-use sint_core::{GameLogic, logic::find_room_with_system_in_map, types::*};
+use sint_core::{GameLogic, logic::find_room_with_system_in_map, logic::resolution, types::*};
 
 #[test]
 fn test_first_aid_cannot_heal_fainted() {
@@ -39,38 +39,21 @@ fn test_first_aid_cannot_heal_fainted() {
 fn test_fire_damage_during_rest_round() {
     let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.is_resting = true;
-    state.phase = GamePhase::TacticalPlanning;
+    state.phase = GamePhase::EnemyAction;
     state.hull_integrity = 20;
 
-    let kitchen = find_room_with_system_in_map(&state.map, SystemType::Kitchen).unwrap();
-    if let Some(r) = state.map.rooms.get_mut(&kitchen) {
+    let engine_id = find_room_with_system_in_map(&state.map, SystemType::Engine).unwrap();
+    if let Some(r) = state.map.rooms.get_mut(&engine_id) {
+        // Set health to 1 so it explodes
+        r.system_health = 1;
         r.hazards.push(HazardType::Fire);
     }
 
-    if let Some(p) = state.players.get_mut("P1") {
-        p.ap = 0; // Force advance
-    }
-
-    // P -> E
-    state = GameLogic::apply_action(
-        state,
-        "P1",
-        Action::Game(GameAction::VoteReady { ready: true }),
-        None,
-    )
-    .unwrap();
-    // E -> EA (Resolves hazards)
-    state = GameLogic::apply_action(
-        state,
-        "P1",
-        Action::Game(GameAction::VoteReady { ready: true }),
-        None,
-    )
-    .unwrap();
+    resolution::resolve_hazards(&mut state);
 
     assert_eq!(
         state.hull_integrity, 19,
-        "Hull should still take damage from fire during rest rounds"
+        "Hull should still take damage from system explosion during rest rounds"
     );
 }
 

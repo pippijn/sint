@@ -14,6 +14,9 @@ pub struct RheaScoringWeights {
     pub hull_critical_penalty_base: f64,
     pub hull_normal_reward: f64,
 
+    pub system_health_reward: f64,
+    pub broken_system_penalty: f64,
+
     pub fire_penalty: f64,
     pub water_penalty: f64,
     pub fainted_penalty: f64,
@@ -34,6 +37,9 @@ impl Default for RheaScoringWeights {
             hull_critical_threshold: 10,
             hull_critical_penalty_base: 1000.0,
             hull_normal_reward: 100.0,
+
+            system_health_reward: 50.0,
+            broken_system_penalty: 5000.0,
 
             fire_penalty: 2000.0,
             water_penalty: 500.0,
@@ -85,10 +91,17 @@ pub fn score_rhea(state: &GameState, weights: &RheaScoringWeights) -> ScoreDetai
         details.vitals += state.hull_integrity as f64 * weights.hull_normal_reward;
     }
 
-    // 4. Hazards (Fire is bad for Hull, Water is bad for Items)
+    // 4. Hazards (Fire is bad for Systems/Hull, Water is bad for Systems/Items)
     let mut fire_count = 0;
     let mut water_count = 0;
     for room in state.map.rooms.values() {
+        if room.system.is_some() {
+            details.vitals += room.system_health as f64 * weights.system_health_reward;
+            if room.is_broken {
+                details.hazards -= weights.broken_system_penalty;
+            }
+        }
+
         for hazard in &room.hazards {
             match hazard {
                 HazardType::Fire => fire_count += 1,

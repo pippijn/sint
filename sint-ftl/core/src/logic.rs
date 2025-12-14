@@ -100,6 +100,10 @@ impl GameLogic {
     ) -> Result<GameState, GameError> {
         actions::apply_action(state, player_id, action)
     }
+
+    pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
+        actions::get_valid_actions(state, player_id)
+    }
 }
 
 pub fn find_room_with_system(state: &GameState, sys: SystemType) -> Option<RoomId> {

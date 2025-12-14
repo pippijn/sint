@@ -74,14 +74,29 @@ pub fn resolve_hazards(state: &mut GameState) {
     // Deterministic Iteration: BTreeMap gives sorted keys
     let room_ids: Vec<u32> = state.map.rooms.keys().collect();
 
-    // 1. Process Hazards (Fire spreads, Water leaks)
+    // 1. Process Hazards (Fire spreads, Water leaks, System damage)
     for room_id in &room_ids {
-        let room = &state.map.rooms[*room_id];
+        let room = state.map.rooms.get_mut(room_id).unwrap();
 
-        let has_fire = room.hazards.contains(&HazardType::Fire);
+        let fire_count = room
+            .hazards
+            .iter()
+            .filter(|&h| *h == HazardType::Fire)
+            .count() as u32;
 
-        if has_fire {
-            state.hull_integrity -= 1;
+        if fire_count > 0 {
+            // Apply damage to system health
+            if room.system_health > 0 {
+                if room.system_health <= fire_count {
+                    room.system_health = 0;
+                    room.is_broken = true;
+                    // System exploded!
+                    state.hull_integrity -= 1;
+                    info!("System in {} exploded!", room.name);
+                } else {
+                    room.system_health -= fire_count;
+                }
+            }
 
             // Spread Chance? (Cargo spreads faster: Threshold 1 instead of 2)
             let threshold = if room.system == Some(SystemType::Cargo) {
@@ -90,18 +105,17 @@ pub fn resolve_hazards(state: &mut GameState) {
                 2
             };
 
-            if room
-                .hazards
-                .iter()
-                .filter(|&h| *h == HazardType::Fire)
-                .count()
-                >= threshold
-            {
+            if fire_count >= threshold {
                 for &neighbor in &room.neighbors {
                     if rng.random_bool(0.5) {
                         fire_spreads.push(neighbor);
                     }
                 }
+            }
+        } else {
+            // No fire, auto-restore if not broken
+            if !room.is_broken && room.system_health < SYSTEM_HEALTH {
+                room.system_health = SYSTEM_HEALTH;
             }
         }
     }

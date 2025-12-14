@@ -477,9 +477,27 @@ fn RoomCard(room: Room, ctx: GameContext, door_dir: Option<DoorDirection>) -> im
                         <span style="font-weight: bold;">
                             {format!("{} {}", room.id, room.name)}
                         </span>
-                        <span style="font-size: 0.7em; color: #888; text-transform: uppercase;">
-                            {format!("{:?}", room.system).replace("Some(", "").replace(")", "")}
-                        </span>
+                        <div style="display: flex; flex-direction: column; align-items: flex-end;">
+                            <span style="font-size: 0.7em; color: #888; text-transform: uppercase;">
+                                {format!("{:?}", room.system).replace("Some(", "").replace(")", "")}
+                            </span>
+                            {if room.system.is_some() {
+                                let hp_color = if room.system_health == 0 {
+                                    "#f44336"
+                                } else if room.system_health < sint_core::types::SYSTEM_HEALTH {
+                                    "#ffeb3b"
+                                } else {
+                                    "#4caf50"
+                                };
+                                Either::Left(view! {
+                                    <span style=format!("font-size: 0.7em; font-weight: bold; color: {};", hp_color)>
+                                        {format!("HP: {}/{}", room.system_health, sint_core::types::SYSTEM_HEALTH)}
+                                    </span>
+                                })
+                            } else {
+                                Either::Right(())
+                            }}
+                        </div>
                     </div>
 
                     // Content

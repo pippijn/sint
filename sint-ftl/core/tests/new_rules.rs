@@ -1,5 +1,6 @@
 use sint_core::{
     GameLogic,
+    logic::find_room_with_system_in_map,
     types::{Action, GameAction, GamePhase, HazardType, ItemType, MAX_HULL, SystemType},
 };
 
@@ -84,35 +85,56 @@ fn test_cargo_repair_blocked_by_fire() {
 }
 
 #[test]
-fn test_cargo_repair_water_allowed_despite_fire() {
+fn test_repair_blocked_by_any_hazard() {
     let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::TacticalPlanning;
 
-    let cargo =
-        sint_core::logic::find_room_with_system_in_map(&state.map, SystemType::Cargo).unwrap();
+    let cargo = find_room_with_system_in_map(&state.map, SystemType::Cargo).unwrap();
 
     if let Some(p) = state.players.get_mut("P1") {
         p.room_id = cargo;
     }
+
+    // 1. Fire blocks Water repair
     if let Some(r) = state.map.rooms.get_mut(&cargo) {
-        r.hazards.push(HazardType::Fire);
         r.hazards.push(HazardType::Water);
+        r.hazards.push(HazardType::Fire);
     }
 
-    let res = GameLogic::apply_action(state.clone(), "P1", Action::Game(GameAction::Repair), None);
-
-    // Repairing WATER should still work even if Fire is present?
-    // Actually, rule says "Disabled: If a room has 1 or more Fire/Water tokens, its Action is unusable."
-    // Extinguish and Repair are "Cleanup" actions, not necessarily the "System Action".
-    // But hull repair is explicitly an "Action" tied to Cargo.
-    // Let's re-read: "Players must Extinguish (Fire) or Repair (Water) to restore function."
-    // Cleanup actions should probably be allowed even if disabled, otherwise you can never fix it.
-
-    // Wait, RepairHandler::validate for Water repair doesn't check for Fire.
-    // But Cargo Hull Repair DOES check for Fire now.
-
+    let actions = GameLogic::get_valid_actions(&state, "P1");
     assert!(
-        res.is_ok(),
-        "Should be able to repair Water even if Fire is present"
+        !actions
+            .iter()
+            .any(|a| matches!(a, Action::Game(GameAction::Repair))),
+        "Repair should be blocked by Fire"
     );
+
+    // 2. Water blocks Hull repair (Cargo)
+    if let Some(r) = state.map.rooms.get_mut(&cargo) {
+        r.hazards.clear();
+        r.hazards.push(HazardType::Water);
+    }
+    state.hull_integrity = 10;
+
+    let actions = GameLogic::get_valid_actions(&state, "P1");
+    // Repair is available, but it will target Water first.
+    assert!(
+        actions
+            .iter()
+            .any(|a| matches!(a, Action::Game(GameAction::Repair)))
+    );
+
+    let res = GameLogic::apply_action(state.clone(), "P1", Action::Game(GameAction::Repair), None)
+        .unwrap();
+    let res = GameLogic::apply_action(
+        res,
+        "P1",
+        Action::Game(GameAction::VoteReady { ready: true }),
+        None,
+    )
+    .unwrap();
+
+    // Water should be gone, Hull should still be 10
+    assert!(!res.map.rooms[&cargo].hazards.contains(&HazardType::Water));
+    assert_eq!(res.hull_integrity, 10);
 }

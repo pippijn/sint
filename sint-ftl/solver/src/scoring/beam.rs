@@ -17,6 +17,10 @@ pub struct BeamScoringWeights {
     pub player_hp: f64,
     pub ap_balance: f64,
 
+    // Systems
+    pub system_health_reward: f64,
+    pub system_broken_penalty: f64,
+
     // Hazards
     pub fire_penalty_base: f64,
     pub fire_token_penalty: f64,
@@ -157,9 +161,13 @@ impl Default for BeamScoringWeights {
             player_hp: 1.0,
             ap_balance: 10.0,
 
+            // Systems
+            system_health_reward: 50.0,
+            system_broken_penalty: 50000.0,
+
             // Hazards
-            fire_penalty_base: 2000.0,
-            fire_token_penalty: 20.0,
+            fire_penalty_base: 20000.0,
+            fire_token_penalty: 2000.0,
             water_penalty: 1.0,
 
             // Situations & Threats
@@ -199,8 +207,8 @@ impl Default for BeamScoringWeights {
             loose_ammo_reward: 100.0,
             hazard_proximity_reward: 50.0,
             situation_exposure_penalty: 0.01,
-            system_disabled_penalty: 500.0,
-            shooting_reward: 5000000.0,
+            system_disabled_penalty: 10000.0,
+            shooting_reward: 500000.0,
             scavenger_reward: 100.0,
             repair_proximity_reward: 50.0,
             cargo_repair_incentive: 10000.0,
@@ -269,7 +277,7 @@ impl Default for BeamScoringWeights {
             max_hazard_multiplier: 5.0,
             critical_survival_boss_hp_threshold: 5.0,
             hull_risk_scaling_factor: 10.0,
-            hull_risk_scaling_exponent: 2.0,
+            hull_risk_scaling_exponent: 3.0,
             hull_risk_max_mult: 20.0,
             bloodlust_hp_threshold: 0.9,
             bloodlust_multiplier: 10.0,
@@ -322,10 +330,10 @@ pub fn calculate_score(
         let old_room = old_p.room_id;
         let new_room = new_p.room_id;
 
-        // Identify targets (Fires)
+        // Identify targets (Fires & Broken Systems)
         let mut target_rooms = HashSet::new();
         for r in current.map.rooms.values() {
-            if r.hazards.contains(&HazardType::Fire) {
+            if r.hazards.contains(&HazardType::Fire) || r.is_broken {
                 target_rooms.insert(r.id);
             }
         }
@@ -391,17 +399,21 @@ pub fn score_static(
         .map(|r| r.hazards.iter().filter(|h| **h == HazardType::Fire).count())
         .sum();
 
-    // PROJECTED DAMAGE: One hull damage per room on fire at end of round.
-    // If Overheating is active, damage is per fire TOKEN.
-    let is_overheating = state
-        .active_situations
-        .iter()
-        .any(|c| c.id == CardId::Overheating);
-    let fire_damage = if is_overheating {
-        fire_count_total
-    } else {
-        rooms_on_fire
-    };
+    // PROJECTED DAMAGE: System health loss and potential hull explosion.
+    let mut fire_hull_damage = 0;
+    for room in state.map.rooms.values() {
+        let cnt = room
+            .hazards
+            .iter()
+            .filter(|h| **h == HazardType::Fire)
+            .count() as u32;
+        if cnt > 0 && room.system_health > 0 {
+            if room.system_health <= cnt {
+                fire_hull_damage += 1;
+            }
+        }
+    }
+    let fire_damage = fire_hull_damage;
 
     let mut telegraphed_hull_damage = 0;
     if let Some(attack) = &state.enemy.next_attack
@@ -681,29 +693,38 @@ pub fn score_static(
 
     // -- System Disabled --
     for room in state.map.rooms.values() {
-        if let Some(sys) = room.system
-            && matches!(
-                sys,
-                SystemType::Engine | SystemType::Cannons | SystemType::Bridge
-            )
-            && !room.hazards.is_empty()
-        {
-            let has_disabling_hazard = room.hazards.contains(&HazardType::Fire)
-                || room.hazards.contains(&HazardType::Water);
+        if let Some(sys) = room.system {
+            // Reward high system health
+            details.vitals += room.system_health as f64 * weights.system_health_reward;
 
-            // Penalty for the system being currently disabled
-            if has_disabling_hazard {
-                details.hazards -= weights.system_disabled_penalty
+            if room.is_broken {
+                details.hazards -= weights.system_broken_penalty
                     * weights.system_importance_multiplier
                     * hull_penalty_scaler;
             }
 
-            // New: Penalty for ANY hazard in a critical room (Danger Zone)
-            // Even if not disabled yet (e.g. fire just started), we want to clear it ASAP.
-            details.hazards -= weights.critical_system_hazard_penalty
-                * (room.hazards.len() as f64)
-                * weights.system_importance_multiplier
-                * hull_penalty_scaler;
+            if matches!(
+                sys,
+                SystemType::Engine | SystemType::Cannons | SystemType::Bridge
+            ) {
+                let has_disabling_hazard =
+                    room.is_broken || room.hazards.contains(&HazardType::Water);
+
+                // Penalty for the system being currently disabled
+                if has_disabling_hazard {
+                    details.hazards -= weights.system_disabled_penalty
+                        * weights.system_importance_multiplier
+                        * hull_penalty_scaler;
+                }
+
+                // New: Penalty for ANY hazard in a critical room (Danger Zone)
+                if !room.hazards.is_empty() {
+                    details.hazards -= weights.critical_system_hazard_penalty
+                        * (room.hazards.len() as f64)
+                        * weights.system_importance_multiplier
+                        * hull_penalty_scaler;
+                }
+            }
 
             // New: Checkmate System Bonus
             if room.hazards.is_empty() && state.enemy.hp <= 10 {
@@ -753,7 +774,7 @@ pub fn score_static(
     // -- Hazard Proximity Setup --
     let mut hazardous_rooms = fire_rooms;
     for room in state.map.rooms.values() {
-        if room.hazards.contains(&HazardType::Water) {
+        if room.hazards.contains(&HazardType::Water) || room.is_broken {
             hazardous_rooms.insert(room.id);
         }
     }
@@ -1042,6 +1063,7 @@ pub fn score_static(
 
             // --- Individual Role Logic ---
             let has_fire = room.hazards.contains(&HazardType::Fire);
+            let is_broken = room.is_broken;
 
             let is_critical_room = matches!(
                 room.system,
@@ -1053,8 +1075,8 @@ pub fn score_static(
                 is_critical_target = is_critical_room;
                 best_target_is_fire = has_fire;
             } else if d == best_target_dist {
-                // Tie-breaker: Critical system wins
-                if is_critical_room && !is_critical_target {
+                // Tie-breaker: Broken system or Critical system wins
+                if (is_broken || is_critical_room) && !is_critical_target {
                     is_critical_target = true;
                     best_target_is_fire = has_fire;
                 }

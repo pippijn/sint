@@ -11,6 +11,7 @@ pub type PlayerId = String;
 pub type RoomId = u32;
 
 pub const MAX_HULL: i32 = 20;
+pub const SYSTEM_HEALTH: u32 = 3;
 
 // --- Map Layout ---
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Default, Hash)]
@@ -103,6 +104,8 @@ pub struct Room {
     pub id: RoomId,
     pub name: RoomName,
     pub system: Option<SystemType>,
+    pub system_health: u32,
+    pub is_broken: bool,
     #[schemars(with = "Vec<HazardType>")]
     pub hazards: SmallVec<[HazardType; 4]>,
     #[schemars(with = "Vec<ItemType>")]

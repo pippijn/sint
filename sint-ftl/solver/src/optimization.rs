@@ -102,9 +102,9 @@ pub fn apply_multipliers_beam(base: &BeamScoringWeights, m: &[f64]) -> BeamScori
     let mut i = 0;
 
     // Ensure we don't go out of bounds if param count mismatches, though we should sync them.
-    if m.len() < 59 {
+    if m.len() < 61 {
         panic!(
-            "Multiplier vector too short for Beam weights. Expected 59, got {}",
+            "Multiplier vector too short for Beam weights. Expected 61, got {}",
             m.len()
         );
     }
@@ -118,6 +118,10 @@ pub fn apply_multipliers_beam(base: &BeamScoringWeights, m: &[f64]) -> BeamScori
     w.player_hp *= m[i];
     i += 1;
     w.ap_balance *= m[i];
+    i += 1;
+    w.system_health_reward *= m[i];
+    i += 1;
+    w.system_broken_penalty *= m[i];
     i += 1;
     w.fire_penalty_base *= m[i];
     i += 1;
@@ -234,9 +238,9 @@ pub fn apply_multipliers_rhea(base: &RheaScoringWeights, m: &[f64]) -> RheaScori
     let mut w = base.clone();
     let mut i = 0;
 
-    if m.len() < 10 {
+    if m.len() < 12 {
         panic!(
-            "Multiplier vector too short for Rhea weights. Expected 10, got {}",
+            "Multiplier vector too short for Rhea weights. Expected 12, got {}",
             m.len()
         );
     }
@@ -258,6 +262,10 @@ pub fn apply_multipliers_rhea(base: &RheaScoringWeights, m: &[f64]) -> RheaScori
     i += 1;
     w.hull_normal_reward *= m[i];
     i += 1;
+    w.system_health_reward *= m[i];
+    i += 1;
+    w.broken_system_penalty *= m[i];
+    i += 1;
     w.fire_penalty *= m[i];
     i += 1;
     w.ammo_holding_reward *= m[i];
@@ -269,8 +277,8 @@ pub fn apply_multipliers_rhea(base: &RheaScoringWeights, m: &[f64]) -> RheaScori
 
 fn get_param_count(target: Target) -> usize {
     match target {
-        Target::Beam => 59,
-        Target::Rhea => 10,
+        Target::Beam => 61,
+        Target::Rhea => 12,
     }
 }
 

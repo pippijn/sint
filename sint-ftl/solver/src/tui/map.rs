@@ -229,6 +229,27 @@ impl<'a> Widget for RoomWidget<'a> {
             Span::raw(sys_icon),
         ]);
 
+        let mut lines = vec![title_line];
+
+        // System Health
+        if room.system.is_some() {
+            let hp_color = if room.system_health == 0 {
+                Color::Red
+            } else if room.system_health < sint_core::types::SYSTEM_HEALTH {
+                Color::Yellow
+            } else {
+                Color::Green
+            };
+            lines.push(Line::from(vec![Span::styled(
+                format!(
+                    "HP: {}/{} ",
+                    room.system_health,
+                    sint_core::types::SYSTEM_HEALTH
+                ),
+                Style::default().fg(hp_color).add_modifier(Modifier::BOLD),
+            )]));
+        }
+
         // Players
         let players: Vec<_> = self
             .state
@@ -241,6 +262,9 @@ impl<'a> Widget for RoomWidget<'a> {
         for p in players {
             let emoji = get_player_emoji(&p.id);
             p_spans.push(Span::raw(emoji));
+        }
+        if !p_spans.is_empty() {
+            lines.push(Line::from(p_spans));
         }
 
         // Hazards
@@ -281,8 +305,6 @@ impl<'a> Widget for RoomWidget<'a> {
         }
 
         // Layout inner lines
-        let mut lines = vec![title_line, Line::from(p_spans)];
-
         if !h_spans.is_empty() {
             lines.push(Line::from(h_spans));
         }

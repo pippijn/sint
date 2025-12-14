@@ -29,7 +29,7 @@ fn test_fire_spread() {
 }
 
 #[test]
-fn test_fire_damage_hull() {
+fn test_fire_damage_system_not_hull() {
     let mut state = GameLogic::new_game(vec!["P1".to_owned()], 12345);
     state.phase = GamePhase::EnemyAction;
     state.hull_integrity = 20;
@@ -43,7 +43,9 @@ fn test_fire_damage_hull() {
 
     sint_core::logic::resolution::resolve_hazards(&mut state);
 
-    assert_eq!(state.hull_integrity, 19);
+    // Hull should still be 20, but kitchen system should be 2
+    assert_eq!(state.hull_integrity, 20);
+    assert_eq!(state.map.rooms[&kitchen].system_health, 2);
 }
 
 #[test]

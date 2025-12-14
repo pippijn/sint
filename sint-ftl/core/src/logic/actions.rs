@@ -652,8 +652,9 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
         }
 
         // System Actions
-        let room_functional =
-            !room.hazards.contains(&HazardType::Fire) && !room.hazards.contains(&HazardType::Water);
+        let water_blocked = room.hazards.contains(&HazardType::Water);
+        let system_broken = room.is_broken;
+        let room_functional = !water_blocked && !system_broken;
 
         if room_functional && let Some(sys) = room.system {
             let action = match sys {
@@ -719,6 +720,7 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
             }
         }
         if room.hazards.contains(&HazardType::Water)
+            || room.system_health < crate::types::SYSTEM_HEALTH
             || (room.system == Some(SystemType::Cargo) && projected_state.hull_integrity < MAX_HULL)
         {
             let action = GameAction::Repair;
