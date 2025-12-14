@@ -73,6 +73,10 @@ pub struct BeamScoringWeights {
     pub hull_penalty_scaling: f64,          // New
     pub projected_hull_panic_exponent: f64, // New
 
+    pub fire_panic_threshold_base: f64,          // New
+    pub fire_panic_threshold_hull_scaling: f64, // New
+    pub survival_only_multiplier: f64,          // New
+
     pub scavenger_reward: f64,
     pub repair_proximity_reward: f64,
     pub cargo_repair_incentive: f64,
@@ -123,14 +127,14 @@ pub struct BeamScoringWeights {
 impl Default for BeamScoringWeights {
     fn default() -> Self {
         Self {
-            hull_integrity: 10000.0,
-            hull_delta_penalty: 500.0,
+            hull_integrity: 25000.0,
+            hull_delta_penalty: 2000.0,
             enemy_hp: 2500.0,
             player_hp: 20.0,
             ap_balance: 10.0,
 
             // Hazards
-            fire_penalty_base: 50000.0,
+            fire_penalty_base: 60000.0,
             fire_token_penalty: 5000.0,
             water_penalty: 5000.0,
 
@@ -168,11 +172,11 @@ impl Default for BeamScoringWeights {
             loose_ammo_reward: 20.0,
             hazard_proximity_reward: 5.0,
             situation_exposure_penalty: 100.0,
-            system_disabled_penalty: 15000.0,
-            shooting_reward: 100000.0,
+            system_disabled_penalty: 25000.0,
+            shooting_reward: 90000.0,
 
             scavenger_reward: 2000.0,
-            repair_proximity_reward: 1000.0,
+            repair_proximity_reward: 2000.0,
             cargo_repair_incentive: 10.0,
             cargo_repair_proximity_reward: 5.0,
             item_juggling_penalty: 5000.0,
@@ -187,26 +191,30 @@ impl Default for BeamScoringWeights {
             checkmate_max_mult: 500.0,
 
             // Critical State
-            critical_hull_threshold: 8.0,
+            critical_hull_threshold: 10.0,
             critical_hull_penalty_base: 20000.0,
-            critical_hull_penalty_per_hp: 10000.0,
+            critical_hull_penalty_per_hp: 100000.0,
             critical_fire_threshold: 2,
             critical_fire_penalty_per_token: 2000.0,
             critical_system_hazard_penalty: 4000.0,
-            fire_in_critical_hull_penalty: 200000.0,
+            fire_in_critical_hull_penalty: 500000.0,
             critical_survival_mult: 0.4,
             critical_threat_mult: 5.0,
 
             // Exponents
-            hull_exponent: 1.2,
-            fire_exponent: 2.2,
+            hull_exponent: 2.5,
+            fire_exponent: 3.5,
             cargo_repair_exponent: 1.5,
             hull_risk_exponent: 1.1,
-            panic_fire_exponent: 1.8,           // Reduced from 2.0
-            panic_hull_exponent: 1.3,           // Reduced from 1.5
-            checkmate_exponent: 1.8,            // Increased from 1.5
-            hull_penalty_scaling: 1.05,         // Reduced from 1.1
-            projected_hull_panic_exponent: 1.8, // Reduced from 2.5
+            panic_fire_exponent: 2.5,
+            panic_hull_exponent: 2.0,
+            checkmate_exponent: 1.8,
+            hull_penalty_scaling: 1.1,
+            projected_hull_panic_exponent: 3.0,
+
+            fire_panic_threshold_base: 2.0,
+            fire_panic_threshold_hull_scaling: 5.0,
+            survival_only_multiplier: 0.1,
 
             // Multipliers
             fire_urgency_mult: 5.0,
@@ -410,7 +418,7 @@ pub fn score_static(
 
     // Dynamic Hazard Threshold: Panic triggers earlier if hull is low.
     let dynamic_fire_threshold = (weights.critical_fire_threshold as f64
-        * (state.hull_integrity as f64 / MAX_HULL as f64))
+        * (projected_hull as f64 / MAX_HULL as f64))
         .max(1.0);
 
     if fire_count_total as f64 >= dynamic_fire_threshold {
@@ -421,6 +429,11 @@ pub fn score_static(
             * hull_penalty_scaler;
         details.panic -= fire_panic;
     }
+
+    // --- Fire Panic Mode ---
+    let fire_panic_threshold = weights.fire_panic_threshold_base
+        + (state.hull_integrity as f64 / MAX_HULL as f64) * weights.fire_panic_threshold_hull_scaling;
+    let in_fire_panic = rooms_on_fire as f64 > fire_panic_threshold;
 
     // --- 1. Vital Stats & Progression ---
     // Non-linear Hull Penalty: Penalize missing hull exponentially (Square of missing health)
@@ -447,6 +460,10 @@ pub fn score_static(
         * checkmate_mult
         * bloodlust_mult
         * survival_multiplier;
+
+    if in_fire_panic || is_critical {
+        details.offense *= weights.survival_only_multiplier;
+    }
 
     if state.enemy.hp <= 0 {
         details.offense += weights.boss_killing_blow_reward;
@@ -536,7 +553,7 @@ pub fn score_static(
     }
 
     // -- Cargo Hull Repair Incentive --
-    let urgency = (MAX_HULL as f64 - state.hull_integrity as f64)
+    let urgency = (MAX_HULL as f64 - projected_hull as f64)
         .max(0.0)
         .powf(weights.cargo_repair_exponent);
 
@@ -1040,7 +1057,11 @@ pub fn score_static(
     for (idx, item) in history.iter().enumerate() {
         let (pid, act) = *item;
         if matches!(act, GameAction::Shoot) && state.enemy.hp > 0 {
-            details.offense += weights.shooting_reward * survival_multiplier;
+            let mut reward = weights.shooting_reward * survival_multiplier;
+            if in_fire_panic || is_critical {
+                reward *= weights.survival_only_multiplier;
+            }
+            details.offense += reward;
         }
 
         // Inaction Penalty: Penalize repeated Pass/VoteReady by the same player

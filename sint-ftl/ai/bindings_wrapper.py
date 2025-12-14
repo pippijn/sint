@@ -46,7 +46,7 @@ class SintBindings:
         Converts a Pydantic model to a dict with integer keys where appropriate
         for Rust consumption.
         """
-        data = model.model_dump(mode='json')
+        data = model.model_dump(mode='json', by_alias=True)
         return SintBindings._string_keys_to_int(data)
 
     @classmethod
@@ -87,7 +87,7 @@ class SolverBindings:
         for r in rounds:
             round_actions = []
             for pid, act in r:
-                round_actions.append((pid, act.model_dump(mode='json')))
+                round_actions.append((pid, act.model_dump(mode='json', by_alias=True)))
             rust_rounds.append(round_actions)
             
         result = sint_solver.verify_solution(rust_state, rust_rounds)
@@ -96,5 +96,5 @@ class SolverBindings:
     @classmethod
     def get_trajectory_log(cls, initial_state: GameState, history: List[Tuple[str, GameAction]]) -> List[str]:
         rust_state = SintBindings._to_rust_friendly(initial_state)
-        rust_history = [(pid, act.model_dump(mode='json')) for pid, act in history]
+        rust_history = [(pid, act.model_dump(mode='json', by_alias=True)) for pid, act in history]
         return cast(List[str], sint_solver.get_trajectory_log(rust_state, rust_history))
