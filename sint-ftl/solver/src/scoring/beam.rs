@@ -41,6 +41,8 @@ pub struct BeamScoringWeights {
     pub healing_reward: f64,
     pub sickbay_distance_factor: f64,
 
+    pub sentinel_reward: f64, // New: Reward for ending turn in critical room
+
     // Anti-Oscillation
     pub backtracking_penalty: f64,
     pub commitment_bonus: f64, // New: Reward for continuing a task
@@ -88,6 +90,8 @@ pub struct BeamScoringWeights {
     pub turn_penalty: f64,
     pub step_penalty: f64,
 
+    pub checkmate_system_bonus: f64, // New: Extra reward for operational systems when boss is low
+
     // Checkmate
     pub checkmate_threshold: f64,
     pub checkmate_multiplier: f64,
@@ -131,7 +135,7 @@ impl Default for BeamScoringWeights {
             hull_delta_penalty: 5000.0,
             enemy_hp: 2000.0,
             player_hp: 20.0,
-            ap_balance: 10.0,
+            ap_balance: 50.0,
 
             // Hazards
             fire_penalty_base: 100000.0,
@@ -156,16 +160,17 @@ impl Default for BeamScoringWeights {
 
             healing_reward: 1000.0,
             sickbay_distance_factor: 20.0,
+            sentinel_reward: 25000.0,
 
-            backtracking_penalty: 20.0,
+            backtracking_penalty: 200.0,
             commitment_bonus: 50.0,
 
-            solution_solver_reward: 20000.0,
+            solution_solver_reward: 50000.0,
             solution_distance_factor: 10.0,
             situation_logistics_reward: 5000.0,
             situation_resolved_reward: 100000.0,
             system_importance_multiplier: 2.0,
-            boss_killing_blow_reward: 10000000.0,
+            boss_killing_blow_reward: 100_000_000.0,
             inaction_penalty: 25000.0,
 
             ammo_stockpile_reward: 500.0,
@@ -179,16 +184,17 @@ impl Default for BeamScoringWeights {
             repair_proximity_reward: 2000.0,
             cargo_repair_incentive: 10.0,
             cargo_repair_proximity_reward: 5.0,
-            item_juggling_penalty: 5000.0,
+            item_juggling_penalty: 50000.0,
             situation_exponent: 2.0,
 
             boss_level_reward: 2000.0,
             turn_penalty: 100.0,
             step_penalty: 100.0,
+            checkmate_system_bonus: 50000.0,
 
             checkmate_threshold: 20.0,
             checkmate_multiplier: 100.0,
-            checkmate_max_mult: 500.0,
+            checkmate_max_mult: 2000.0,
 
             // Critical State
             critical_hull_threshold: 15.0,
@@ -462,7 +468,13 @@ pub fn score_static(
         * survival_multiplier;
 
     if in_fire_panic || is_critical {
-        details.offense *= weights.survival_only_multiplier;
+        // If boss is near death, don't dampen offense as much.
+        let dampening = if state.enemy.hp <= 10 {
+            (weights.survival_only_multiplier * 5.0).min(1.0)
+        } else {
+            weights.survival_only_multiplier
+        };
+        details.offense *= dampening;
     }
 
     if state.enemy.hp <= 0 {
@@ -549,6 +561,11 @@ pub fn score_static(
                 * (room.hazards.len() as f64)
                 * weights.system_importance_multiplier
                 * hull_penalty_scaler;
+
+            // New: Checkmate System Bonus
+            if room.hazards.is_empty() && state.enemy.hp <= 10 {
+                details.hazards += weights.checkmate_system_bonus;
+            }
         }
     }
 
@@ -749,8 +766,21 @@ pub fn score_static(
             "P3" => find_room_with_system(state, SystemType::Bridge),
             "P4" => find_room_with_system(state, SystemType::Engine),
             "P5" | "P6" => find_room_with_system(state, SystemType::Cannons),
-            _ => None,
+            _ => None, // P2 is a Roamer/Quartermaster
         };
+
+        // --- NEW: Sentinel Reward ---
+        if let Some(room) = state.map.rooms.get(&p.room_id)
+            && let Some(sys) = room.system
+        {
+            if matches!(
+                sys,
+                SystemType::Cannons | SystemType::Engine | SystemType::Bridge
+            ) && room.hazards.is_empty()
+            {
+                details.logistics += weights.sentinel_reward;
+            }
+        }
 
         // Dynamic Role Override: Critical Health (Seek Healing)
         if p.hp < 2 {
@@ -1080,7 +1110,12 @@ pub fn score_static(
         if matches!(act, GameAction::Shoot) && state.enemy.hp > 0 {
             let mut reward = weights.shooting_reward * survival_multiplier;
             if in_fire_panic || is_critical {
-                reward *= weights.survival_only_multiplier;
+                let dampening = if state.enemy.hp <= 10 {
+                    (weights.survival_only_multiplier * 5.0).min(1.0)
+                } else {
+                    weights.survival_only_multiplier
+                };
+                reward *= dampening;
             }
             details.offense += reward;
         }
@@ -1100,6 +1135,14 @@ pub fn score_static(
             for prev_idx in (0..idx).rev() {
                 let (prev_pid, prev_act) = history[prev_idx];
                 if prev_pid != pid {
+                    // Special case: Someone else threw an item to us.
+                    // If we drop it immediately, it's juggling.
+                    if let GameAction::Throw { target_player, .. } = prev_act {
+                        if target_player == pid {
+                            found_pickup = true;
+                            break;
+                        }
+                    }
                     continue;
                 }
                 match prev_act {
