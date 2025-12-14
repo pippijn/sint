@@ -667,8 +667,9 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
 
         // System Actions
         let water_blocked = room.hazards.contains(&HazardType::Water);
+        let fire_blocked = room.hazards.contains(&HazardType::Fire);
         let system_broken = room.is_broken;
-        let room_functional = !water_blocked && !system_broken;
+        let room_functional = !water_blocked && !fire_blocked && !system_broken;
 
         if room_functional && let Some(sys) = room.system {
             let action = match sys {

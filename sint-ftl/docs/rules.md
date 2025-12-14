@@ -19,33 +19,34 @@
 ### **Hull Integrity**
 *   The Ship starts with **20 Hull Points**.
 *   **Damage Sources:**
-    *   Enemy Cannonballs (Direct Hit).
-    *   **Structural Burn:** If a room contains **Fire** at the end of the round, the ship takes **-1 Hull Damage**.
+    *   **Enemy Hits:** Any successful enemy attack (Cannonballs/Fire or Leaks/Water) deals **-1 Hull Damage**.
+    *   **System Explosion:** If a room's system is completely destroyed by **Fire**, the ship takes **-1 Hull Damage**.
 
 ### **Rooms & Systems**
 The ship is divided into numbered rooms. Each room houses a specific system.
 **System Status:**
-*   **Operational:** No Fire or Water tokens present.
-*   **Disabled:** If a room has **1 or more** Fire/Water tokens, its Action is unusable.
-*   **Repair:** Players must `Extinguish` (Fire) or `Repair` (Water) to restore function.
+*   **Operational:** No Fire or Water tokens present, and System HP > 0.
+*   **Disabled:** If a room has **1 or more** Fire/Water tokens, or if its System HP is 0 (Broken), its Action is unusable.
+*   **System HP:** Each system has **3 HP**. Fire deals 1 damage to System HP per token at the end of the round.
+*   **Repair:** Players must `Extinguish` (Fire) or `Repair` (Water/Broken) to restore function. `Repair` follows a strict priority: Remove 1 Water -> OR restore 1 System HP -> OR restore 1 Hull (Cargo only).
 
 ### **Map Layout (Default: Star)**
 *   **Room 0 (Central Hallway):** The Hub. Connects to **all** other rooms (1-9).
 *   **Outer Rooms (1-9):** Connect only to the Hub. No direct travel between outer rooms.
 
 ### **Systems (Dice Rolls)**
-The Enemy targets specific **Systems** determined by a **2d6 Dice Roll**. The Room ID containing each system depends on the Map Layout.
+The Enemy targets specific **Systems** determined by a **2d6 Dice Roll**. The Room ID containing each system depends on the Map Layout. **Note:** The Dice Roll result determines the *System Type*, not necessarily the *Room ID*. For example, in the Star layout, System 2 (The Bow) is located in Room 1.
 
 | Roll | System | Function / Action | Starting Items |
 | :--- | :--- | :--- | :--- |
-| **2** | **The Bow** | *Lookout.* Reveals the top card of the Enemy Deck (Forecasting). | - |
+| **2** | **The Bow** | *Lookout.* Reveals the top card of the **Situation Deck** (Forecasting). | - |
 | **3** | **Dormitory** | *Respawn Point.* Fainted players revive here at the start of the next round. | - |
-| **4** | **Cargo** | *Fuel.* Fire spreads 2x faster. Action: **"Repair"** (1 AP) -> +1 Hull (Max 20). | **Wheelbarrow** |
+| **4** | **Cargo** | *Fuel.* Fire spreads 2x faster. Action: **"Repair"** (1 AP) -> +1 Hull (Max 20) if no Water/Damage. | **Wheelbarrow** |
 | **5** | **Engine** | *Power.* Action: **"Evasive Maneuvers"** (2 AP). Forces **all** enemy attacks to **MISS** this round. | **Extinguisher** |
 | **6** | **Kitchen** | *Ammo.* Action: **"Bake"** (1 AP). Create 3 Peppernuts (placed in room). | - |
 | **7** | **Cannons** | *Attack.* Action: **"Load & Fire"** (1 AP + 1 Nut). Deals 1 Dmg to Enemy (**1d6 >= 3**). | - |
 | **8** | **Bridge** | *Steering.* Action: **"Raise Shields"** (2 AP). Blocks **all** incoming **Damage** events this round. | - |
-| **9** | **Sickbay** | *Heal.* Action: **"First Aid"** (1 AP). Restore 1 HP to self or adjacent player. | - |
+| **9** | **Sickbay** | *Heal.* Action: **"First Aid"** (1 AP). Restore 1 HP to self or adjacent/same-room player. | - |
 | **10** | **Storage** | *Vault.* Secure storage. Items here are safe from Water damage. | **5 Peppernuts** |
 | **11-12** | **Miss** | *Lucky Break.* The enemy attack misses the ship entirely. | - |
 
@@ -77,7 +78,10 @@ The Enemy targets specific **Systems** determined by a **2d6 Dice Roll**. The Ro
 1.  **Move:** Move to an adjacent room.
 2.  **Interact:** Perform the specific Room Action (Bake, Shoot, Shield, etc.).
 3.  **Extinguish:** Remove 1 Fire token from current room (Removes **2** if holding **Extinguisher**).
-4.  **Repair:** Remove 1 Water token from current room. If in **Cargo** and no Water is present, restores **1 Hull Integrity** (Max 20).
+4.  **Repair:** Removes hazards or fixes systems in this specific priority:
+    *   **Water:** Removes 1 Water token.
+    *   **System HP:** If no Water is present, restores 1 System HP (up to 3).
+    *   **Hull:** If no Water/System damage is present AND you are in **Cargo**, restores **1 Hull Integrity** (Max 20).
 5.  **Throw:** Toss 1 Peppernut to a player in the same or an adjacent room (100% success). Only Peppernuts can be thrown; special items must be dropped and picked up.
 6.  **Pick Up:** Add item from room to inventory.
 7.  **Drop:** Drop item from inventory to room (**Free**).
@@ -118,7 +122,6 @@ The game does not have fixed turns. It plays in a series of **Rounds**, each con
     *   Otherwise: The target room takes the hit (Fire, Water, or Special).
 2.  **Fire Damage (The Burn):**
     *   Any player standing in a room with Fire takes **1 Damage**.
-    *   Any room with Fire deals **1 Hull Damage**.
 3.  **Hazard Effects & Spread:** 
     *   **Water Damage:** All loose Peppernuts in flooded rooms (except Storage) are destroyed.
     *   **Fire Spread:** Fire may spread to adjacent rooms (Dice Roll).
@@ -138,11 +141,11 @@ The game does not have fixed turns. It plays in a series of **Rounds**, each con
 
 ### **FIRE (Red Token)**
 *   **Effect:** Disables Room Function.
-*   **Danger:** Deals damage to Players and Hull at end of round.
+*   **Danger:** Deals damage to Players at end of round.
 *   **Spread:** If >= 2 Fire tokens in a room (>= 1 in Cargo), it has a 50% chance to spread to adjacent rooms.
 
 ### **WATER (Blue Token)**
-*   **Effect:** Disables Room Function. Destroys all loose **Peppernuts** in the room (except in **Storage**) **at the end of the round**. This allows players to retrieve items before they are lost. Special items (Extinguisher, Wheelbarrow, etc.) are **NOT** destroyed by water.
+*   **Effect:** Disables Room Function. Destroys all loose **Peppernuts** in the room (except in **Storage**) **at the end of the round**. This allows players to retrieve items before they are lost. If a player **drops** a Peppernut into an already flooded room, it is destroyed immediately. Special items (Extinguisher, Wheelbarrow, etc.) are **NOT** destroyed by water.
 *   **Cleanup:** Requires 'Repair' (Mop).
 
 ## **6. COMMUNICATION**

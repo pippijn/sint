@@ -58,6 +58,7 @@ pub fn resolve_enemy_attack(state: &mut GameState) {
                         for _ in 0..hazard_mod {
                             room.add_hazard(HazardType::Water);
                         }
+                        state.hull_integrity -= 1;
                     }
                     _ => {}
                 }
