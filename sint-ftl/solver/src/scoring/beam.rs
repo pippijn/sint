@@ -126,19 +126,38 @@ pub struct BeamScoringWeights {
 
     pub rest_round_hazard_multiplier: f64,
     pub rest_round_vitals_multiplier: f64,
+
+    // New: Magic numbers from score_static
+    pub victory_score: f64,
+    pub game_over_score: f64,
+    pub victory_hull_multiplier: f64,
+    pub fire_spread_projected_damage: f64,
+    pub max_hazard_multiplier: f64,
+    pub critical_survival_boss_hp_threshold: f64,
+    pub hull_risk_scaling_factor: f64,
+    pub hull_risk_scaling_exponent: f64,
+    pub hull_risk_max_mult: f64,
+    pub bloodlust_hp_threshold: f64,
+    pub bloodlust_multiplier: f64,
+    pub checkmate_dampening_boss_hp_threshold: f64,
+    pub panic_dampening_multiplier: f64,
+    pub firefighter_panic_scaling: f64,
+
+    pub bake_reward: f64,
+    pub blocking_situation_multiplier: f64,
 }
 
 impl Default for BeamScoringWeights {
     fn default() -> Self {
         Self {
-            hull_integrity: 50000.0,
+            hull_integrity: 100000.0,
             hull_delta_penalty: 5000.0,
-            enemy_hp: 2000.0,
-            player_hp: 20.0,
-            ap_balance: 50.0,
+            enemy_hp: 25000.0,
+            player_hp: 100.0,
+            ap_balance: 100.0,
 
             // Hazards
-            fire_penalty_base: 100000.0,
+            fire_penalty_base: 250000.0,
             fire_token_penalty: 10000.0,
             water_penalty: 5000.0,
 
@@ -151,45 +170,45 @@ impl Default for BeamScoringWeights {
             // Roles
             station_keeping_reward: 10000.0,
             gunner_base_reward: 5000.0,
-            gunner_per_ammo: 5000.0,
+            gunner_per_ammo: 10000.0,
             gunner_working_bonus: 5.0,
-            gunner_distance_factor: 50.0,
+            gunner_distance_factor: 100.0,
 
             firefighter_base_reward: 25000.0,
             firefighter_distance_factor: 20.0,
 
-            healing_reward: 1000.0,
+            healing_reward: 5000.0,
             sickbay_distance_factor: 20.0,
             sentinel_reward: 25000.0,
 
             backtracking_penalty: 200.0,
             commitment_bonus: 50.0,
 
-            solution_solver_reward: 50000.0,
-            solution_distance_factor: 10.0,
-            situation_logistics_reward: 5000.0,
-            situation_resolved_reward: 100000.0,
-            system_importance_multiplier: 2.0,
+            solution_solver_reward: 200000.0,
+            solution_distance_factor: 20.0,
+            situation_logistics_reward: 10000.0,
+            situation_resolved_reward: 500000.0,
+            system_importance_multiplier: 5.0,
             boss_killing_blow_reward: 100_000_000.0,
             inaction_penalty: 25000.0,
 
-            ammo_stockpile_reward: 500.0,
-            loose_ammo_reward: 20.0,
+            ammo_stockpile_reward: 2000.0,
+            loose_ammo_reward: 100.0,
             hazard_proximity_reward: 5.0,
             situation_exposure_penalty: 100.0,
             system_disabled_penalty: 25000.0,
             shooting_reward: 10000.0,
 
-            scavenger_reward: 2000.0,
+            scavenger_reward: 5000.0,
             repair_proximity_reward: 2000.0,
             cargo_repair_incentive: 10.0,
             cargo_repair_proximity_reward: 5.0,
             item_juggling_penalty: 50000.0,
             situation_exponent: 2.0,
 
-            boss_level_reward: 2000.0,
-            turn_penalty: 100.0,
-            step_penalty: 100.0,
+            boss_level_reward: 1000000.0,
+            turn_penalty: 50.0,
+            step_penalty: 500.0,
             checkmate_system_bonus: 50000.0,
 
             checkmate_threshold: 20.0,
@@ -220,7 +239,7 @@ impl Default for BeamScoringWeights {
 
             fire_panic_threshold_base: 2.0,
             fire_panic_threshold_hull_scaling: 5.0,
-            survival_only_multiplier: 0.2,
+            survival_only_multiplier: 0.5,
 
             // Multipliers
             fire_urgency_mult: 5.0,
@@ -238,6 +257,24 @@ impl Default for BeamScoringWeights {
 
             rest_round_hazard_multiplier: 5.0,
             rest_round_vitals_multiplier: 5.0,
+
+            victory_score: 100_000_000.0,
+            game_over_score: -1_000_000_000.0,
+            victory_hull_multiplier: 10000.0,
+            fire_spread_projected_damage: 0.5,
+            max_hazard_multiplier: 8.0,
+            critical_survival_boss_hp_threshold: 10.0,
+            hull_risk_scaling_factor: 10.0,
+            hull_risk_scaling_exponent: 2.0,
+            hull_risk_max_mult: 20.0,
+            bloodlust_hp_threshold: 0.5,
+            bloodlust_multiplier: 1.5,
+            checkmate_dampening_boss_hp_threshold: 10.0,
+            panic_dampening_multiplier: 5.0,
+            firefighter_panic_scaling: 9.0,
+
+            bake_reward: 5000.0,
+            blocking_situation_multiplier: 10.0,
         }
     }
 }
@@ -297,13 +334,13 @@ pub fn score_static(
     // Terminal States
     // Terminal States: Increase magnitude to ensure separation from regular score swings.
     if state.phase == GamePhase::Victory {
-        details.vitals = 100_000_000.0 + (state.hull_integrity as f64 * 10000.0);
+        details.vitals = weights.victory_score + (state.hull_integrity as f64 * weights.victory_hull_multiplier);
         details.total = details.vitals;
         return details;
     }
     // SUICIDE PREVENTION: Death must be worse than any living hell.
     if state.phase == GamePhase::GameOver || state.hull_integrity <= 0 {
-        details.total = -1_000_000_000.0;
+        details.total = weights.game_over_score;
         return details;
     }
 
@@ -343,10 +380,10 @@ pub fn score_static(
     };
 
     let projected_hull =
-        state.hull_integrity - fire_damage as i32 - (fire_spread_sources as f64 * 0.5) as i32;
+        state.hull_integrity - fire_damage as i32 - (fire_spread_sources as f64 * weights.fire_spread_projected_damage) as i32;
     // If fires will kill us this round, it's over.
     if projected_hull <= 0 {
-        details.total = -1_000_000_000.0;
+        details.total = weights.game_over_score;
         return details;
     }
 
@@ -360,8 +397,7 @@ pub fn score_static(
 
     // hazard_multiplier: 1.0 at full health, up to 1.0 / critical_survival_mult at 0 health.
     // DAMPENED: Use a lower ceiling for the hazard multiplier to prevent -100M scores.
-    let max_hazard_ceiling = 8.0;
-    let hazard_multiplier = 1.0 + (missing_hull_percent * (max_hazard_ceiling - 1.0));
+    let hazard_multiplier = 1.0 + (missing_hull_percent * (weights.max_hazard_multiplier - 1.0));
 
     // Penalty scaling based on hull integrity: lower hull = higher penalties for everything else.
     // Use PROJECTED hull.
@@ -394,7 +430,7 @@ pub fn score_static(
 
         // Survival Override: If we are in critical condition, dampen bloodlust unless the boss is almost dead.
         if is_critical {
-            if state.enemy.hp > 10 {
+            if (state.enemy.hp as f64) > weights.critical_survival_boss_hp_threshold {
                 checkmate_mult = 1.0;
             } else {
                 // Do NOT dampen if the boss is at 10 HP or less. Finishing the boss IS survival.
@@ -459,7 +495,7 @@ pub fn score_static(
     } else {
         0.0
     };
-    let bloodlust_mult = if enemy_hp_percent < 0.5 { 1.5 } else { 1.0 };
+    let bloodlust_mult = if enemy_hp_percent < weights.bloodlust_hp_threshold { weights.bloodlust_multiplier } else { 1.0 };
 
     details.offense += (state.enemy.max_hp as f64 - state.enemy.hp as f64)
         * weights.enemy_hp
@@ -469,8 +505,8 @@ pub fn score_static(
 
     if in_fire_panic || is_critical {
         // If boss is near death, don't dampen offense as much.
-        let dampening = if state.enemy.hp <= 10 {
-            (weights.survival_only_multiplier * 5.0).min(1.0)
+        let dampening = if (state.enemy.hp as f64) <= weights.checkmate_dampening_boss_hp_threshold {
+            (weights.survival_only_multiplier * weights.panic_dampening_multiplier).min(1.0)
         } else {
             weights.survival_only_multiplier
         };
@@ -510,7 +546,7 @@ pub fn score_static(
     // Non-Linear Fire Penalty based on Hull Risk (Inverse Power Function)
     // Use PROJECTED hull to feel the fear.
     // Less dampened: increase the risk multiplier as hull drops.
-    let hull_risk_mult = (1.0 + (missing_hull_percent * 10.0).powf(2.0)).min(20.0);
+    let hull_risk_mult = (1.0 + (missing_hull_percent * weights.hull_risk_scaling_factor).powf(weights.hull_risk_scaling_exponent)).min(weights.hull_risk_max_mult);
 
     let mut fire_penalty = (fire_rooms.len() as f64).powf(weights.fire_exponent)
         * weights.fire_penalty_base
@@ -909,7 +945,7 @@ pub fn score_static(
 
         if best_target_dist != 999 {
             // Panic Multiplier: Scale firefighting importance from 1x to 10x as damage increases.
-            let panic_mult = 1.0 + (missing_hull_percent * 9.0);
+            let panic_mult = 1.0 + (missing_hull_percent * weights.firefighter_panic_scaling);
 
             if best_target_dist == 0 {
                 emergency_score += weights.firefighter_base_reward * panic_mult * hazard_multiplier;
@@ -1014,11 +1050,17 @@ pub fn score_static(
                         sys,
                         SystemType::Engine | SystemType::Cannons | SystemType::Bridge
                     );
-                    let importance_mult = if is_critical_sys {
+                    let mut importance_mult = if is_critical_sys {
                         weights.system_importance_multiplier * hull_penalty_scaler
                     } else {
                         survival_multiplier
                     };
+
+                    // NEW: Blocking Situation Multiplier
+                    // If the situation is negative, it's likely blocking or harming us.
+                    if get_behavior(card.id).get_sentiment() == CardSentiment::Negative {
+                        importance_mult *= weights.blocking_situation_multiplier;
+                    }
 
                     if best_q_d == 0 && best_n_d == 0 {
                         details.situations += weights.solution_solver_reward * importance_mult;
@@ -1110,14 +1152,26 @@ pub fn score_static(
         if matches!(act, GameAction::Shoot) && state.enemy.hp > 0 {
             let mut reward = weights.shooting_reward * survival_multiplier;
             if in_fire_panic || is_critical {
-                let dampening = if state.enemy.hp <= 10 {
-                    (weights.survival_only_multiplier * 5.0).min(1.0)
+                let dampening = if (state.enemy.hp as f64) <= weights.checkmate_dampening_boss_hp_threshold {
+                    (weights.survival_only_multiplier * weights.panic_dampening_multiplier).min(1.0)
                 } else {
                     weights.survival_only_multiplier
                 };
                 reward *= dampening;
             }
             details.offense += reward;
+        }
+
+        if matches!(act, GameAction::Bake) {
+            let mut nuts_in_room = 0;
+            if let Some(room_id) = state.players.get(pid).map(|p| p.room_id) {
+                if let Some(room) = state.map.rooms.get(&room_id) {
+                    nuts_in_room = room.items.iter().filter(|i| **i == ItemType::Peppernut).count();
+                }
+            }
+            if nuts_in_room < 10 {
+                details.logistics += weights.bake_reward;
+            }
         }
 
         // Inaction Penalty: Penalize repeated Pass/VoteReady by the same player
