@@ -267,9 +267,35 @@ where
         }
 
         if sorted_nodes.len() > config.width {
-            sorted_nodes.truncate(config.width);
+            let mut diverse_selection = Vec::with_capacity(config.width);
+            let mut parent_counts = HashMap::new();
+            let max_per_parent = (config.width as f64 * 0.1).max(1.0) as usize; // Max 10% from one parent if there are other options
+
+            let mut remaining = Vec::new();
+
+            for node in &sorted_nodes {
+                let parent_sig = node.parent.as_ref().map(|p| p.signature).unwrap_or(0);
+                let count = parent_counts.entry(parent_sig).or_insert(0);
+                if *count < max_per_parent && diverse_selection.len() < config.width {
+                    diverse_selection.push(node.clone());
+                    *count += 1;
+                } else {
+                    remaining.push(node.clone());
+                }
+            }
+
+            if diverse_selection.len() < config.width {
+                for node in remaining {
+                    if diverse_selection.len() >= config.width {
+                        break;
+                    }
+                    diverse_selection.push(node);
+                }
+            }
+            beam = diverse_selection;
+        } else {
+            beam = sorted_nodes;
         }
-        beam = sorted_nodes;
 
         if let Some(cb) = beam.first()
             && config.verbose

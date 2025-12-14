@@ -122,6 +122,7 @@ pub struct BeamScoringWeights {
     pub gunner_en_route_mult: f64,
     pub gunner_wheelbarrow_penalty: f64,
     pub baker_wheelbarrow_mult: f64,
+    pub gunner_coordination_bonus: f64,
 
     pub threat_severe_reward: f64,
     pub threat_mitigated_reward: f64,
@@ -261,6 +262,7 @@ impl Default for BeamScoringWeights {
             gunner_en_route_mult: 0.2,
             gunner_wheelbarrow_penalty: 0.1,
             baker_wheelbarrow_mult: 3.0,
+            gunner_coordination_bonus: 5000.0,
 
             threat_severe_reward: 5000.0,
             threat_mitigated_reward: 100.0,
@@ -912,6 +914,21 @@ pub fn score_static(
     let mut ammo_sources = nut_locations;
     for k in &kitchen_rooms {
         ammo_sources.insert(*k);
+    }
+
+    // -- Role: Gunner Logic --
+    let mut players_at_cannons_with_ammo = 0;
+    for p in state.players.values() {
+        if p.hp > 0 && p.inventory.contains(&ItemType::Peppernut) {
+            let dist = distances.min_distance(p.room_id, &cannon_rooms);
+            if dist == 0 {
+                players_at_cannons_with_ammo += 1;
+            }
+        }
+    }
+    if players_at_cannons_with_ammo > 1 {
+        details.logistics +=
+            (players_at_cannons_with_ammo - 1) as f64 * weights.gunner_coordination_bonus;
     }
 
     for p in state.players.values() {

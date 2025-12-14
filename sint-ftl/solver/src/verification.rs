@@ -32,7 +32,6 @@ pub struct VerificationResult {
 }
 
 pub type RoundActions = Vec<(String, GameAction)>;
-pub type ParsedSolution = (Vec<RoundActions>, Option<u64>, Option<usize>);
 
 impl VerificationResult {
     pub fn failure_summary(&self) -> Option<String> {
@@ -193,62 +192,6 @@ pub fn parse_game_action(cmd: &str) -> GameAction {
     } else {
         panic!("Unknown command: {}", cmd);
     }
-}
-
-pub fn parse_solution_text(text: &str) -> ParsedSolution {
-    let mut rounds = Vec::new();
-    let mut current_round = Vec::new();
-    let mut seed = None;
-    let mut players = None;
-
-    for line in text.lines() {
-        let line = line.trim();
-        if line.is_empty() {
-            continue;
-        }
-
-        if line.starts_with('#') {
-            if line.to_lowercase().contains("round") && !current_round.is_empty() {
-                rounds.push(current_round);
-                current_round = Vec::new();
-            }
-            continue;
-        }
-
-        // Check for Meta Commands: "SEED 12345" or "PLAYERS 2"
-        if line.starts_with("SEED ")
-            && let Ok(val) = line.replace("SEED ", "").trim().parse::<u64>()
-        {
-            seed = Some(val);
-            continue;
-        }
-        if line.starts_with("PLAYERS ")
-            && let Ok(val) = line.replace("PLAYERS ", "").trim().parse::<usize>()
-        {
-            players = Some(val);
-            continue;
-        }
-
-        let parts: Vec<&str> = line.splitn(2, ':').collect();
-        if parts.len() != 2 {
-            continue;
-        }
-
-        let pid = parts[0].trim().to_owned();
-        let cmd = parts[1].trim();
-
-        let action = parse_game_action(cmd);
-
-        current_round.push((pid, action));
-    }
-
-    if !current_round.is_empty() {
-        rounds.push(current_round);
-    }
-    // If no explicit rounds found but actions exist, treat as one round (legacy/fallback)
-    // Or if valid use case requires implicit single round.
-
-    (rounds, seed, players)
 }
 
 pub fn run_verification(
