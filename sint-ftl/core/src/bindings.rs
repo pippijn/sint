@@ -43,9 +43,7 @@ fn apply_action_with_id(
 #[cfg(feature = "python")]
 #[pyfunction]
 fn get_schema_json() -> PyResult<String> {
-    let schema = schemars::schema_for!(GameAction);
-    serde_json::to_string_pretty(&schema)
-        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
+    Ok(crate::export_schema())
 }
 
 #[cfg(feature = "python")]

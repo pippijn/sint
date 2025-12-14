@@ -21,13 +21,25 @@ pub trait Identifiable {
 /// A map-like structure optimized for tiny collections where keys are fields of the value.
 /// Uses a `Vec<V>` internally and performs linear lookups.
 /// Serializes as a BTreeMap (map) to ensure compatibility with clients.
-#[derive(Clone, PartialEq, Eq, Debug, JsonSchema)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct FieldMap<V>
+where
+    V: Identifiable,
+{
+    data: Vec<V>,
+}
+
+impl<V> JsonSchema for FieldMap<V>
 where
     V: Identifiable + JsonSchema,
 {
-    #[schemars(with = "BTreeMap<V::Id, V>")]
-    data: Vec<V>,
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        format!("FieldMap_{}", V::schema_name()).into()
+    }
+
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        generator.subschema_for::<BTreeMap<V::Id, V>>()
+    }
 }
 
 impl<V> Default for FieldMap<V>

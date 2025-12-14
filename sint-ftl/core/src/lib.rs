@@ -7,8 +7,13 @@ pub mod types;
 pub use logic::{GameError, GameLogic};
 pub use types::*;
 
-#[cfg(feature = "schema")]
 pub fn export_schema() -> String {
-    let schema = schemars::schema_for!(types::Action);
+    #[derive(schemars::JsonSchema)]
+    #[allow(dead_code)]
+    struct FullSchema {
+        state: types::GameState,
+        action: types::Action,
+    }
+    let schema = schemars::schema_for!(FullSchema);
     serde_json::to_string_pretty(&schema).unwrap()
 }

@@ -35,15 +35,27 @@ impl SmallIndex for usize {
 /// A map implementation optimized for small, dense integer keys.
 /// Uses a `Vec<Option<V>>` internally but presents a map-like interface.
 /// Serializes as a BTreeMap (map) to ensure compatibility with clients.
-#[derive(Clone, PartialEq, Eq, Debug, JsonSchema)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct SmallMap<K, V>
 where
     K: SmallIndex + Serialize,
-    V: JsonSchema,
 {
-    #[schemars(with = "BTreeMap<K, V>")]
     data: Vec<Option<V>>,
     _marker: PhantomData<K>,
+}
+
+impl<K, V> JsonSchema for SmallMap<K, V>
+where
+    K: SmallIndex + Serialize + JsonSchema,
+    V: JsonSchema,
+{
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        format!("SmallMap_{}_{}", K::schema_name(), V::schema_name()).into()
+    }
+
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        generator.subschema_for::<BTreeMap<K, V>>()
+    }
 }
 
 impl<K, V> Default for SmallMap<K, V>

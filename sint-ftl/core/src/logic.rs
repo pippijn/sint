@@ -57,7 +57,7 @@ impl GameLogic {
                 id: pid.clone(),
                 name: format!("Player {}", i + 1),
                 room_id: start_room,
-                hp: 3,
+                hp: MAX_PLAYER_HP,
                 ap: MAX_PLAYER_AP,
                 inventory: vec![].into(),
                 status: vec![].into(),

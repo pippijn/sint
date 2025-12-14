@@ -4,12 +4,14 @@ import uuid
 import websockets
 import textwrap
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 from google import genai
-from google.genai import types
+from google.genai import types as genai_types
 import sint_core # type: ignore
 from context import MemoryBank
 from tools import load_game_tools
+from bindings_wrapper import SintBindings
+from game_types import GameState, Action, GamePhase, Player, Room, Card, Enemy, ProposedAction, CardId
 
 class GameAgent:
     def __init__(self, player_id: str, room_id: str, server_url: str, max_turns: int = 0, debug: bool = False) -> None:
@@ -18,7 +20,7 @@ class GameAgent:
         self.server_url = server_url
         self.max_turns = max_turns
         self.debug = debug
-        self.state_json: Dict[str, Any] = {}
+        self.state: Optional[GameState] = None
         self.memory = MemoryBank()
         
         self.debounce_task: Optional[asyncio.Task[None]] = None
@@ -48,7 +50,7 @@ class GameAgent:
                 }))
                 
                 # Join (Game State)
-                await self.send_event("Join", { "name": self.player_id })
+                await self.send_event(Action.model_validate({"type": "Join", "payload": {"name": self.player_id}}))
                 
                 # Sync
                 await ws.send(json.dumps({ 
@@ -65,15 +67,29 @@ class GameAgent:
         except websockets.exceptions.ConnectionClosed:
             print("WebSocket connection closed.")
 
-    async def send_event(self, action_type: str, payload: Optional[Dict[str, Any]]) -> None:
+    async def send_event(self, action: Action) -> None:
         event = {
             "id": str(uuid.uuid4()),
             "player_id": self.player_id,
-            "action": { "type": action_type, "payload": payload }
+            "action": action.model_dump(mode='json')
         }
         msg = { "type": "Event", "payload": { "sequence_id": 0, "data": event } }
         if self.websocket:
             await self.websocket.send(json.dumps(msg))
+
+    def _string_keys_to_int(self, d: Any) -> Any:
+        if isinstance(d, dict):
+            new_dict = {}
+            for k, v in d.items():
+                if isinstance(k, str) and k.isdigit():
+                    new_key = int(k)
+                else:
+                    new_key = k
+                new_dict[new_key] = self._string_keys_to_int(v)
+            return new_dict
+        elif isinstance(d, list):
+            return [self._string_keys_to_int(x) for x in d]
+        return d
 
     async def handle_message(self, data: Dict[str, Any]) -> None:
         msg_type = data.get("type")
@@ -85,46 +101,55 @@ class GameAgent:
             
         elif msg_type == "SyncRequest":
             req_id = payload.get("requestor_id")
-            if req_id != self.player_id and self.state_json and self.state_json.get("sequence_id", 0) > 0:
+            if req_id != self.player_id and self.state and self.state.sequence_id > 0:
                 print("Responding to SyncRequest...")
-                state_str = json.dumps(self.state_json)
-                await self.send_event("FullSync", { "state_json": state_str })
+                state_str = json.dumps(self.state.model_dump(mode='json'))
+                await self.send_event(Action.model_validate({"type": "FullSync", "payload": {"state_json": state_str}}))
             
         elif msg_type == "Event":
             try:
-                if not self.state_json:
-                     self.state_json = sint_core.new_game([self.player_id], 12345)
+                if not self.state:
+                     self.state = SintBindings.new_game([self.player_id], 12345)
+                     if self.debug:
+                         print(f"DEBUG: Initial state: {self.state.model_dump(mode='json')}")
 
                 event_data = payload.get("data", {})
                 pid = event_data.get("player_id")
-                action = event_data.get("action", {})
+                action_dict = event_data.get("action", {})
                 
                 if self.debug:
-                    print(f"DEBUG: Processing Action: {action}")
+                    print(f"DEBUG: Processing Action: {action_dict}")
+                    print(f"DEBUG: Current State (dump): {self.state.model_dump(mode='json')}")
 
-                self.state_json = sint_core.apply_action_with_id(self.state_json, pid, action, None)
+                action_model = Action.model_validate(action_dict)
+                self.state = SintBindings.apply_action(self.state, pid, action_model, None)
                 
-                action_type = action.get("type")
-                action_payload = action.get("payload", {})
+                # Use model for type-safe access
+                # Action (Root) -> Union[GameAction, MetaAction] (Root) -> Variant
+                inner_action = action_model.root.root
+                act_type = inner_action.type
                 
-                desc = f"Player {pid} performed {action_type}"
-                if action_type == "Move":
-                    desc += f" to room {action_payload.get('to_room')}"
-                elif action_type == "Chat":
-                    desc += f": '{action_payload.get('message')}'"
+                desc = f"Player {pid} performed {act_type}"
+                # Handle specific variants if needed for logging
+                from game_types import GameAction1, GameAction15
+                if isinstance(inner_action, GameAction1): # Move
+                    desc += f" to room {inner_action.payload.to_room}"
+                elif isinstance(inner_action, GameAction15): # Chat
+                    desc += f": '{inner_action.payload.message}'"
                 
                 print(f"Event Received: {desc}")
                 self.memory.add_log(desc)
                 
                 # Smart Scheduling
-                me = self.state_json['players'].get(self.player_id, {})
-                is_ready = me.get('is_ready', False)
+                me = self.state.players.root.get(self.player_id)
+                if not me: return
+                is_ready = me.is_ready
 
                 if pid == self.player_id:
                     # My action
                     if is_ready:
                         print("I am Ready. Waiting for others/phase change.")
-                    elif action_type == "Chat":
+                    elif act_type == "Chat":
                         print("I chatted. Waiting for reply/events.")
                     else:
                         # I did something (Move/PickUp) and I'm not ready yet. Keep planning.
@@ -133,7 +158,6 @@ class GameAgent:
                     # Others' action
                     if is_ready:
                         # I'm ready, I usually don't care what others do until phase change.
-                        # Exception: Chat? For now, stay silent to avoid spam.
                         pass
                     else:
                         # I'm not ready, their action might change my plan.
@@ -154,7 +178,7 @@ class GameAgent:
         await self.think()
 
     async def think(self) -> None:
-        if not self.state_json: return
+        if not self.state: return
         
         # Check limit logic - AFTER state check, before acting
         if self.max_turns > 0 and self.turns_taken >= self.max_turns:
@@ -178,88 +202,89 @@ class GameAgent:
                 self.memory.commit_summary(resp.text)
 
         # Context
-        state = self.state_json
-        me = state['players'].get(self.player_id)
+        state = self.state
+        me = state.players.root.get(self.player_id)
         if not me: return
         
-        room_id = me['room_id']
-        room = state['map']['rooms'].get(room_id) or state['map']['rooms'].get(str(room_id))
+        room_id = me.room_id
+        # RootModel uses .root, keys are strings
+        room = state.map.rooms.root.get(str(room_id))
         
         # History
         memory_text = self.memory.get_full_context_text()
         
         # Chat Log (Source of Truth)
-        chat_log = state.get('chat_log', [])
+        chat_log = state.chat_log
         recent_chat = chat_log[-10:] # Last 10 messages
         chat_lines = []
         for msg in recent_chat:
-            sender = msg['sender']
-            text = msg['text']
+            sender = msg.sender
+            text = msg.text
             if sender == self.player_id:
                 chat_lines.append(f"CHAT: YOU ({sender}): {text}")
             else:
                 chat_lines.append(f"CHAT: {sender}: {text}")
         chat_text = "\n".join(chat_lines)
         
-        status_desc = f"YOU ARE: {me['name']} (ID: {self.player_id})\nSTATUS: HP {me['hp']}/3, AP {me['ap']}/2. Inventory: {me['inventory']}"
-        room_desc = f"Room {room_id} ({room.get('name')}). Items={room.get('items', [])}, Hazards={room.get('hazards', [])}, ConnectsTo={room.get('neighbors')}. People: {[p['name'] for p in state['players'].values() if p['room_id'] == room_id]}"
+        status_desc = f"YOU ARE: {me.name} (ID: {self.player_id})\nSTATUS: HP {me.hp}/3, AP {me.ap}/2. Inventory: {me.inventory}"
+        room_desc = f"Room {room_id} ({room.name if room else 'Unknown'}). Items={room.items if room else []}, Hazards={room.hazards if room else []}, ConnectsTo={room.neighbors if room else []}. People: {[p.name for p in state.players.root.values() if p.room_id == room_id]}"
         
         team_status = "TEAM STATUS:\n"
-        for pid, p in state['players'].items():
-            ready_mark = "[READY]" if p.get('is_ready') else "[WAITING]"
-            team_status += f"- {p['name']} (ID: {pid}): Room {p['room_id']}, HP {p['hp']}/3 {ready_mark}\n"
+        for pid, p in state.players.root.items():
+            ready_mark = "[READY]" if p.is_ready else "[WAITING]"
+            team_status += f"- {p.name} (ID: {pid}): Room {p.room_id}, HP {p.hp}/3 {ready_mark}\n"
 
         queue_desc = "PLANNED ACTIONS:\n"
-        queue = state.get('proposal_queue', [])
+        queue = state.proposal_queue
         if queue:
-            for p in queue:
-                queue_desc += f"- {p.get('player_id')}: {p.get('action')} [ID: {p.get('id')}]\n"
+            for proposed in queue:
+                queue_desc += f"- {proposed.player_id}: {proposed.action} [ID: {proposed.id}]\n"
         else:
             queue_desc += "(None)\n"
         queue_desc += "(Use action_undo(action_id='ID') to cancel your own actions)\n"
 
-        ap = me['ap']
+        ap = me.ap
         ap_warning = ""
         if ap <= 0:
             ap_warning = "WARNING: YOU HAVE 0 AP REMAINING. If you need to change your plan, you MUST use `action_undo` first. Undo refunds the AP cost of the action, giving you AP back to use again."
         else:
             ap_warning = f"You have {ap} AP remaining. VoteReady executes queued actions and keeps remaining AP. Pass DESTROYS remaining AP."
 
-        phase = state.get('phase', 'Unknown')
+        phase = state.phase
         
         phase_hint = ""
-        if phase == "Lobby":
+        if phase == GamePhase.Lobby:
             phase_hint = "HINT: In Lobby, you can ONLY Chat (0 AP), SetName (0 AP), or VoteReady (0 AP). You CANNOT Move or act yet. VoteReady starts the game."
-        elif phase == "TacticalPlanning":
+        elif phase == GamePhase.TacticalPlanning:
             phase_hint = "HINT: Propose actions. When your plan is set, VoteReady to execute. ONLY use Pass if you want to forfeit your remaining AP."
-        elif phase in ["MorningReport", "EnemyTelegraph"]:
+        elif phase in [GamePhase.MorningReport, GamePhase.EnemyTelegraph]:
             phase_hint = "HINT: Read the report. You CANNOT Move or Act in this phase. You MUST VoteReady (0 AP) to advance to 'TacticalPlanning' where you can then move/act."
 
-        active_cards = state.get('active_situations', [])
+        active_cards = state.active_situations
         
         situation_desc = ""
-        latest_event = state.get('latest_event')
+        latest_event = state.latest_event
         if latest_event:
-             situation_desc += f"JUST DRAWN EVENT: {latest_event['title']}: {latest_event['description']}\n"
+             situation_desc += f"JUST DRAWN EVENT: {latest_event.title}: {latest_event.description}\n"
 
         if active_cards:
-            situation_desc += "ACTIVE CARDS:\n" + "\n".join([f"- {c['title']}: {c['description']}" for c in active_cards])
+            situation_desc += "ACTIVE CARDS:\n" + "\n".join([f"- {c.title}: {c.description}" for c in active_cards])
 
-        enemy = state.get('enemy', {})
-        next_attack = enemy.get('next_attack')
+        enemy = state.enemy
+        next_attack = enemy.next_attack
         enemy_intent = ""
         if next_attack:
-            enemy_intent = f"ENEMY INTENT: The enemy is targeting Room {next_attack.get('target_room')} with {next_attack.get('effect')}!"
+            enemy_intent = f"ENEMY INTENT: The enemy is targeting Room {next_attack.target_room} with {next_attack.effect}!"
         else:
             enemy_intent = "ENEMY INTENT: Unknown (Hidden or not yet revealed)."
 
         # Map Topology
         map_desc = "SHIP LAYOUT:\n"
         try:
-            rooms = state['map']['rooms'].values()
-            sorted_rooms = sorted(rooms, key=lambda x: x['id'])
+            rooms = state.map.rooms.root.values()
+            sorted_rooms = sorted(rooms, key=lambda x: x.id)
             for r in sorted_rooms:
-                map_desc += f"- Room {r['id']} ({r['name']}): Items={r.get('items', [])}, Hazards={r.get('hazards', [])}, ConnectsTo={r['neighbors']}\n"
+                map_desc += f"- Room {r.id} ({r.name}): Items={r.items}, Hazards={r.hazards}, ConnectsTo={r.neighbors}\n"
         except Exception as e:
             map_desc += f"Error reading map: {e}\n"
 
@@ -282,7 +307,7 @@ class GameAgent:
             "CURRENT SITUATION:",
             room_desc,
             status_desc,
-            f"Hull: {state['hull_integrity']}. Turn: {state['turn_count']}.",
+            f"Hull: {state.hull_integrity}. Turn: {state.turn_count}.",
             ""
         ]
         
@@ -297,25 +322,19 @@ class GameAgent:
 
         # 1. Get Valid Actions from Core
         # We pass the raw state dict directly
-        valid_actions_raw = sint_core.get_valid_actions(self.state_json, self.player_id)
+        valid_actions_raw = SintBindings.get_valid_actions(self.state, self.player_id)
         
         # 2. Map to Tool Names
         for act in valid_actions_raw:
-            # act is likely a dict from pythonize
-            if isinstance(act, dict):
-                act_type = act.get("type")
-                if act_type:
-                    tool_name = f"action_{act_type.lower()}"
-                    allowed_names.add(tool_name)
-            # Fallback if it's an object with attributes (unlikely with pythonize but possible)
-            elif hasattr(act, "type"):
-                    tool_name = f"action_{act.type.lower()}"
-                    allowed_names.add(tool_name)
+            # Action (Root) -> Union[GameAction, MetaAction] (Root) -> Variant (e.g. GameAction1)
+            # All variants have a 'type' field.
+            act_type = act.root.root.type
+            allowed_names.add(f"action_{act_type.lower()}")
             
         filtered_funcs = [fn for fn in all_funcs if fn.name in allowed_names]
-        current_tool_config = types.Tool(function_declarations=filtered_funcs)
+        current_tool_config = genai_types.Tool(function_declarations=filtered_funcs)
 
-        config = types.GenerateContentConfig(
+        config = genai_types.GenerateContentConfig(
             system_instruction=self.system_instr,
             tools=[current_tool_config]
         )
@@ -385,5 +404,6 @@ class GameAgent:
             # If no args, pass None (for Unit Variants in Rust)
             payload = clean_args if clean_args else None
             
-            await self.send_event(action_type, payload)
+            action_model = Action.model_validate({"type": action_type, "payload": payload})
+            await self.send_event(action_model)
             print(f"Sent action: {action_type}")

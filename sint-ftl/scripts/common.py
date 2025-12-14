@@ -75,6 +75,29 @@ def needs_rebuild() -> bool:
             
     return False
 
+def generate_python_types() -> None:
+    print('🧬 Generating Python Types...')
+    schema_path = os.path.join(ROOT_DIR, 'schema.json')
+    
+    # Generate schema
+    run_cmd(f'cargo run -p sint-core --example dump_schema > {schema_path}', quiet=True)
+    
+    # Generate types
+    try:
+        run_cmd(
+            f'datamodel-codegen --input {schema_path} --input-file-type jsonschema '
+            f'--output ai/game_types.py --target-python-version 3.10 '
+            f'--use-standard-collections --output-model-type pydantic_v2.BaseModel '
+            f'--use-annotated',
+            quiet=True
+        )
+    except SystemExit:
+        print('❌ Failed to generate Python types. Is datamodel-code-generator installed?')
+        # Don't exit here, maybe the old types are still somewhat usable
+    finally:
+        if os.path.exists(schema_path):
+            os.remove(schema_path)
+
 def build_bindings(force: bool = False) -> None:
     if not force and not needs_rebuild():
         # print('⏩ Skipping build (up to date)')
@@ -84,6 +107,9 @@ def build_bindings(force: bool = False) -> None:
     # Skip generic cargo build --all, let maturin handle it
     run_cmd('maturin develop', cwd=os.path.join(ROOT_DIR, 'core'))
     run_cmd('maturin develop', cwd=os.path.join(ROOT_DIR, 'solver'))
+    
+    # Generate Python types from the new bindings
+    generate_python_types()
     
     # Touch marker
     with open(BUILD_MARKER, 'w') as f:

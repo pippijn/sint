@@ -130,9 +130,9 @@ impl Default for BeamScoringWeights {
             ap_balance: 10.0,
 
             // Hazards
-            fire_penalty_base: 30000.0,
+            fire_penalty_base: 50000.0,
             fire_token_penalty: 5000.0,
-            water_penalty: 100.0,
+            water_penalty: 5000.0,
 
             // Situations & Threats
             active_situation_penalty: 10000.0,
@@ -162,16 +162,16 @@ impl Default for BeamScoringWeights {
             situation_resolved_reward: 100000.0,
             system_importance_multiplier: 2.0,
             boss_killing_blow_reward: 10000000.0,
-            inaction_penalty: 1000.0,
+            inaction_penalty: 5000.0,
 
-            ammo_stockpile_reward: 100.0,
+            ammo_stockpile_reward: 500.0,
             loose_ammo_reward: 20.0,
             hazard_proximity_reward: 5.0,
             situation_exposure_penalty: 100.0,
-            system_disabled_penalty: 5000.0,
-            shooting_reward: 50000.0,
+            system_disabled_penalty: 15000.0,
+            shooting_reward: 100000.0,
 
-            scavenger_reward: 1000.0,
+            scavenger_reward: 2000.0,
             repair_proximity_reward: 1000.0,
             cargo_repair_incentive: 10.0,
             cargo_repair_proximity_reward: 5.0,
@@ -179,8 +179,8 @@ impl Default for BeamScoringWeights {
             situation_exponent: 2.0,
 
             boss_level_reward: 2000.0,
-            turn_penalty: 500.0,
-            step_penalty: 10.0,
+            turn_penalty: 200.0,
+            step_penalty: 20.0,
 
             checkmate_threshold: 20.0,
             checkmate_multiplier: 100.0,
@@ -199,7 +199,7 @@ impl Default for BeamScoringWeights {
 
             // Exponents
             hull_exponent: 1.2,
-            fire_exponent: 2.0,
+            fire_exponent: 2.2,
             cargo_repair_exponent: 1.5,
             hull_risk_exponent: 1.1,
             panic_fire_exponent: 1.8,           // Reduced from 2.0

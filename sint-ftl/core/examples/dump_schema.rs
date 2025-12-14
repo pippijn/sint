@@ -1,7 +1,5 @@
-use schemars::schema_for;
-use sint_core::Action;
+use sint_core::export_schema;
 
 fn main() {
-    let schema = schema_for!(Action);
-    println!("{}", serde_json::to_string_pretty(&schema).unwrap());
+    println!("{}", export_schema());
 }

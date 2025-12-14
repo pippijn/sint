@@ -1,5 +1,5 @@
 use super::{
-    MAX_PLAYER_AP,
+    MAX_PLAYER_AP, MAX_PLAYER_HP,
     cards::{self, get_behavior},
     find_room_with_system_in_map,
     pathfinding::find_path,
@@ -56,7 +56,7 @@ fn apply_meta_action(
                 id: player_id.to_owned(),
                 name,
                 room_id: start_room,
-                hp: 3,
+                hp: MAX_PLAYER_HP,
                 ap: MAX_PLAYER_AP,
                 inventory: vec![].into(),
                 status: vec![].into(),
@@ -513,7 +513,7 @@ fn advance_phase(mut state: GameState) -> Result<GameState, GameError> {
             for p in state.players.values_mut() {
                 if p.status.contains(&PlayerStatus::Fainted) {
                     p.status.retain(|s| *s != PlayerStatus::Fainted);
-                    p.hp = 3;
+                    p.hp = MAX_PLAYER_HP;
                     p.room_id = dormitory_id;
                 }
             }

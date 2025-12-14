@@ -1,6 +1,6 @@
 use sint_core::{
     GameLogic,
-    logic::{find_room_with_system_in_map, resolution},
+    logic::{MAX_PLAYER_HP, find_room_with_system_in_map, resolution},
     types::*,
 };
 
@@ -56,7 +56,7 @@ fn test_fire_damage_player() {
 
     if let Some(p) = state.players.get_mut("P1") {
         p.room_id = kitchen;
-        p.hp = 3;
+        p.hp = MAX_PLAYER_HP;
     }
     if let Some(r) = state.map.rooms.get_mut(&kitchen) {
         r.hazards.push(HazardType::Fire);

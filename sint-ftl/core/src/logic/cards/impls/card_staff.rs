@@ -1,5 +1,5 @@
 use crate::{
-    logic::cards::behavior::CardBehavior,
+    logic::{MAX_PLAYER_HP, cards::behavior::CardBehavior},
     types::{
         Card, CardId, CardSentiment, CardSolution, CardType, GameState, PlayerStatus, SystemType,
     },
@@ -31,7 +31,7 @@ impl CardBehavior for TheStaffCard {
 
     fn on_solved(&self, state: &mut GameState) {
         for p in state.players.values_mut() {
-            p.hp = 3;
+            p.hp = MAX_PLAYER_HP;
             p.status.retain(|s| *s != PlayerStatus::Fainted);
         }
         state.chat_log.push(crate::types::ChatMessage {
