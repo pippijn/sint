@@ -217,7 +217,7 @@ fn apply_game_action(
 
             if p.ap == 0 {
                 return Err(GameError::InvalidAction(
-                    "Cannot Pass with 0 AP. Vote ready instead.".to_owned(),
+                    "Cannot Pass with 0 AP. You are already out of actions for this round.".to_owned(),
                 ));
             }
 

@@ -3,7 +3,11 @@
 ## **1. OVERVIEW**
 **Operation Peppernut** is a cooperative, tactical survival game where players crew "The Steamboat" against waves of enemies. Unlike the previous party-game iteration, this version emphasizes resource scarcity, strategic positioning, and crisis management (inspired by *FTL: Faster Than Light*).
 
-*   **Goal:** Defeat 4 Bosses in sequence (The Petty Thief, The Monster, The Armada, The Kraken).
+*   **Goal:** Defeat 4 Bosses in sequence:
+    1.  **The Petty Thief** (5 HP)
+    2.  **The Monster** (10 HP)
+    3.  **The Armada** (15 HP)
+    4.  **The Kraken** (20 HP)
 *   **Lose Conditions:**
     *   **Hull Integrity reaches 0.**
     *   **All players are Fainted simultaneously** (Crew Wipe).
@@ -54,6 +58,7 @@ The Enemy targets specific **Systems** determined by a **2d6 Dice Roll**. The Ro
 *   **HP:** Each player has **3 HP**.
     *   **0 HP = Fainted.** The pawn is removed from the board. Respawns in Dormitory (System 3) at the start of the next round with full HP.
 *   **AP:** Each player has **2 Action Points** per round.
+    *   **Rest Round Bonus:** During a Rest Round, each player receives **6 Action Points** (3x normal).
 *   **Carry Capacity:**
     *   **Special Items:** Max **1 Special Item** (Extinguisher, Wheelbarrow, etc).
     *   **Ammo (Hand):** Max **1 Peppernut**.
@@ -110,9 +115,12 @@ The game does not have fixed turns. It plays in a series of **Rounds**, each con
 4.  **Respawn:** Fainted players return to the Dormitory.
 
 ### **REST ROUND**
-*   Triggered when a Boss is defeated.
-*   **Safety:** No Enemy Telegraph or Event Cards occur.
-*   **Opportunity:** Players have one full round (Tactical Planning + Execution) to repair, heal, and reposition before the next Boss arrives.
+*   **Trigger:** Automatically starts the round after a Boss is defeated.
+*   **Safety:** The enemy does not attack, and no new Event/Situation cards are drawn.
+*   **Recovery:** Each player receives **6 Action Points** for the round.
+*   **Purpose:** Use this time to extinguish fires, mop up water, repair the hull in Cargo, heal in Sickbay, and gather ammo from the Kitchen.
+*   **Transition:** The next Boss arrives immediately after the Rest Round ends.
+
 
 ---
 

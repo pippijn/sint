@@ -272,7 +272,7 @@ fn test_pass_with_0_ap_fails() {
     let err = res.err().unwrap();
     assert_eq!(
         err.to_string(),
-        "Invalid Action: Cannot Pass with 0 AP. Vote ready instead."
+        "Invalid Action: Cannot Pass with 0 AP. You are already out of actions for this round."
     );
 }
 

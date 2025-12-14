@@ -144,6 +144,7 @@ pub struct BeamScoringWeights {
     pub firefighter_panic_scaling: f64,
 
     pub bake_reward: f64,
+    pub low_boss_hp_reward: f64,
     pub blocking_situation_multiplier: f64,
 }
 
@@ -174,7 +175,7 @@ impl Default for BeamScoringWeights {
             gunner_working_bonus: 5.0,
             gunner_distance_factor: 100.0,
 
-            firefighter_base_reward: 25000.0,
+            firefighter_base_reward: 50000.0,
             firefighter_distance_factor: 20.0,
 
             healing_reward: 5000.0,
@@ -189,14 +190,14 @@ impl Default for BeamScoringWeights {
             situation_logistics_reward: 10000.0,
             situation_resolved_reward: 500000.0,
             system_importance_multiplier: 5.0,
-            boss_killing_blow_reward: 100_000_000.0,
+            boss_killing_blow_reward: 2000000000.0,
             inaction_penalty: 25000.0,
 
             ammo_stockpile_reward: 2000.0,
             loose_ammo_reward: 100.0,
             hazard_proximity_reward: 5.0,
             situation_exposure_penalty: 100.0,
-            system_disabled_penalty: 25000.0,
+            system_disabled_penalty: 100000.0,
             shooting_reward: 10000.0,
 
             scavenger_reward: 5000.0,
@@ -221,7 +222,7 @@ impl Default for BeamScoringWeights {
             critical_hull_penalty_per_hp: 100000.0,
             critical_fire_threshold: 2,
             critical_fire_penalty_per_token: 2000.0,
-            critical_system_hazard_penalty: 4000.0,
+            critical_system_hazard_penalty: 100000.0,
             fire_in_critical_hull_penalty: 500000.0,
             critical_survival_mult: 0.4,
             critical_threat_mult: 5.0,
@@ -258,8 +259,8 @@ impl Default for BeamScoringWeights {
             rest_round_hazard_multiplier: 5.0,
             rest_round_vitals_multiplier: 5.0,
 
-            victory_score: 100_000_000.0,
-            game_over_score: -1_000_000_000.0,
+            victory_score: 2000000000.0,
+            game_over_score: -1000000000.0,
             victory_hull_multiplier: 10000.0,
             fire_spread_projected_damage: 0.5,
             max_hazard_multiplier: 8.0,
@@ -274,6 +275,7 @@ impl Default for BeamScoringWeights {
             firefighter_panic_scaling: 9.0,
 
             bake_reward: 5000.0,
+            low_boss_hp_reward: 1000000.0,
             blocking_situation_multiplier: 10.0,
         }
     }
@@ -502,6 +504,11 @@ pub fn score_static(
         * checkmate_mult
         * bloodlust_mult
         * survival_multiplier;
+
+    // NEW: Low Boss HP Reward
+    if state.enemy.hp > 0 && state.enemy.hp <= 5 {
+        details.offense += weights.low_boss_hp_reward * (6.0 - state.enemy.hp as f64);
+    }
 
     if in_fire_panic || is_critical {
         // If boss is near death, don't dampen offense as much.
