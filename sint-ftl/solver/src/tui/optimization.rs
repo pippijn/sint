@@ -274,9 +274,15 @@ impl<'a> Widget for OptimizationHeader<'a> {
             .split(area);
 
         // Left Header: Workload
+        let games_pct = if self.total_games > 0 {
+            (self.games_done as f64 / self.total_games as f64) * 100.0
+        } else {
+            0.0
+        };
+
         let left_text = format!(
             "SINT OPTIMIZER | Strat: {} | Target: {} | Gen: {}/{} | Pop: {} | {}\n\
-             WORKLOAD: Games: {}/{} ({} Pending, {} Running) | Genomes: {}/{} Completed",
+             WORKLOAD: Games: {}/{} ({:.1}%) ({} Pending, {} Running) | Genomes: {}/{} Completed",
             self.strategy,
             self.target,
             self.generation,
@@ -285,6 +291,7 @@ impl<'a> Widget for OptimizationHeader<'a> {
             self.status,
             self.games_done,
             self.total_games,
+            games_pct,
             self.games_pending,
             self.games_running,
             self.inds_done,
