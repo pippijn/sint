@@ -1,11 +1,12 @@
 use super::ScoreDetails;
 use sint_core::logic::pathfinding::MapDistances;
 use sint_core::logic::{cards::get_behavior, find_room_with_system};
+use sint_core::small_map::SmallSet;
 use sint_core::types::{
     AttackEffect, CardId, CardSentiment, GameAction, GamePhase, GameState, HazardType, ItemType,
     MAX_HULL, PlayerId, RoomId, SystemType,
 };
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 /// Hyperparameters for the scoring function.
 #[derive(Debug, Clone)]
@@ -339,7 +340,7 @@ pub fn calculate_score(
         let new_room = new_p.room_id;
 
         // Identify targets (Fires & Broken Systems)
-        let mut target_rooms = HashSet::new();
+        let mut target_rooms = SmallSet::new();
         for r in current.map.rooms.values() {
             if r.hazards.contains(&HazardType::Fire) || r.is_broken {
                 target_rooms.insert(r.id);
@@ -638,8 +639,8 @@ pub fn score_static(
     details.progression -= state.turn_count as f64 * weights.turn_penalty;
     details.progression -= history.len() as f64 * weights.step_penalty;
 
-    // --- 2. Hazards ---
-    let mut fire_rooms = HashSet::new();
+    // --- 1. Vital Stats & Progression ---
+    let mut fire_rooms = SmallSet::new();
     let mut water_count = 0;
     let mut fire_count = 0;
 
@@ -775,7 +776,7 @@ pub fn score_static(
         }
     }
     if let Some(cid) = cargo_id {
-        let mut t_set = HashSet::new();
+        let mut t_set = SmallSet::new();
         t_set.insert(cid);
         for p in state.players.values() {
             if p.room_id == cid {
@@ -811,7 +812,7 @@ pub fn score_static(
     // Track minimum distance to each hazard across all players (for global coverage reward)
     // Initialize with 999 (unreachable)
     let mut hazard_min_dists: HashMap<RoomId, u32> =
-        hazardous_rooms.iter().map(|&id| (id, 999)).collect();
+        hazardous_rooms.iter().map(|id| (id, 999)).collect();
 
     // --- 3. Active Situations ---
     let negative_situations = state
@@ -897,10 +898,10 @@ pub fn score_static(
     }
 
     // --- 5. Player Heuristics ---
-    let mut cannon_rooms = HashSet::new();
-    let mut kitchen_rooms = HashSet::new();
-    let mut sickbay_rooms = HashSet::new();
-    let mut nut_locations = HashSet::new();
+    let mut cannon_rooms = SmallSet::new();
+    let mut kitchen_rooms = SmallSet::new();
+    let mut sickbay_rooms = SmallSet::new();
+    let mut nut_locations = SmallSet::new();
 
     for room in state.map.rooms.values() {
         if let Some(sys) = &room.system {
@@ -925,7 +926,7 @@ pub fn score_static(
     // Pre-calculate ammo sources
     let mut ammo_sources = nut_locations;
     for k in &kitchen_rooms {
-        ammo_sources.insert(*k);
+        ammo_sources.insert(k);
     }
 
     // -- Role: Gunner Logic --
@@ -1054,7 +1055,7 @@ pub fn score_static(
             let dist = distances.min_distance(p.room_id, &cannon_rooms);
 
             // Check if Cannons are operational
-            let cannon_operational = cannon_rooms.iter().any(|&rid| {
+            let cannon_operational = cannon_rooms.iter().any(|rid| {
                 if let Some(r) = state.map.rooms.get(&rid) {
                     let is_blocked = state.active_situations.iter().any(|card| {
                         card.solution
@@ -1127,11 +1128,11 @@ pub fn score_static(
 
         // Iterate all hazardous rooms to find best emergency target for THIS player
         // AND update global coverage stats.
-        for &hid in &hazardous_rooms {
+        for hid in &hazardous_rooms {
             let room = state.map.rooms.get(&hid).unwrap();
 
             // Calculate distance to this hazard for THIS player
-            let mut t_set = HashSet::new();
+            let mut t_set = SmallSet::new();
             t_set.insert(hid);
             let d = distances.min_distance(p.room_id, &t_set);
 
@@ -1241,7 +1242,7 @@ pub fn score_static(
                 let mut all_distances = Vec::new();
                 let required_item = sol.item_cost.as_ref();
 
-                let mut t_set = HashSet::new();
+                let mut t_set = SmallSet::new();
                 t_set.insert(tid);
 
                 for p in state.players.values() {
@@ -1303,9 +1304,9 @@ pub fn score_static(
                 // Logistics: If needed item is missing, reward getting it
                 let someone_has_item = qualified_distances.iter().any(|&d| d != 999);
                 if !someone_has_item && let Some(item) = required_item {
-                    let mut sources = HashSet::new();
+                    let mut sources = SmallSet::new();
                     if *item == ItemType::Peppernut {
-                        for &k in &ammo_sources {
+                        for k in &ammo_sources {
                             sources.insert(k);
                         }
                     } else {
@@ -1383,7 +1384,7 @@ pub fn score_static(
     if total_nuts < 10
         && let Some(kitchen_id) = find_room_with_system(state, SystemType::Kitchen)
     {
-        let mut k_set = HashSet::new();
+        let mut k_set = SmallSet::new();
         k_set.insert(kitchen_id);
         for p in state.players.values() {
             let d = distances.min_distance(p.room_id, &k_set);

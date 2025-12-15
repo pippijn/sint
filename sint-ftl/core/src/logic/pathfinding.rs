@@ -1,5 +1,6 @@
+use crate::small_map::SmallSet;
 use crate::types::{GameMap, RoomId};
-use std::collections::{HashSet, VecDeque};
+use std::collections::VecDeque;
 
 pub struct MapDistances {
     distances: Vec<Vec<u32>>,
@@ -40,12 +41,12 @@ impl MapDistances {
             .unwrap_or(999)
     }
 
-    pub fn min_distance(&self, start: RoomId, targets: &HashSet<RoomId>) -> u32 {
+    pub fn min_distance(&self, start: RoomId, targets: &SmallSet<RoomId>) -> u32 {
         if targets.is_empty() {
             return 999;
         }
         let mut min_d = 999;
-        for &target in targets {
+        for target in targets {
             let d = self.get(start, target);
             if d < min_d {
                 min_d = d;

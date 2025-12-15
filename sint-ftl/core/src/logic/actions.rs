@@ -11,15 +11,20 @@ use rand::{Rng, SeedableRng, rngs::StdRng};
 use uuid::Uuid;
 
 fn deterministic_uuid(state: &mut GameState) -> Uuid {
-    // We use a combination of the main seed, the current queue length, and the sequence ID
-    // to generate a stable but unique UUID for each proposed action WITHOUT advancing
-    // the main rng_seed. This keeps the planning phase "safe".
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    use std::hash::Hash;
-    state.rng_seed.hash(&mut hasher);
-    state.proposal_queue.len().hash(&mut hasher);
-    state.sequence_id.hash(&mut hasher);
-    let hash = std::hash::Hasher::finish(&hasher);
+    // Use a deterministic FNV-1a hash to seed the UUID generation.
+    // DefaultHasher is not guaranteed to be stable across executions.
+    let mut hash = 0xcbf29ce484222325u64;
+    let components = [
+        state.rng_seed,
+        state.proposal_queue.len() as u64,
+        state.sequence_id,
+    ];
+    for &c in &components {
+        for byte in c.to_le_bytes() {
+            hash ^= byte as u64;
+            hash = hash.wrapping_mul(0x100000001b3);
+        }
+    }
 
     let mut rng = StdRng::seed_from_u64(hash);
     let mut bytes = [0u8; 16];

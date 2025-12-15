@@ -1,9 +1,77 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use sint_core::small_map::SmallMap;
+use sint_core::small_map::{SmallMap, SmallSet};
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 struct TestValue(u32);
+
+#[test]
+fn test_small_set_basic_operations() {
+    let mut set: SmallSet<u32> = SmallSet::new();
+
+    // Test insertion
+    assert!(set.insert(0));
+    assert!(set.insert(5));
+    assert!(!set.insert(0)); // Already present
+    assert_eq!(set.len(), 2);
+
+    // Test contains
+    assert!(set.contains(&0));
+    assert!(set.contains(&5));
+    assert!(!set.contains(&2));
+
+    // Test removal
+    assert!(set.remove(&5));
+    assert!(!set.remove(&5)); // Already removed
+    assert_eq!(set.len(), 1);
+    assert!(!set.contains(&5));
+}
+
+#[test]
+fn test_small_set_iteration() {
+    let mut set: SmallSet<u32> = SmallSet::new();
+    set.insert(1);
+    set.insert(3);
+    set.insert(2);
+
+    // Keys should be returned in order because of the underlying structure
+    let keys: Vec<u32> = set.iter().collect();
+    assert_eq!(keys, vec![1, 2, 3]);
+
+    // into_iter
+    let keys_owned: Vec<u32> = set.into_iter().collect();
+    assert_eq!(keys_owned, vec![1, 2, 3]);
+}
+
+#[test]
+fn test_small_set_serialization() {
+    let mut set: SmallSet<u32> = SmallSet::new();
+    set.insert(1);
+    set.insert(2);
+
+    let json = serde_json::to_string(&set).unwrap();
+    // Verify it serializes as a JSON list for client compatibility
+    assert_eq!(json, "[1,2]");
+
+    let deserialized: SmallSet<u32> = serde_json::from_str(&json).unwrap();
+    assert!(deserialized.contains(&1));
+    assert!(deserialized.contains(&2));
+    assert!(!deserialized.contains(&3));
+}
+
+#[test]
+fn test_small_set_sparse() {
+    let mut set = SmallSet::new();
+    set.insert(0u32);
+    set.insert(100u32);
+
+    assert_eq!(set.len(), 2);
+    assert!(set.contains(&0));
+    assert!(set.contains(&100));
+
+    let keys: Vec<u32> = set.iter().collect();
+    assert_eq!(keys, vec![0, 100]);
+}
 
 #[test]
 fn test_small_map_basic_operations() {

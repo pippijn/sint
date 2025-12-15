@@ -1,5 +1,6 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use smallvec::SmallVec;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -33,14 +34,14 @@ impl SmallIndex for usize {
 }
 
 /// A map implementation optimized for small, dense integer keys.
-/// Uses a `Vec<Option<V>>` internally but presents a map-like interface.
+/// Uses a `SmallVec<[Option<V>; 16]>` internally but presents a map-like interface.
 /// Serializes as a BTreeMap (map) to ensure compatibility with clients.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct SmallMap<K, V>
 where
     K: SmallIndex + Serialize,
 {
-    data: Vec<Option<V>>,
+    data: SmallVec<[Option<V>; 16]>,
     _marker: PhantomData<K>,
 }
 
@@ -65,7 +66,7 @@ where
 {
     fn default() -> Self {
         Self {
-            data: Vec::new(),
+            data: SmallVec::new(),
             _marker: PhantomData,
         }
     }
@@ -266,6 +267,189 @@ where
     }
 }
 
+/// A set implementation optimized for small, dense integer keys.
+/// Uses a `SmallVec<[bool; 16]>` internally but presents a set-like interface.
+/// Serializes as a list of keys to ensure compatibility with clients.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct SmallSet<K>
+where
+    K: SmallIndex + Serialize,
+{
+    data: SmallVec<[bool; 16]>,
+    _marker: PhantomData<K>,
+}
+
+impl<K> JsonSchema for SmallSet<K>
+where
+    K: SmallIndex + Serialize + JsonSchema,
+{
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        format!("SmallSet_{}", K::schema_name()).into()
+    }
+
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        generator.subschema_for::<Vec<K>>()
+    }
+}
+
+impl<K> Default for SmallSet<K>
+where
+    K: SmallIndex + Serialize,
+{
+    fn default() -> Self {
+        Self {
+            data: SmallVec::new(),
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<K> SmallSet<K>
+where
+    K: SmallIndex + Serialize,
+{
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn insert(&mut self, key: K) -> bool {
+        let idx = key.to_usize();
+        if idx >= self.data.len() {
+            self.data.resize(idx + 1, false);
+        }
+        let already_present = self.data[idx];
+        self.data[idx] = true;
+        !already_present
+    }
+
+    pub fn contains(&self, key: &K) -> bool {
+        let idx: usize = (*key).to_usize();
+        self.data.get(idx).copied().unwrap_or(false)
+    }
+
+    pub fn remove(&mut self, key: &K) -> bool {
+        let idx: usize = (*key).to_usize();
+        if idx < self.data.len() {
+            let already_present = self.data[idx];
+            self.data[idx] = false;
+            already_present
+        } else {
+            false
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.data.iter().filter(|&&x| x).count()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        !self.data.iter().any(|&x| x)
+    }
+
+    pub fn clear(&mut self) {
+        self.data.clear();
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = K> + '_ {
+        self.data.iter().enumerate().filter_map(
+            |(i, &v)| {
+                if v { Some(K::from_usize(i)) } else { None }
+            },
+        )
+    }
+}
+
+impl<K> FromIterator<K> for SmallSet<K>
+where
+    K: SmallIndex + Serialize,
+{
+    fn from_iter<T: IntoIterator<Item = K>>(iter: T) -> Self {
+        let mut set = Self::new();
+        for k in iter {
+            set.insert(k);
+        }
+        set
+    }
+}
+
+// Custom Serialization to match HashSet behavior (List of keys)
+impl<K> Serialize for SmallSet<K>
+where
+    K: SmallIndex + Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use serde::ser::SerializeSeq;
+        let len = self.len();
+        let mut seq = serializer.serialize_seq(Some(len))?;
+        for (i, &val) in self.data.iter().enumerate() {
+            if val {
+                let key = K::from_usize(i);
+                seq.serialize_element(&key)?;
+            }
+        }
+        seq.end()
+    }
+}
+
+// Custom Deserialization
+impl<'de, K> Deserialize<'de> for SmallSet<K>
+where
+    K: SmallIndex + Serialize + Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let vec = Vec::<K>::deserialize(deserializer)?;
+        let mut ss = SmallSet::new();
+        for k in vec {
+            ss.insert(k);
+        }
+        Ok(ss)
+    }
+}
+
+// Implement IntoIterator for owned iteration
+impl<K> IntoIterator for SmallSet<K>
+where
+    K: SmallIndex + Serialize,
+{
+    type Item = K;
+    type IntoIter = std::iter::FilterMap<
+        std::iter::Enumerate<smallvec::IntoIter<[bool; 16]>>,
+        fn((usize, bool)) -> Option<K>,
+    >;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.data
+            .into_iter()
+            .enumerate()
+            .filter_map(|(i, v)| if v { Some(K::from_usize(i)) } else { None })
+    }
+}
+
+// Implement IntoIterator for ref iteration
+impl<'a, K> IntoIterator for &'a SmallSet<K>
+where
+    K: SmallIndex + Serialize,
+{
+    type Item = K;
+    type IntoIter = std::iter::FilterMap<
+        std::iter::Enumerate<std::slice::Iter<'a, bool>>,
+        fn((usize, &'a bool)) -> Option<K>,
+    >;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.data
+            .iter()
+            .enumerate()
+            .filter_map(|(i, &v)| if v { Some(K::from_usize(i)) } else { None })
+    }
+}
+
 // Implement IntoIterator for owned iteration
 impl<K, V> IntoIterator for SmallMap<K, V>
 where
@@ -274,7 +458,7 @@ where
 {
     type Item = (K, V);
     type IntoIter = std::iter::FilterMap<
-        std::iter::Enumerate<std::vec::IntoIter<Option<V>>>,
+        std::iter::Enumerate<smallvec::IntoIter<[Option<V>; 16]>>,
         fn((usize, Option<V>)) -> Option<(K, V)>,
     >;
 

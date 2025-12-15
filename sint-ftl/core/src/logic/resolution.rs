@@ -74,8 +74,8 @@ pub fn resolve_hazards(state: &mut GameState) {
     let mut fire_spreads = vec![];
     let mut rng = StdRng::seed_from_u64(state.rng_seed);
 
-    // Deterministic Iteration: BTreeMap gives sorted keys
-    let room_ids: Vec<u32> = state.map.rooms.keys().collect();
+    // Deterministic Iteration: SmallMap keys are returned in order
+    let room_ids: smallvec::SmallVec<[u32; 16]> = state.map.rooms.keys().collect();
 
     // 1. Process Hazards (Fire spreads, Water leaks, System damage)
     for room_id in &room_ids {

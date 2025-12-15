@@ -2,6 +2,7 @@ use proptest::prelude::*;
 use rand::prelude::IndexedRandom;
 use rand::{SeedableRng, rngs::StdRng};
 use sint_core::logic::actions::get_valid_actions;
+use sint_core::small_map::SmallSet;
 use sint_core::{GameLogic, logic::resolution, types::*};
 
 proptest! {
@@ -189,7 +190,7 @@ proptest! {
         if room_ids.is_empty() { return Ok(()); }
 
         let start_room = room_ids[0];
-        let mut visited = std::collections::HashSet::new();
+        let mut visited = SmallSet::new();
         let mut queue = std::collections::VecDeque::new();
 
         queue.push_back(start_room);

@@ -24,13 +24,11 @@ impl CardBehavior for PeppernutRainCard {
 
     fn on_activate(&self, state: &mut GameState) {
         // Effect: +2 Peppernuts dropped in every occupied room.
-        let occupied_rooms: Vec<u32> = state
+        let occupied_rooms = state
             .players
             .values()
             .map(|p| p.room_id)
-            .collect::<std::collections::BTreeSet<_>>() // Dedup
-            .into_iter()
-            .collect();
+            .collect::<crate::small_map::SmallSet<_>>();
 
         for rid in occupied_rooms {
             if let Some(room) = state.map.rooms.get_mut(&rid) {

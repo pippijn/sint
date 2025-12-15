@@ -5,6 +5,7 @@ pub mod small_map;
 pub mod types;
 
 pub use logic::{GameError, GameLogic};
+pub use small_map::{SmallMap, SmallSet};
 pub use types::*;
 
 pub fn export_schema() -> String {
