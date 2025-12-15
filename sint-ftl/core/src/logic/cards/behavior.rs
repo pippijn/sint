@@ -67,6 +67,17 @@ pub trait CardBehavior: Send + Sync {
     /// Hook to modify the enemy attack telegraph (e.g. Masking it).
     fn modify_telegraph(&self, _attack: &mut crate::types::EnemyAttack) {}
 
+    /// Hook to allow a player to reach a room that is not adjacent.
+    /// Used for "Teleport" or "Leap" mechanics.
+    fn can_reach(
+        &self,
+        _state: &GameState,
+        _player_id: &str,
+        _to_room: crate::types::RoomId,
+    ) -> bool {
+        false
+    }
+
     /// Hook to resolve/reveal the enemy attack before execution (e.g. Unmasking Fog).
     fn resolve_telegraph(&self, _state: &mut GameState, _attack: &mut crate::types::EnemyAttack) {}
 

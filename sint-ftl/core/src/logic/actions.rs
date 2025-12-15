@@ -297,7 +297,33 @@ fn apply_game_action(
     match &action {
         GameAction::Move { to_room } => {
             let start_room = p_proj.room_id;
-            if let Some(path) = find_path(&state.map, start_room, *to_room) {
+
+            // Check if any card allows "Leaping" / "Teleporting" directly (1 AP total)
+            let mut can_leap = false;
+            for card in &projected_state.active_situations {
+                if crate::logic::cards::get_behavior(card.id).can_reach(
+                    &projected_state,
+                    player_id,
+                    *to_room,
+                ) {
+                    can_leap = true;
+                    break;
+                }
+            }
+
+            if can_leap {
+                let id = deterministic_uuid(&mut state);
+                state.proposal_queue.push(ProposedAction {
+                    id,
+                    player_id: player_id.to_owned(),
+                    action: GameAction::Move { to_room: *to_room },
+                });
+                let p = state
+                    .players
+                    .get_mut(player_id)
+                    .ok_or(GameError::PlayerNotFound)?;
+                p.ap -= base_cost;
+            } else if let Some(path) = find_path(&state.map, start_room, *to_room) {
                 let step_cost = base_cost; // Per step
                 let total_cost = step_cost * (path.len() as i32);
 
@@ -663,8 +689,27 @@ pub fn get_valid_actions(state: &GameState, player_id: &str) -> Vec<Action> {
     // Use projected position and AP
     if let Some(room) = projected_state.map.rooms.get(&p_proj.room_id) {
         // Move
-        for &neighbor in &room.neighbors {
-            let action = GameAction::Move { to_room: neighbor };
+        let mut target_rooms = Vec::from_iter(room.neighbors.iter().cloned());
+
+        // Check for card-based reachability (Teleport/Leap)
+        for rid in projected_state.map.rooms.keys() {
+            if target_rooms.contains(&rid) {
+                continue;
+            }
+            for card in &projected_state.active_situations {
+                if crate::logic::cards::get_behavior(card.id).can_reach(
+                    &projected_state,
+                    player_id,
+                    rid,
+                ) {
+                    target_rooms.push(rid);
+                    break;
+                }
+            }
+        }
+
+        for to_room in target_rooms {
+            let action = GameAction::Move { to_room };
             if current_ap >= action_cost(&projected_state, player_id, &action) {
                 actions.push(Action::Game(action));
             }

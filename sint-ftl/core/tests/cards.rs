@@ -696,7 +696,7 @@ fn test_sugar_rush() {
     state.active_situations.push(card);
 
     let cost_move = action_cost(&state, "P1", &GameAction::Move { to_room: 0 });
-    assert_eq!(cost_move, 0);
+    assert_eq!(cost_move, 1);
 
     if let Some(p) = state.players.get_mut("P1") {
         p.room_id = find_room_with_system_in_map(&state.map, SystemType::Cannons).unwrap();

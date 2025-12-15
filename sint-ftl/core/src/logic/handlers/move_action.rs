@@ -13,13 +13,28 @@ impl ActionHandler for MoveHandler {
             .get(player_id)
             .ok_or(GameError::PlayerNotFound)?;
         let current_room_id = p.room_id;
-        let room = state
-            .map
-            .rooms
-            .get(&current_room_id)
-            .ok_or(GameError::RoomNotFound)?;
 
-        if !room.neighbors.contains(&self.to_room) {
+        let mut allowed = false;
+        if let Some(room) = state.map.rooms.get(&current_room_id) {
+            if room.neighbors.contains(&self.to_room) {
+                allowed = true;
+            }
+        }
+
+        if !allowed {
+            for card in &state.active_situations {
+                if crate::logic::cards::get_behavior(card.id).can_reach(
+                    state,
+                    player_id,
+                    self.to_room,
+                ) {
+                    allowed = true;
+                    break;
+                }
+            }
+        }
+
+        if !allowed {
             return Err(GameError::InvalidMove);
         }
         Ok(())

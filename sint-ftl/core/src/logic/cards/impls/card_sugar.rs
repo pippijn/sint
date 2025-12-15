@@ -17,7 +17,7 @@ impl CardBehavior for SugarRushCard {
         Card {
             id: CardId::SugarRush,
             title: "Sugar Rush".to_owned(),
-            description: "Move 5 rooms extra for free. Cannons prohibited. Lasts 3 rounds."
+            description: "Move to any room for only 1 AP. Cannons prohibited. Lasts 3 rounds."
                 .to_owned(),
             card_type: CardType::Timebomb { rounds_left: 3 },
             options: vec![].into(),
@@ -51,24 +51,12 @@ impl CardBehavior for SugarRushCard {
         Ok(())
     }
 
-    fn modify_action_cost(
+    fn can_reach(
         &self,
-        state: &GameState,
-        player_id: &str,
-        action: &GameAction,
-        base_cost: i32,
-    ) -> i32 {
-        if let GameAction::Move { .. } = action {
-            // Count how many moves are already in the queue for this player
-            let moves_queued = state
-                .proposal_queue
-                .iter()
-                .filter(|p| p.player_id == player_id && matches!(p.action, GameAction::Move { .. }))
-                .count();
-
-            if moves_queued < 5 { 0 } else { base_cost }
-        } else {
-            base_cost
-        }
+        _state: &GameState,
+        _player_id: &str,
+        _to_room: crate::types::RoomId,
+    ) -> bool {
+        true
     }
 }
