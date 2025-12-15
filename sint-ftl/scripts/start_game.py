@@ -21,6 +21,7 @@ def main() -> None:
     parser.add_argument("--build-only", action="store_true", help="Build and exit")
     parser.add_argument("--clean", action="store_true", help="Clean build artifacts first")
     parser.add_argument("--rebuild", action="store_true", help="Force rebuild of bindings")
+    parser.add_argument("--verbose", action="store_true", help="Show detailed output (e.g. pip install)")
     args = parser.parse_args()
 
     # 1. Setup
@@ -29,7 +30,7 @@ def main() -> None:
         common.run_cmd("cargo clean")
         shutil.rmtree(common.VENV_DIR, ignore_errors=True)
 
-    common.check_venv()
+    common.check_venv(verbose=args.verbose)
 
     # 2. Build & Test
     # For start_game, we usually want to ensure everything is correct, so maybe we keep cargo build?

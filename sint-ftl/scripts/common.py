@@ -30,17 +30,21 @@ def run_cmd(cmd: str, cwd: str = ROOT_DIR, env: Optional[dict[str, str]] = None,
             sys.exit(ret)
         return ret
 
-def install_requirements() -> None:
+def install_requirements(verbose: bool = False) -> None:
     print('📦 Synchronizing Python dependencies...')
     venv_python = os.path.join(VENV_BIN, 'python')
-    run_cmd(f'{venv_python} -m pip install -q -r ai/requirements.txt', quiet=True)
-    run_cmd(f'{venv_python} -m pip install -q maturin', quiet=True)
+    quiet_flag = "" if verbose else "-q"
+    run_cmd(f'{venv_python} -m pip install {quiet_flag} -r ai/requirements.txt', quiet=not verbose)
+    run_cmd(f'{venv_python} -m pip install {quiet_flag} maturin', quiet=not verbose)
 
-def check_venv() -> None:
+def check_venv(verbose: bool = False) -> None:
     if not os.path.exists(VENV_DIR):
         print('🔧 Creating Python virtual environment...')
         subprocess.check_call([sys.executable, '-m', 'venv', '.venv'])
-        install_requirements()
+        install_requirements(verbose=verbose)
+    else:
+        # Always check requirements on start
+        install_requirements(verbose=verbose)
 
 def get_latest_mtime(path: str) -> float:
     max_mtime = 0.0
