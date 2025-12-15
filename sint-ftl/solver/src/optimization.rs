@@ -1,16 +1,24 @@
 use crate::scoring::beam::BeamScoringWeights;
 use crate::scoring::rhea::RheaScoringWeights;
 use crate::search::SearchProgress;
-use crate::search::beam::{BeamSearchConfig, beam_search};
-use crate::search::rhea::{RHEAConfig, rhea_search};
+use crate::search::beam::beam_search;
+use crate::search::config::{BeamSearchConfig, RHEAConfig};
+use crate::search::rhea::rhea_search;
+use crossbeam_channel::unbounded;
+use dashmap::DashMap;
 use rand::prelude::*;
-use rayon::prelude::*;
 use sint_core::types::GamePhase;
+use std::sync::Arc;
 use std::sync::mpsc::Sender;
 
 #[derive(Clone, Debug)]
 pub enum OptimizerMessage {
     GenerationDone(Box<OptimizationStatus>),
+    IndividualStarting {
+        generation: usize,
+        index: usize,
+        genome: Vec<f64>,
+    },
     IndividualDone {
         generation: usize,
         index: usize,
@@ -23,13 +31,13 @@ pub enum OptimizerMessage {
         index: usize,
         seed_idx: usize,
         progress: SearchProgress,
-        score_history: Vec<f32>, // New: history for this specific run
+        score_history: Vec<f32>,
     },
     SeedDone {
         generation: usize,
         index: usize,
         seed_idx: usize,
-        status: u8, // 2: Win, 3: Loss, 5: Timeout
+        status: u8,
     },
 }
 
@@ -52,6 +60,7 @@ pub struct OptimizerConfig {
     pub generations: usize,
     pub population: usize,
     pub seeds: Vec<u64>,
+    pub beam_width: usize,
     pub rhea_horizon: usize,
     pub rhea_generations: usize,
     pub rhea_population: usize,
@@ -63,7 +72,7 @@ pub struct EvaluationMetrics {
     pub wins: usize,
     pub losses: usize,
     pub timeouts: usize,
-    pub panics: usize, // None returned
+    pub panics: usize,
 }
 
 impl EvaluationMetrics {
@@ -78,10 +87,6 @@ impl EvaluationMetrics {
     fn average(&mut self, count: usize) {
         if count > 0 {
             self.score /= count as f64;
-            // Counts are totals across seeds, so we keep them as totals or average them?
-            // Usually we want totals across seeds for a single genome.
-            // But if aggregating across population, maybe average?
-            // Let's keep them as totals for now, assuming this struct represents ONE genome's performance across N seeds.
         }
     }
 }
@@ -91,7 +96,7 @@ pub struct OptimizationStatus {
     pub generation: usize,
     pub best_score: f64,
     pub avg_score: f64,
-    pub best_metrics: EvaluationMetrics, // Metrics of the best individual
+    pub best_metrics: EvaluationMetrics,
     pub best_genome: Vec<f64>,
     pub current_weights_beam: Option<BeamScoringWeights>,
     pub current_weights_rhea: Option<RheaScoringWeights>,
@@ -109,22 +114,15 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::{Map, Value};
 
-/// Uses reflection (via Serde) to apply multipliers to any numeric field in a struct.
-/// This eliminates the need to manually list every field.
 pub fn apply_multipliers<T: Serialize + DeserializeOwned>(base: &T, m: &[f64]) -> T {
     let mut map: Map<String, Value> =
         serde_json::from_value(serde_json::to_value(base).unwrap()).unwrap();
 
-    // Iterate through the map. Values are in the order defined in the struct
-    // because serde_json::to_value preserves the order for structs.
     for (i, val) in map.values_mut().enumerate() {
         if i >= m.len() {
             break;
         }
 
-        // We must check for integers first. as_f64() returns Some for integers too,
-        // but if we replace an integer with a fractional float, deserialization back
-        // to an integer field (like i32) will fail.
         if val.is_u64() {
             let f = val.as_f64().unwrap();
             *val = Value::from((f * m[i]).round() as u64);
@@ -146,7 +144,6 @@ pub fn get_param_names<T: Serialize + Default>() -> Vec<String> {
     map.keys().cloned().collect()
 }
 
-// Map multipliers vector to BeamScoringWeights
 pub fn apply_multipliers_beam(base: &BeamScoringWeights, m: &[f64]) -> BeamScoringWeights {
     apply_multipliers(base, m)
 }
@@ -163,17 +160,14 @@ fn get_param_count(target: Target) -> usize {
 }
 
 fn mutate(rng: &mut impl Rng, genome: &mut [f64]) {
-    // Adaptive mutation: most mutations are small, some are large
     let mutation_rate = 1.0 / genome.len() as f64;
 
     for val in genome.iter_mut() {
         if rng.random_bool(mutation_rate.max(0.1)) {
             if rng.random_bool(0.9) {
-                // Gaussian mutation (small local search)
                 let noise: f64 = rng.sample(rand_distr::StandardNormal);
                 *val += noise * 0.1 * (*val).max(1.0);
             } else {
-                // Large reset mutation (global search)
                 *val = rng.random_range(0.0..5.0);
             }
 
@@ -184,151 +178,192 @@ fn mutate(rng: &mut impl Rng, genome: &mut [f64]) {
     }
 }
 
-use dashmap::DashMap;
-use std::sync::Arc;
+struct GameTask {
+    genome_idx: usize,
+    seed_idx: usize,
+    genome: Vec<f64>,
+    seed: u64,
+}
 
-fn evaluate<F, G>(
+struct GameResult {
+    genome_idx: usize,
+    metrics: EvaluationMetrics,
+}
+
+fn evaluate_batch(
     config: &OptimizerConfig,
-    multipliers: &[f64],
-    progress_callback: F,
-    seed_done_callback: G,
-) -> EvaluationMetrics
-where
-    F: Fn(usize, SearchProgress, Vec<f32>) + Sync + Send + Clone,
-    G: Fn(usize, u8) + Sync + Send + Clone,
-{
-    // Use a thread-safe map to store history per seed
+    genomes: &[Vec<f64>],
+    tx: &Sender<OptimizerMessage>,
+    generation: usize,
+) -> Vec<EvaluationMetrics> {
+    let (task_tx, task_rx) = unbounded::<GameTask>();
+    let (result_tx, result_rx) = unbounded::<GameResult>();
+
+    // 1. Queue all tasks
+    for (g_idx, genome) in genomes.iter().enumerate() {
+        for (s_idx, &seed) in config.seeds.iter().enumerate() {
+            task_tx
+                .send(GameTask {
+                    genome_idx: g_idx,
+                    seed_idx: s_idx,
+                    genome: genome.clone(),
+                    seed,
+                })
+                .unwrap();
+        }
+    }
+    drop(task_tx);
+
+    // 2. Spawn Workers
+    let num_cores = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(1);
+    let num_workers = (num_cores / 10).max(1);
+
+    let mut workers = Vec::new();
     let histories = Arc::new(DashMap::new());
 
-    let metrics: EvaluationMetrics = config
-        .seeds
-        .par_iter()
-        .enumerate()
-        .map(|(seed_idx, &seed)| {
-            let mut m = EvaluationMetrics::default();
-            let mut fitness = 0.0;
+    for _ in 0..num_workers {
+        let rx = task_rx.clone();
+        let res_tx = result_tx.clone();
+        let opt_tx = tx.clone();
+        let histories_ref = histories.clone();
+        let config_clone = config.clone();
 
-            let current_callback = progress_callback.clone();
-            let histories_ref = histories.clone();
+        workers.push(std::thread::spawn(move || {
+            while let Ok(task) = rx.recv() {
+                let mut m = EvaluationMetrics::default();
+                let mut fitness = 0.0;
 
-            let cb = move |p: SearchProgress| {
-                let hull_part = p.node.state.hull_integrity as f32 / 20.0;
-                let score_part = (p.node.score.total / 100_000.0).min(1.0) as f32;
-                let health = (hull_part * 0.7 + score_part * 0.3).clamp(0.0, 1.0);
+                let progress_tx = opt_tx.clone();
+                let hist_ref = histories_ref.clone();
+                let g_idx = task.genome_idx;
+                let s_idx = task.seed_idx;
 
-                let round = p.node.state.turn_count as usize;
-                let mut history = histories_ref.entry(seed_idx).or_insert_with(Vec::new);
-                if round >= history.len() {
-                    history.push(health);
+                let cb = move |p: SearchProgress| {
+                    let hull_part = p.node.state.hull_integrity as f32 / 20.0;
+                    let score_part = (p.node.score.total / 100_000.0).min(1.0) as f32;
+                    let health = (hull_part * 0.7 + score_part * 0.3).clamp(0.0, 1.0);
+
+                    let round = p.node.state.turn_count as usize;
+                    let mut history = hist_ref.entry((g_idx, s_idx)).or_insert_with(Vec::new);
+                    if round >= history.len() {
+                        history.push(health);
+                    } else {
+                        history[round] = health;
+                    }
+                    let history_snapshot = history.clone();
+                    drop(history);
+
+                    let _ = progress_tx.send(OptimizerMessage::IndividualUpdate {
+                        generation,
+                        index: g_idx,
+                        seed_idx: s_idx,
+                        progress: p,
+                        score_history: history_snapshot,
+                    });
+                };
+
+                let sol = match config_clone.target {
+                    Target::Beam => {
+                        let weights =
+                            apply_multipliers_beam(&get_base_weights_beam(), &task.genome);
+                        let search_config = BeamSearchConfig {
+                            players: 6,
+                            seed: task.seed,
+                            width: config_clone.beam_width,
+                            steps: 3000,
+                            time_limit: 300,
+                            verbose: false,
+                        };
+                        beam_search(&search_config, &weights, Some(cb))
+                    }
+                    Target::Rhea => {
+                        let weights =
+                            apply_multipliers_rhea(&get_base_weights_rhea(), &task.genome);
+                        let search_config = RHEAConfig {
+                            players: 6,
+                            seed: task.seed,
+                            horizon: config_clone.rhea_horizon,
+                            generations: config_clone.rhea_generations,
+                            population_size: config_clone.rhea_population,
+                            max_steps: 3000,
+                            time_limit: 300,
+                            verbose: false,
+                        };
+                        rhea_search(&search_config, &weights, Some(cb))
+                    }
+                };
+
+                let status;
+                if let Some(sol) = sol {
+                    if sol.state.phase == GamePhase::Victory {
+                        fitness += 100_000.0;
+                        fitness += (200 - sol.state.turn_count as i32).max(0) as f64 * 100.0;
+                        m.wins = 1;
+                        status = 2;
+                    } else if sol.state.phase == GamePhase::GameOver {
+                        m.losses = 1;
+                        fitness -= 10_000.0;
+                        status = 3;
+                    } else {
+                        m.timeouts = 1;
+                        status = 5;
+                    }
+                    fitness += (sol.state.boss_level as f64) * 10_000.0;
+                    let damage_dealt = (sol.state.enemy.max_hp - sol.state.enemy.hp) as f64;
+                    fitness += damage_dealt * 200.0;
+                    if sol.state.hull_integrity > 0 {
+                        fitness += sol.state.hull_integrity as f64 * 300.0;
+                    }
+                    fitness -= sol.state.active_situations.len() as f64 * 500.0;
+                    let hazard_count: usize =
+                        sol.state.map.rooms.values().map(|r| r.hazards.len()).sum();
+                    fitness -= hazard_count as f64 * 100.0;
+                    if sol.state.phase != GamePhase::GameOver {
+                        fitness += sol.state.turn_count as f64 * 20.0;
+                    }
+                    m.score = fitness;
                 } else {
-                    history[round] = health;
-                }
-                let history_snapshot = history.clone();
-                drop(history);
-
-                current_callback(seed_idx, p, history_snapshot);
-            };
-
-            let sol = match config.target {
-                Target::Beam => {
-                    let weights = apply_multipliers_beam(&get_base_weights_beam(), multipliers);
-                    let search_config = BeamSearchConfig {
-                        players: 6,
-                        seed,
-                        width: 100, // Reduced width for speed during optimization
-                        steps: 3000,
-                        time_limit: 120,
-                        verbose: false,
-                    };
-                    beam_search(&search_config, &weights, Some(cb))
-                }
-                Target::Rhea => {
-                    let weights = apply_multipliers_rhea(&get_base_weights_rhea(), multipliers);
-                    let search_config = RHEAConfig {
-                        players: 6,
-                        seed,
-                        horizon: config.rhea_horizon,
-                        generations: config.rhea_generations,
-                        population_size: config.rhea_population,
-                        max_steps: 3000,
-                        time_limit: 120,
-                        verbose: false,
-                    };
-                    rhea_search(&search_config, &weights, Some(cb))
-                }
-            };
-
-            let status;
-
-            if let Some(sol) = sol {
-                // 1. Victory (Ultimate Goal)
-                if sol.state.phase == GamePhase::Victory {
-                    fitness += 100_000.0;
-                    fitness += (200 - sol.state.turn_count as i32).max(0) as f64 * 100.0;
-                    m.wins = 1;
-                    status = 2;
-                } else if sol.state.phase == GamePhase::GameOver {
-                    m.losses = 1;
-                    fitness -= 10_000.0;
-                    status = 3;
-                } else {
-                    m.timeouts = 1; // Stuck or time limit
-                    status = 5;
+                    m.panics = 1;
+                    m.score = -20_000.0;
+                    status = 4;
                 }
 
-                // 2. Boss Progress (Major Milestones)
-                fitness += (sol.state.boss_level as f64) * 10_000.0;
+                let _ = opt_tx.send(OptimizerMessage::SeedDone {
+                    generation,
+                    index: g_idx,
+                    seed_idx: s_idx,
+                    status,
+                });
 
-                // 3. Current Boss Damage (Progress within level)
-                let damage_dealt = (sol.state.enemy.max_hp - sol.state.enemy.hp) as f64;
-                fitness += damage_dealt * 200.0;
-
-                // 4. Hull Integrity (Survival)
-                if sol.state.hull_integrity > 0 {
-                    fitness += sol.state.hull_integrity as f64 * 300.0;
-                } else {
-                    // Already handled in GameOver check logic if needed, but keeping for scoring
-                }
-
-                // 5. Situation Control (Clean Board)
-                fitness -= sol.state.active_situations.len() as f64 * 500.0;
-
-                // 6. Hazard Control
-                let hazard_count: usize =
-                    sol.state.map.rooms.values().map(|r| r.hazards.len()).sum();
-                fitness -= hazard_count as f64 * 100.0;
-
-                // 7. Survival Duration (Secondary)
-                if sol.state.phase != GamePhase::GameOver {
-                    fitness += sol.state.turn_count as f64 * 20.0;
-                }
-
-                m.score = fitness;
-            } else {
-                m.panics = 1;
-                m.score = -20_000.0; // Failed to find any path
-                status = 4;
+                res_tx
+                    .send(GameResult {
+                        genome_idx: g_idx,
+                        metrics: m,
+                    })
+                    .unwrap();
             }
+        }));
+    }
+    drop(result_tx);
 
-            let done_cb = seed_done_callback.clone();
-            done_cb(seed_idx, status);
-            m
-        })
-        .reduce(EvaluationMetrics::default, |mut a, b| {
-            a.add(&b);
-            a
-        });
+    let mut metrics_per_genome = vec![EvaluationMetrics::default(); genomes.len()];
+    while let Ok(res) = result_rx.recv() {
+        metrics_per_genome[res.genome_idx].add(&res.metrics);
+    }
 
-    let mut final_metrics = metrics;
-    final_metrics.average(config.seeds.len());
-    final_metrics
+    for worker in workers {
+        worker.join().unwrap();
+    }
+
+    metrics_per_genome
 }
 
 pub fn run_ga(config: &OptimizerConfig, tx: Sender<OptimizerMessage>) {
     let param_count = get_param_count(config.target);
     let mut rng = rand::rng();
 
-    // Initialize Population
     let default_genome = vec![1.0; param_count];
     let mut population: Vec<Vec<f64>> = (0..config.population)
         .map(|i| {
@@ -345,46 +380,35 @@ pub fn run_ga(config: &OptimizerConfig, tx: Sender<OptimizerMessage>) {
         .collect();
 
     for generation in 0..config.generations {
-        // Evaluate
-        let mut scored_pop: Vec<(EvaluationMetrics, Vec<f64>)> = population
-            .par_iter()
-            .enumerate()
-            .map_with(tx.clone(), |tx, (i, genome)| {
-                let current_tx = tx.clone();
-                let seed_tx = tx.clone();
-                let metrics = evaluate(
-                    config,
-                    genome,
-                    move |seed_idx, p, history| {
-                        let _ = current_tx.send(OptimizerMessage::IndividualUpdate {
-                            generation,
-                            index: i,
-                            seed_idx,
-                            progress: p,
-                            score_history: history,
-                        });
-                    },
-                    move |seed_idx, status| {
-                        let _ = seed_tx.send(OptimizerMessage::SeedDone {
-                            generation,
-                            index: i,
-                            seed_idx,
-                            status,
-                        });
-                    },
-                );
-                let _ = tx.send(OptimizerMessage::IndividualDone {
-                    generation,
-                    index: i,
-                    score: metrics.score,
-                    metrics: metrics.clone(),
-                    genome: genome.clone(),
-                });
-                (metrics, genome.clone())
-            })
+        for (i, genome) in population.iter().enumerate() {
+            let _ = tx.send(OptimizerMessage::IndividualStarting {
+                generation,
+                index: i,
+                genome: genome.clone(),
+            });
+        }
+
+        let scored_metrics = evaluate_batch(config, &population, &tx, generation);
+
+        for (i, m) in scored_metrics.iter().enumerate() {
+            let _ = tx.send(OptimizerMessage::IndividualDone {
+                generation,
+                index: i,
+                score: m.score / config.seeds.len() as f64,
+                metrics: m.clone(),
+                genome: population[i].clone(),
+            });
+        }
+
+        let mut scored_pop: Vec<(EvaluationMetrics, Vec<f64>)> = scored_metrics
+            .into_iter()
+            .zip(population.into_iter())
             .collect();
 
-        // Sort descending by score
+        for (m, _) in scored_pop.iter_mut() {
+            m.average(config.seeds.len());
+        }
+
         scored_pop.sort_by(|a, b| b.0.score.partial_cmp(&a.0.score).unwrap());
 
         let best_metrics = scored_pop[0].0.clone();
@@ -422,19 +446,15 @@ pub fn run_ga(config: &OptimizerConfig, tx: Sender<OptimizerMessage>) {
             },
         )));
 
-        // Elitism: Keep top 20%
         let elite_count = (config.population as f64 * 0.2).ceil() as usize;
         let mut new_pop = Vec::new();
         for item in scored_pop.iter().take(elite_count) {
             new_pop.push(item.1.clone());
         }
 
-        // Create selection weights based on rank (best has highest weight)
         let total_rank_sum: usize = (1..=config.population).sum();
 
-        // Deterministic Crowding
         while new_pop.len() < config.population {
-            // Rank-based selection for parents
             let select_parent_idx = |rng: &mut ThreadRng| {
                 let mut r = rng.random_range(0..total_rank_sum);
                 for i in 0..scored_pop.len() {
@@ -452,7 +472,6 @@ pub fn run_ga(config: &OptimizerConfig, tx: Sender<OptimizerMessage>) {
             let p1 = &scored_pop[i1];
             let p2 = &scored_pop[i2];
 
-            // Blend Crossover (BLX-alpha) to produce TWO children
             let alpha = 0.5;
             let mut c1 = Vec::with_capacity(param_count);
             let mut c2 = Vec::with_capacity(param_count);
@@ -481,45 +500,14 @@ pub fn run_ga(config: &OptimizerConfig, tx: Sender<OptimizerMessage>) {
             mutate(&mut rng, &mut c1);
             mutate(&mut rng, &mut c2);
 
-            // Evaluate children
-            let eval_child = |tx: &Sender<OptimizerMessage>, genome: &[f64], idx: usize| {
-                let current_tx = tx.clone();
-                let seed_tx = tx.clone();
-                let metrics = evaluate(
-                    config,
-                    genome,
-                    move |seed_idx, p, history| {
-                        let _ = current_tx.send(OptimizerMessage::IndividualUpdate {
-                            generation,
-                            index: idx,
-                            seed_idx,
-                            progress: p,
-                            score_history: history,
-                        });
-                    },
-                    move |seed_idx, status| {
-                        let _ = seed_tx.send(OptimizerMessage::SeedDone {
-                            generation,
-                            index: idx,
-                            seed_idx,
-                            status,
-                        });
-                    },
-                );
-                let _ = tx.send(OptimizerMessage::IndividualDone {
-                    generation,
-                    index: idx,
-                    score: metrics.score,
-                    metrics: metrics.clone(),
-                    genome: genome.to_vec(),
-                });
-                metrics
-            };
+            let children = vec![c1.clone(), c2.clone()];
+            let m_children = evaluate_batch(config, &children, &tx, generation);
 
-            let m_c1 = eval_child(&tx, &c1, new_pop.len());
-            let m_c2 = eval_child(&tx, &c2, new_pop.len() + 1);
+            let mut m_c1 = m_children[0].clone();
+            m_c1.average(config.seeds.len());
+            let mut m_c2 = m_children[1].clone();
+            m_c2.average(config.seeds.len());
 
-            // Crowding competition
             let dist = |g1: &[f64], g2: &[f64]| {
                 g1.iter()
                     .zip(g2.iter())
@@ -562,12 +550,9 @@ pub fn run_ga(config: &OptimizerConfig, tx: Sender<OptimizerMessage>) {
 
 pub fn run_spsa(config: &OptimizerConfig, tx: Sender<OptimizerMessage>) {
     let param_count = get_param_count(config.target);
-
-    // Start with identity multipliers
     let mut theta = vec![1.0; param_count];
     let p = theta.len();
 
-    // SPSA hyperparameters
     let c = 0.05;
     let gamma = 0.101;
     let a = 0.1;
@@ -575,48 +560,43 @@ pub fn run_spsa(config: &OptimizerConfig, tx: Sender<OptimizerMessage>) {
     let alpha = 0.602;
 
     let mut best_theta = theta.clone();
-    let mut current_metrics = evaluate(config, &theta, |_, _, _| {}, |_, _| {});
+    let initial_metrics_batch = evaluate_batch(config, &[theta.clone()], &tx, 0);
+    let mut current_metrics = initial_metrics_batch[0].clone();
+    current_metrics.average(config.seeds.len());
     let mut best_metrics = current_metrics.clone();
 
     for k in 0..config.generations {
         let mut rng = rand::rng();
-
         let ak = a / (k as f64 + 1.0 + big_a).powf(alpha);
         let ck = c / (k as f64 + 1.0).powf(gamma);
 
-        // Generate Bernoulli perturbation vector (+1 or -1)
         let delta: Vec<f64> = (0..p)
             .map(|_| if rng.random_bool(0.5) { 1.0 } else { -1.0 })
             .collect();
 
-        // Theta + ck * delta
         let mut theta_plus = theta.clone();
+        let mut theta_minus = theta.clone();
         for i in 0..p {
             theta_plus[i] += ck * delta[i];
             if theta_plus[i] < 0.0 {
                 theta_plus[i] = 0.0;
             }
-        }
-
-        // Theta - ck * delta
-        let mut theta_minus = theta.clone();
-        for i in 0..p {
             theta_minus[i] -= ck * delta[i];
             if theta_minus[i] < 0.0 {
                 theta_minus[i] = 0.0;
             }
         }
 
-        let m_plus = evaluate(config, &theta_plus, |_, _, _| {}, |_, _| {});
-        let m_minus = evaluate(config, &theta_minus, |_, _, _| {}, |_, _| {});
+        let perturbed = vec![theta_plus, theta_minus];
+        let m_perturbed = evaluate_batch(config, &perturbed, &tx, k);
+        let m_plus = &m_perturbed[0];
+        let m_minus = &m_perturbed[1];
 
-        // Gradient Estimate
         let mut ghat = vec![0.0; p];
         for i in 0..p {
             ghat[i] = (m_plus.score - m_minus.score) / (2.0 * ck * delta[i]);
         }
 
-        // Update Theta (Gradient Ascent)
         for i in 0..p {
             theta[i] += ak * ghat[i];
             if theta[i] < 0.0 {
@@ -624,29 +604,9 @@ pub fn run_spsa(config: &OptimizerConfig, tx: Sender<OptimizerMessage>) {
             }
         }
 
-        let current_tx = tx.clone();
-        let seed_tx = tx.clone();
-        current_metrics = evaluate(
-            config,
-            &theta,
-            move |seed_idx, p, history| {
-                let _ = current_tx.send(OptimizerMessage::IndividualUpdate {
-                    generation: k,
-                    index: 0,
-                    seed_idx,
-                    progress: p,
-                    score_history: history,
-                });
-            },
-            move |seed_idx, status| {
-                let _ = seed_tx.send(OptimizerMessage::SeedDone {
-                    generation: k,
-                    index: 0,
-                    seed_idx,
-                    status,
-                });
-            },
-        );
+        let updated_metrics_batch = evaluate_batch(config, &[theta.clone()], &tx, k);
+        current_metrics = updated_metrics_batch[0].clone();
+        current_metrics.average(config.seeds.len());
 
         if current_metrics.score > best_metrics.score {
             best_metrics = current_metrics.clone();

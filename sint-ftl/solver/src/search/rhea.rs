@@ -1,6 +1,7 @@
 use crate::driver::GameDriver;
 use crate::scoring::ScoreDetails;
 use crate::scoring::rhea::{RheaScoringWeights, score_rhea};
+use crate::search::config::RHEAConfig;
 use crate::search::{SearchNode, SearchProgress, get_state_signature, get_valid_actions};
 use rand::prelude::*;
 use rand::rngs::StdRng;
@@ -9,17 +10,6 @@ use sint_core::logic::GameLogic;
 use sint_core::types::{GameAction, GamePhase, GameState, PlayerId};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-
-pub struct RHEAConfig {
-    pub players: usize,
-    pub seed: u64,
-    pub horizon: usize,
-    pub generations: usize,
-    pub population_size: usize,
-    pub max_steps: usize,
-    pub time_limit: u64,
-    pub verbose: bool,
-}
 
 #[derive(Clone)]
 struct Individual {

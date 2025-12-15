@@ -13,8 +13,11 @@ use sint_core::logic::GameLogic;
 use sint_solver::replay;
 use sint_solver::scoring::beam::BeamScoringWeights;
 use sint_solver::scoring::rhea::RheaScoringWeights;
-use sint_solver::search::beam::{BeamSearchConfig, beam_search};
-use sint_solver::search::rhea::{RHEAConfig, rhea_search};
+use sint_solver::search::beam::beam_search;
+use sint_solver::search::config::{
+    BeamConfig, BeamSearchConfig, CommonSearchConfig, RHEAConfig, RHEAConfigParams,
+};
+use sint_solver::search::rhea::rhea_search;
 use sint_solver::search::{SearchNode, SearchProgress};
 use sint_solver::tui::{
     log::LogWidget, map::MapWidget, players::PlayersWidget, score::ScoreWidget,
@@ -40,37 +43,14 @@ struct Args {
     #[arg(long, value_enum, default_value_t = Strategy::Beam)]
     strategy: Strategy,
 
-    /// Beam Width (Number of states to keep per step)
-    #[arg(short, long, default_value_t = 300)]
-    beam_width: usize,
+    #[command(flatten)]
+    common: CommonSearchConfig,
 
-    /// RHEA Horizon
-    #[arg(long, default_value_t = 30)]
-    rhea_horizon: usize,
+    #[command(flatten)]
+    beam: BeamConfig,
 
-    /// RHEA Generations per step
-    #[arg(long, default_value_t = 10)]
-    rhea_generations: usize,
-
-    /// RHEA Population
-    #[arg(long, default_value_t = 20)]
-    rhea_pop: usize,
-
-    /// Number of players
-    #[arg(short, long, default_value_t = 6)]
-    players: usize,
-
-    /// Random Seed
-    #[arg(long, default_value_t = 12345)]
-    seed: u64,
-
-    /// Max steps (actions/depth)
-    #[arg(short, long, default_value_t = 3000)]
-    steps: usize,
-
-    /// Time limit in seconds
-    #[arg(short, long, default_value_t = 300)]
-    time_limit: u64,
+    #[command(flatten)]
+    rhea: RHEAConfigParams,
 
     /// Output file for trajectory
     #[arg(short, long, default_value = "/tmp/solve_output.txt")]
@@ -93,7 +73,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn save_solution(sol: &SearchNode, args: &Args) {
-    let player_ids: Vec<String> = (0..args.players).map(|i| format!("P{}", i + 1)).collect();
+    let player_ids: Vec<String> = (0..args.common.players)
+        .map(|i| format!("P{}", i + 1))
+        .collect();
 
     // Logic extracted from run_cli
     if args.tui {
@@ -125,7 +107,7 @@ fn save_solution(sol: &SearchNode, args: &Args) {
         let mut scorer = sint_solver::scoring::beam::ScoreAccumulator::new();
         let mut driver = sint_solver::driver::GameDriver::new(GameLogic::new_game(
             player_ids.clone(),
-            args.seed,
+            args.common.seed,
         ));
         let mut last_round = driver.state.turn_count;
         let history = sol.get_history();
@@ -147,7 +129,7 @@ fn save_solution(sol: &SearchNode, args: &Args) {
         println!("Fitness Score: {:.1}", fitness);
     }
 
-    let initial_print = GameLogic::new_game(player_ids, args.seed);
+    let initial_print = GameLogic::new_game(player_ids, args.common.seed);
     let history = sol
         .get_history()
         .into_iter()
@@ -179,11 +161,11 @@ fn run_cli(args: Args) {
         Strategy::Beam => {
             let weights = BeamScoringWeights::default();
             let config = BeamSearchConfig {
-                players: args.players,
-                seed: args.seed,
-                width: args.beam_width,
-                steps: args.steps,
-                time_limit: args.time_limit,
+                players: args.common.players,
+                seed: args.common.seed,
+                width: args.beam.beam_width,
+                steps: args.common.steps,
+                time_limit: args.common.time_limit,
                 verbose: true,
             };
             beam_search(&config, &weights, None::<fn(SearchProgress)>)
@@ -191,13 +173,13 @@ fn run_cli(args: Args) {
         Strategy::Rhea => {
             let weights = RheaScoringWeights::default();
             let config = RHEAConfig {
-                players: args.players,
-                seed: args.seed,
-                horizon: args.rhea_horizon,
-                generations: args.rhea_generations,
-                population_size: args.rhea_pop,
-                max_steps: args.steps,
-                time_limit: args.time_limit,
+                players: args.common.players,
+                seed: args.common.seed,
+                horizon: args.rhea.rhea_horizon,
+                generations: args.rhea.rhea_generations,
+                population_size: args.rhea.rhea_population,
+                max_steps: args.common.steps,
+                time_limit: args.common.time_limit,
                 verbose: true,
             };
             rhea_search(&config, &weights, None::<fn(SearchProgress)>)
@@ -254,11 +236,11 @@ fn run_tui(args: Args) -> Result<(), Box<dyn std::error::Error>> {
             Strategy::Beam => {
                 let weights = BeamScoringWeights::default();
                 let config = BeamSearchConfig {
-                    players: solver_args.players,
-                    seed: solver_args.seed,
-                    width: solver_args.beam_width,
-                    steps: solver_args.steps,
-                    time_limit: solver_args.time_limit,
+                    players: solver_args.common.players,
+                    seed: solver_args.common.seed,
+                    width: solver_args.beam.beam_width,
+                    steps: solver_args.common.steps,
+                    time_limit: solver_args.common.time_limit,
                     verbose: false, // Silence stdout in TUI
                 };
                 beam_search(&config, &weights, Some(callback))
@@ -266,13 +248,13 @@ fn run_tui(args: Args) -> Result<(), Box<dyn std::error::Error>> {
             Strategy::Rhea => {
                 let weights = RheaScoringWeights::default();
                 let config = RHEAConfig {
-                    players: solver_args.players,
-                    seed: solver_args.seed,
-                    horizon: solver_args.rhea_horizon,
-                    generations: solver_args.rhea_generations,
-                    population_size: solver_args.rhea_pop,
-                    max_steps: solver_args.steps,
-                    time_limit: solver_args.time_limit,
+                    players: solver_args.common.players,
+                    seed: solver_args.common.seed,
+                    horizon: solver_args.rhea.rhea_horizon,
+                    generations: solver_args.rhea.rhea_generations,
+                    population_size: solver_args.rhea.rhea_population,
+                    max_steps: solver_args.common.steps,
+                    time_limit: solver_args.common.time_limit,
                     verbose: false,
                 };
                 rhea_search(&config, &weights, Some(callback))

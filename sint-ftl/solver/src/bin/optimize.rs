@@ -9,6 +9,7 @@ use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
+    text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Row, Table},
 };
 use sint_solver::optimization::{
@@ -23,6 +24,8 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
+
+use sint_solver::search::config::{BeamConfig, RHEAConfigParams};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -51,18 +54,11 @@ struct Args {
     #[arg(long)]
     tui: bool,
 
-    // --- RHEA Specifics ---
-    /// RHEA Horizon
-    #[arg(long, default_value_t = 10)]
-    rhea_horizon: usize,
+    #[command(flatten)]
+    beam: BeamConfig,
 
-    /// RHEA Generations (per search step)
-    #[arg(long, default_value_t = 50)]
-    rhea_generations: usize,
-
-    /// RHEA Population (per search step)
-    #[arg(long, default_value_t = 20)]
-    rhea_population: usize,
+    #[command(flatten)]
+    rhea: RHEAConfigParams,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
@@ -97,6 +93,7 @@ impl From<ArgTarget> for Target {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
+
     let seeds: Vec<u64> = args
         .seeds
         .split(',')
@@ -109,9 +106,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         generations: args.generations,
         population: args.population,
         seeds: seeds.clone(),
-        rhea_horizon: args.rhea_horizon,
-        rhea_generations: args.rhea_generations,
-        rhea_population: args.rhea_population,
+        beam_width: args.beam.beam_width,
+        rhea_horizon: args.rhea.rhea_horizon,
+        rhea_generations: args.rhea.rhea_generations,
+        rhea_population: args.rhea.rhea_population,
     };
 
     if args.tui {
@@ -148,6 +146,9 @@ fn run_cli(config: OptimizerConfig) {
 
     while let Ok(msg) = rx.recv() {
         match msg {
+            OptimizerMessage::IndividualStarting { .. } => {
+                // Ignore in CLI
+            }
             OptimizerMessage::IndividualUpdate { .. } => {
                 // Ignore live updates in CLI for now
             }
@@ -257,12 +258,11 @@ fn run_tui(config: OptimizerConfig) -> Result<(), Box<dyn std::error::Error>> {
             .checked_sub(last_tick.elapsed())
             .unwrap_or_else(|| Duration::from_secs(0));
 
-        if crossterm::event::poll(timeout)? {
-            if let Event::Key(key) = event::read()? {
-                if let KeyCode::Char('q') = key.code {
-                    break;
-                }
-            }
+        if crossterm::event::poll(timeout)?
+            && let Event::Key(key) = event::read()?
+            && let KeyCode::Char('q') = key.code
+        {
+            break;
         }
 
         if last_tick.elapsed() >= tick_rate {
@@ -273,6 +273,11 @@ fn run_tui(config: OptimizerConfig) -> Result<(), Box<dyn std::error::Error>> {
         // Check for updates
         while let Ok(msg) = rx.try_recv() {
             match msg {
+                OptimizerMessage::IndividualStarting { index, genome, .. } => {
+                    if index < app.population_genomes.len() {
+                        app.population_genomes[index] = genome;
+                    }
+                }
                 OptimizerMessage::IndividualUpdate {
                     index,
                     seed_idx,
@@ -295,7 +300,7 @@ fn run_tui(config: OptimizerConfig) -> Result<(), Box<dyn std::error::Error>> {
                                 let history = &mut ind.action_histories[seed_idx];
                                 if history.last() != Some(&action_str) {
                                     history.push(action_str);
-                                    if history.len() > 15 {
+                                    if history.len() > 20 {
                                         history.remove(0);
                                     }
                                 }
@@ -382,9 +387,9 @@ fn ui(f: &mut Frame, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3),  // Header
+            Constraint::Length(4),  // Header (Increased from 3)
             Constraint::Min(0),     // Main Content
-            Constraint::Length(15), // Bottom Telemetry
+            Constraint::Length(22), // Bottom Telemetry (Increased from 15)
         ])
         .split(area);
 
@@ -394,8 +399,11 @@ fn ui(f: &mut Frame, app: &App) {
         Strategy::Spsa => "SPSA",
     };
     let target_str = match app.config.target {
-        Target::Beam => "Beam Search (Width 100)",
-        Target::Rhea => "RHEA (H10, G50, P20)",
+        Target::Beam => format!("Beam Search (Width {})", app.config.beam_width),
+        Target::Rhea => format!(
+            "RHEA (H{}, G{}, P{})",
+            app.config.rhea_horizon, app.config.rhea_generations, app.config.rhea_population
+        ),
     };
     let status_str = if app.done {
         "DONE (q to quit)"
@@ -403,14 +411,44 @@ fn ui(f: &mut Frame, app: &App) {
         "RUNNING (q to quit)"
     };
 
+    // Calculate Progress
+    let mut games_done = 0;
+    let mut games_running = 0;
+    let mut inds_done = 0;
+
+    for ind in &app.population_status {
+        let mut ind_seeds_done = 0;
+        for &s in &ind.seed_statuses {
+            if s >= 2 {
+                games_done += 1;
+                ind_seeds_done += 1;
+            } else if s == 1 {
+                games_running += 1;
+            }
+        }
+        if ind_seeds_done == ind.seed_statuses.len() {
+            inds_done += 1;
+        }
+    }
+
+    let total_games = app.config.population * app.config.seeds.len();
+    let games_pending = total_games.saturating_sub(games_done + games_running);
+
     let header_text = format!(
-        "SINT OPTIMIZER | Strat: {} | Target: {} | Gen: {}/{} | Pop: {} | {}",
+        "SINT OPTIMIZER | Strat: {} | Target: {} | Gen: {}/{} | Pop: {} | {}\n\
+         WORKLOAD: Games: {}/{} ({} Pending, {} Running) | Genomes: {}/{} Completed",
         strategy_str,
         target_str,
         app.history.len(),
         app.config.generations,
         app.config.population,
-        status_str
+        status_str,
+        games_done,
+        total_games,
+        games_pending,
+        games_running,
+        inds_done,
+        app.config.population
     );
 
     f.render_widget(
@@ -424,21 +462,38 @@ fn ui(f: &mut Frame, app: &App) {
         chunks[0],
     );
 
-    // 2. Main Content (Mosaic, Ribbons, Gauntlet)
+    // 2. Main Content
     let main_chunks = Layout::default()
-        .direction(Direction::Horizontal)
+        .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(45), // Genome Mosaic
-            Constraint::Min(0),     // Score Ribbons
-            Constraint::Length(75), // Seed Gauntlet + Stats
+            Constraint::Length(22), // Top Part: Mosaic, Gauntlet, Summary
+            Constraint::Min(0),     // Middle Part: Score Ribbons
         ])
         .split(chunks[1]);
 
-    // A. Genome Mosaic
+    // A. Top Part (Horizontal)
+    let top_part_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Length(120), // Genome Mosaic (Enough for 109 params)
+            Constraint::Length(60),  // Seed Gauntlet
+            Constraint::Min(0),      // Summary
+        ])
+        .split(main_chunks[0]);
+
+    // A1. Genome Mosaic
     let param_names = match app.config.target {
         Target::Beam => sint_solver::optimization::get_param_names::<BeamScoringWeights>(),
         Target::Rhea => sint_solver::optimization::get_param_names::<RheaScoringWeights>(),
     };
+
+    let mosaic_title = Line::from(vec![
+        Span::raw("Genome Mosaic (DNA: "),
+        Span::styled("Blue", Style::default().fg(Color::Blue)),
+        Span::raw("<1.0<"),
+        Span::styled("Red", Style::default().fg(Color::Red)),
+        Span::raw(")"),
+    ]);
 
     f.render_widget(
         GenomeMosaic {
@@ -446,71 +501,30 @@ fn ui(f: &mut Frame, app: &App) {
             param_names: &param_names,
             block: None,
         }
-        .block(
-            Block::default()
-                .title("Genome Mosaic (DNA)")
-                .borders(Borders::ALL),
-        ),
-        main_chunks[0],
+        .block(Block::default().title(mosaic_title).borders(Borders::ALL)),
+        top_part_chunks[0],
     );
 
-    // B. Score Ribbons
-    // Find top 20 individuals based on average health score
-    let mut ribbon_data: Vec<(usize, f32, Vec<f32>)> = app
-        .population_status
-        .iter()
-        .enumerate()
-        .map(|(i, status)| {
-            // Average of first seed's history for visualization
-            let history = status.seed_histories[0].clone();
-            let avg_health = history.iter().sum::<f32>() / history.len().max(1) as f32;
-            (i, avg_health, history)
-        })
-        .collect();
-
-    ribbon_data.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-
-    let ribbon_list_area = main_chunks[1];
-    let ribbon_block = Block::default()
-        .title("Top Performances (Health over Rounds)")
-        .borders(Borders::ALL);
-    let ribbon_inner = ribbon_block.inner(ribbon_list_area);
-    f.render_widget(ribbon_block, ribbon_list_area);
-
-    for (i, (ind_idx, _score, history)) in ribbon_data
-        .iter()
-        .take(ribbon_inner.height as usize)
-        .enumerate()
-    {
-        f.render_widget(
-            ScoreRibbon {
-                data: history,
-                label: &format!("C{:02}", ind_idx),
-                max_rounds: 200,
-            },
-            Rect {
-                x: ribbon_inner.x,
-                y: ribbon_inner.y + i as u16,
-                width: ribbon_inner.width,
-                height: 1,
-            },
-        );
-    }
-
-    // C. Seed Gauntlet + Best Result Table
-    let right_chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Percentage(60), // Gauntlet
-            Constraint::Percentage(40), // Outcome summary
-        ])
-        .split(main_chunks[2]);
-
+    // A2. Seed Gauntlet
     let gauntlet_data: Vec<Vec<u8>> = app
         .population_status
         .iter()
         .map(|ind| ind.seed_statuses.clone())
         .collect();
+
+    let gauntlet_title = Line::from(vec![
+        Span::raw("Seed Gauntlet ("),
+        Span::styled("⠶", Style::default().fg(Color::Blue)),
+        Span::raw(":Run "),
+        Span::styled("█", Style::default().fg(Color::Green)),
+        Span::raw(":Win "),
+        Span::styled("█", Style::default().fg(Color::Red)),
+        Span::raw(":Loss "),
+        Span::styled("!", Style::default().fg(Color::Magenta)),
+        Span::raw(":Err "),
+        Span::styled("█", Style::default().fg(Color::Yellow)),
+        Span::raw(":Time)"),
+    ]);
 
     f.render_widget(
         SeedGauntlet {
@@ -518,14 +532,11 @@ fn ui(f: &mut Frame, app: &App) {
             seed_labels: &app.config.seeds,
             block: None,
         }
-        .block(
-            Block::default()
-                .title("Seed Gauntlet (⠶:Run █:Win █:Loss !:Err █:Time)")
-                .borders(Borders::ALL),
-        ),
-        right_chunks[0],
+        .block(Block::default().title(gauntlet_title).borders(Borders::ALL)),
+        top_part_chunks[1],
     );
 
+    // A3. Summary
     if let Some(last) = app.history.last() {
         let m = &last.best_metrics;
         let wins = m.wins.to_string();
@@ -547,22 +558,96 @@ fn ui(f: &mut Frame, app: &App) {
                     .title("Generation Summary")
                     .borders(Borders::ALL),
             ),
-            right_chunks[1],
+            top_part_chunks[2],
+        );
+    }
+
+    // B. Score Ribbons (Middle part, full width)
+    let mut ribbon_data: Vec<(usize, usize, f32, Vec<f32>)> = Vec::new();
+    for (i, status) in app.population_status.iter().enumerate() {
+        let mut running_any = false;
+        for (seed_idx, &s) in status.seed_statuses.iter().enumerate() {
+            if s == 1 {
+                let history = &status.seed_histories[seed_idx];
+                let avg_health = history.iter().sum::<f32>() / history.len().max(1) as f32;
+                ribbon_data.push((i, seed_idx, avg_health, history.clone()));
+                running_any = true;
+            }
+        }
+        if !running_any {
+            // If none running, find the one with longest history
+            let best_idx = status
+                .seed_histories
+                .iter()
+                .enumerate()
+                .max_by_key(|(_, h)| h.len())
+                .map(|(idx, _)| idx)
+                .unwrap_or(0);
+            let history = &status.seed_histories[best_idx];
+            let avg_health = history.iter().sum::<f32>() / history.len().max(1) as f32;
+            ribbon_data.push((i, best_idx, avg_health, history.clone()));
+        }
+    }
+
+    ribbon_data.sort_by(|a, b| {
+        let a_running = app.population_status[a.0].seed_statuses[a.1] == 1;
+        let b_running = app.population_status[b.0].seed_statuses[b.1] == 1;
+        if a_running != b_running {
+            if a_running {
+                std::cmp::Ordering::Less
+            } else {
+                std::cmp::Ordering::Greater
+            }
+        } else {
+            b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal)
+        }
+    });
+
+    let ribbon_title = Line::from(vec![
+        Span::raw("Top Performances (Health: "),
+        Span::styled("Red", Style::default().fg(Color::Red)),
+        Span::raw("->"),
+        Span::styled("Green", Style::default().fg(Color::Green)),
+        Span::raw(")"),
+    ]);
+    let ribbon_block = Block::default().title(ribbon_title).borders(Borders::ALL);
+    let ribbon_inner = ribbon_block.inner(main_chunks[1]);
+    f.render_widget(ribbon_block, main_chunks[1]);
+
+    for (i, (ind_idx, seed_idx, _score, history)) in ribbon_data
+        .iter()
+        .take(ribbon_inner.height as usize)
+        .enumerate()
+    {
+        f.render_widget(
+            ScoreRibbon {
+                data: history,
+                label: &format!("C{:02} S{:02}", ind_idx, seed_idx),
+                max_rounds: 200,
+            },
+            Rect {
+                x: ribbon_inner.x,
+                y: ribbon_inner.y + i as u16,
+                width: ribbon_inner.width,
+                height: 1,
+            },
         );
     }
 
     // 3. Bottom Telemetry (Best Individual Live View)
-    // We pick the best individual's first seed that is currently running or done.
-    let best_idx = ribbon_data.first().map(|(idx, _, _)| *idx);
-    let best_ind = best_idx.and_then(|idx| app.population_status.get(idx));
-    let best_progress = best_ind.and_then(|ind| ind.current_progress[0].as_ref());
+    // We pick the best individual's active or longest history seed.
+    let best_info = ribbon_data.first();
+    let best_progress = best_info.and_then(|(idx, seed_idx, _, _)| {
+        app.population_status[*idx].current_progress[*seed_idx].as_ref()
+    });
 
     if let Some(prog) = best_progress {
-        let ind_label = format!("(C{:02})", best_idx.unwrap());
+        let (ind_idx, seed_idx, _, _) = best_info.unwrap();
+        let ind_label = format!("(C{:02} S{:02})", ind_idx, seed_idx);
         let tele_chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
-                Constraint::Length(40), // Map
+                Constraint::Length(85), // Map (Increased from 65)
                 Constraint::Length(30), // Stats
                 Constraint::Min(0),     // Action Log
             ])
@@ -602,7 +687,7 @@ fn ui(f: &mut Frame, app: &App) {
         );
 
         // Action Ticker (Full History)
-        let history = best_ind.map(|ind| &ind.action_histories[0]).unwrap();
+        let history = &app.population_status[*ind_idx].action_histories[*seed_idx];
         let ticker_text = history.join("\n");
         f.render_widget(
             Paragraph::new(ticker_text).block(

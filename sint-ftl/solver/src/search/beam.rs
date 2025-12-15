@@ -1,6 +1,7 @@
 use crate::driver::GameDriver;
 use crate::scoring::ScoreDetails;
 use crate::scoring::beam::{BeamScoringWeights, calculate_score};
+use crate::search::config::BeamSearchConfig;
 use crate::search::{SearchNode, SearchProgress, get_state_signature};
 use rayon::prelude::*;
 use sint_core::logic::pathfinding::MapDistances;
@@ -9,15 +10,6 @@ use sint_core::types::{Action, GameAction, GamePhase};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-
-pub struct BeamSearchConfig {
-    pub players: usize,
-    pub seed: u64,
-    pub width: usize,
-    pub steps: usize,
-    pub time_limit: u64,
-    pub verbose: bool,
-}
 
 // --- DEBUG CONTEXT ---
 #[derive(Debug, Clone)]

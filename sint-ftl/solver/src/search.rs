@@ -4,6 +4,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 pub mod beam;
+pub mod config;
 pub mod rhea;
 
 pub fn get_valid_actions(state: &GameState) -> Vec<(PlayerId, GameAction)> {

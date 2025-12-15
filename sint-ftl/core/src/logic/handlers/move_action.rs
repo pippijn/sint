@@ -15,10 +15,10 @@ impl ActionHandler for MoveHandler {
         let current_room_id = p.room_id;
 
         let mut allowed = false;
-        if let Some(room) = state.map.rooms.get(&current_room_id) {
-            if room.neighbors.contains(&self.to_room) {
-                allowed = true;
-            }
+        if let Some(room) = state.map.rooms.get(&current_room_id)
+            && room.neighbors.contains(&self.to_room)
+        {
+            allowed = true;
         }
 
         if !allowed {
