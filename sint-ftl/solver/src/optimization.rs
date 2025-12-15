@@ -4,11 +4,11 @@ use crate::search::SearchProgress;
 use crate::search::beam::beam_search;
 use crate::search::config::{BeamSearchConfig, RHEAConfig};
 use crate::search::rhea::rhea_search;
-use crossbeam_channel::unbounded;
 use dashmap::DashMap;
 use rand::prelude::*;
 use sint_core::types::GamePhase;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::Sender;
 
 #[derive(Clone, Debug)]
@@ -196,42 +196,47 @@ fn evaluate_batch(
     tx: &Sender<OptimizerMessage>,
     generation: usize,
 ) -> Vec<EvaluationMetrics> {
-    let (task_tx, task_rx) = unbounded::<GameTask>();
-    let (result_tx, result_rx) = unbounded::<GameResult>();
-
-    // 1. Queue all tasks
+    let mut tasks = Vec::new();
     for (g_idx, genome) in genomes.iter().enumerate() {
         for (s_idx, &seed) in config.seeds.iter().enumerate() {
-            task_tx
-                .send(GameTask {
-                    genome_idx: g_idx,
-                    seed_idx: s_idx,
-                    genome: genome.clone(),
-                    seed,
-                })
-                .unwrap();
+            tasks.push(GameTask {
+                genome_idx: g_idx,
+                seed_idx: s_idx,
+                genome: genome.clone(),
+                seed,
+            });
         }
     }
-    drop(task_tx);
 
-    // 2. Spawn Workers
     let num_cores = std::thread::available_parallelism()
         .map(|n| n.get())
         .unwrap_or(1);
-    let num_workers = (num_cores / 10).max(1);
 
-    let mut workers = Vec::new();
-    let histories = Arc::new(DashMap::new());
+    // Limit parallel games to avoid oversubscription, but allow them to use nested Rayon parallelism.
+    let max_parallel_games = (num_cores / 4).max(1);
+    let active_games = Arc::new(AtomicUsize::new(0));
+    let histories: Arc<DashMap<(usize, usize), Vec<f32>>> = Arc::new(DashMap::new());
 
-    for _ in 0..num_workers {
-        let rx = task_rx.clone();
-        let res_tx = result_tx.clone();
-        let opt_tx = tx.clone();
-        let histories_ref = histories.clone();
-        let config_clone = config.clone();
+    let (result_tx, result_rx) = crossbeam_channel::unbounded::<GameResult>();
+    let mut metrics_per_genome = vec![EvaluationMetrics::default(); genomes.len()];
+    let total_tasks = tasks.len();
 
-        workers.push(std::thread::spawn(move || {
-            while let Ok(task) = rx.recv() {
+    rayon::scope(|s| {
+        for task in tasks {
+            // Cooperative yield while waiting for a slot.
+            // This thread will help with other Rayon tasks (like population evaluation) instead of blocking.
+            while active_games.load(Ordering::Acquire) >= max_parallel_games {
+                rayon::yield_now();
+            }
+
+            active_games.fetch_add(1, Ordering::SeqCst);
+            let active_counter = active_games.clone();
+            let opt_tx = tx.clone();
+            let res_tx = result_tx.clone();
+            let histories_ref = histories.clone();
+            let config_clone = config.clone();
+
+            s.spawn(move |_| {
                 let mut m = EvaluationMetrics::default();
                 let mut fitness = 0.0;
 
@@ -246,7 +251,7 @@ fn evaluate_batch(
                     let health = (hull_part * 0.7 + score_part * 0.3).clamp(0.0, 1.0);
 
                     let round = p.node.state.turn_count as usize;
-                    let mut history = hist_ref.entry((g_idx, s_idx)).or_insert_with(Vec::new);
+                    let mut history = hist_ref.entry((g_idx, s_idx)).or_default();
                     if round >= history.len() {
                         history.push(health);
                     } else {
@@ -337,24 +342,21 @@ fn evaluate_batch(
                     status,
                 });
 
-                res_tx
-                    .send(GameResult {
-                        genome_idx: g_idx,
-                        metrics: m,
-                    })
-                    .unwrap();
-            }
-        }));
-    }
-    drop(result_tx);
+                let _ = res_tx.send(GameResult {
+                    genome_idx: task.genome_idx,
+                    metrics: m,
+                });
 
-    let mut metrics_per_genome = vec![EvaluationMetrics::default(); genomes.len()];
-    while let Ok(res) = result_rx.recv() {
-        metrics_per_genome[res.genome_idx].add(&res.metrics);
-    }
+                active_counter.fetch_sub(1, Ordering::SeqCst);
+            });
+        }
+    });
 
-    for worker in workers {
-        worker.join().unwrap();
+    // Collect all results
+    for _ in 0..total_tasks {
+        if let Ok(res) = result_rx.recv() {
+            metrics_per_genome[res.genome_idx].add(&res.metrics);
+        }
     }
 
     metrics_per_genome
@@ -454,7 +456,11 @@ pub fn run_ga(config: &OptimizerConfig, tx: Sender<OptimizerMessage>) {
 
         let total_rank_sum: usize = (1..=config.population).sum();
 
-        while new_pop.len() < config.population {
+        // 1. Generate ALL children first
+        let mut all_children = Vec::new();
+        let mut pairings = Vec::new(); // Store which parents produced which children
+
+        while new_pop.len() + all_children.len() < config.population {
             let select_parent_idx = |rng: &mut ThreadRng| {
                 let mut r = rng.random_range(0..total_rank_sum);
                 for i in 0..scored_pop.len() {
@@ -469,15 +475,15 @@ pub fn run_ga(config: &OptimizerConfig, tx: Sender<OptimizerMessage>) {
 
             let i1 = select_parent_idx(&mut rng);
             let i2 = select_parent_idx(&mut rng);
-            let p1 = &scored_pop[i1];
-            let p2 = &scored_pop[i2];
+            let p1_genome = &scored_pop[i1].1;
+            let p2_genome = &scored_pop[i2].1;
 
             let alpha = 0.5;
             let mut c1 = Vec::with_capacity(param_count);
             let mut c2 = Vec::with_capacity(param_count);
             for i in 0..param_count {
-                let v1 = p1.1[i];
-                let v2 = p2.1[i];
+                let v1 = p1_genome[i];
+                let v2 = p2_genome[i];
                 let min = v1.min(v2);
                 let max = v1.max(v2);
                 let range = max - min;
@@ -500,12 +506,27 @@ pub fn run_ga(config: &OptimizerConfig, tx: Sender<OptimizerMessage>) {
             mutate(&mut rng, &mut c1);
             mutate(&mut rng, &mut c2);
 
-            let children = vec![c1.clone(), c2.clone()];
-            let m_children = evaluate_batch(config, &children, &tx, generation);
+            let c1_idx = all_children.len();
+            all_children.push(c1);
+            let c2_idx = all_children.len();
+            all_children.push(c2);
 
-            let mut m_c1 = m_children[0].clone();
+            pairings.push((i1, i2, c1_idx, c2_idx));
+        }
+
+        // 2. Evaluate all children in one large batch
+        let children_metrics = evaluate_batch(config, &all_children, &tx, generation);
+
+        // 3. Survival logic (Deterministic Crowding)
+        for (i1, i2, c1_idx, c2_idx) in pairings {
+            let p1 = &scored_pop[i1];
+            let p2 = &scored_pop[i2];
+            let c1_genome = &all_children[c1_idx];
+            let c2_genome = &all_children[c2_idx];
+
+            let mut m_c1 = children_metrics[c1_idx].clone();
             m_c1.average(config.seeds.len());
-            let mut m_c2 = m_children[1].clone();
+            let mut m_c2 = children_metrics[c2_idx].clone();
             m_c2.average(config.seeds.len());
 
             let dist = |g1: &[f64], g2: &[f64]| {
@@ -515,28 +536,30 @@ pub fn run_ga(config: &OptimizerConfig, tx: Sender<OptimizerMessage>) {
                     .sum::<f64>()
             };
 
-            if dist(&p1.1, &c1) + dist(&p2.1, &c2) < dist(&p1.1, &c2) + dist(&p2.1, &c1) {
+            if dist(&p1.1, c1_genome) + dist(&p2.1, c2_genome)
+                < dist(&p1.1, c2_genome) + dist(&p2.1, c1_genome)
+            {
                 if m_c1.score > p1.0.score {
-                    new_pop.push(c1);
+                    new_pop.push(c1_genome.clone());
                 } else {
                     new_pop.push(p1.1.clone());
                 }
                 if new_pop.len() < config.population {
                     if m_c2.score > p2.0.score {
-                        new_pop.push(c2);
+                        new_pop.push(c2_genome.clone());
                     } else {
                         new_pop.push(p2.1.clone());
                     }
                 }
             } else {
                 if m_c2.score > p1.0.score {
-                    new_pop.push(c2);
+                    new_pop.push(c2_genome.clone());
                 } else {
                     new_pop.push(p1.1.clone());
                 }
                 if new_pop.len() < config.population {
                     if m_c1.score > p2.0.score {
-                        new_pop.push(c1);
+                        new_pop.push(c1_genome.clone());
                     } else {
                         new_pop.push(p2.1.clone());
                     }

@@ -24,8 +24,11 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
+use sysinfo::{Pid, ProcessesToUpdate, System};
 
 use sint_solver::search::config::{BeamConfig, RHEAConfigParams};
+
+const GB: f64 = 1024.0 * 1024.0 * 1024.0;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -202,6 +205,9 @@ struct App {
     population_status: Vec<IndividualStatus>,
     population_genomes: Vec<Vec<f64>>,
     done: bool,
+    sys: System,
+    pid: Pid,
+    last_sys_update: Instant,
 }
 
 impl App {
@@ -215,16 +221,31 @@ impl App {
             };
             config.population
         ];
+        let mut sys = System::new_all();
+        sys.refresh_all();
+        let pid = sysinfo::get_current_pid().expect("Failed to get PID");
+
         App {
             config: config.clone(),
             history: Vec::new(),
             population_status,
             population_genomes: vec![Vec::new(); config.population],
             done: false,
+            sys,
+            pid,
+            last_sys_update: Instant::now(),
         }
     }
 
-    fn on_tick(&mut self) {}
+    fn on_tick(&mut self) {
+        if self.last_sys_update.elapsed() >= Duration::from_secs(2) {
+            self.sys.refresh_cpu_all();
+            self.sys.refresh_memory();
+            self.sys
+                .refresh_processes(ProcessesToUpdate::Some(&[self.pid]), true);
+            self.last_sys_update = Instant::now();
+        }
+    }
 }
 
 fn run_tui(config: OptimizerConfig) -> Result<(), Box<dyn std::error::Error>> {
@@ -387,13 +408,21 @@ fn ui(f: &mut Frame, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(4),  // Header (Increased from 3)
+            Constraint::Length(4),  // Header (Back to 4, using horizontal space)
             Constraint::Min(0),     // Main Content
-            Constraint::Length(22), // Bottom Telemetry (Increased from 15)
+            Constraint::Length(22), // Bottom Telemetry
         ])
         .split(area);
 
     // 1. Header
+    let header_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Min(0),     // Left: Progress
+            Constraint::Length(30), // Right: System Stats
+        ])
+        .split(chunks[0]);
+
     let strategy_str = match app.config.strategy {
         Strategy::GA => "Genetic Algorithm (Crowding)",
         Strategy::Spsa => "SPSA",
@@ -434,7 +463,8 @@ fn ui(f: &mut Frame, app: &App) {
     let total_games = app.config.population * app.config.seeds.len();
     let games_pending = total_games.saturating_sub(games_done + games_running);
 
-    let header_text = format!(
+    // Left Header: Workload
+    let left_text = format!(
         "SINT OPTIMIZER | Strat: {} | Target: {} | Gen: {}/{} | Pop: {} | {}\n\
          WORKLOAD: Games: {}/{} ({} Pending, {} Running) | Genomes: {}/{} Completed",
         strategy_str,
@@ -448,18 +478,46 @@ fn ui(f: &mut Frame, app: &App) {
         games_pending,
         games_running,
         inds_done,
-        app.config.population
+        app.config.population,
     );
 
     f.render_widget(
-        Paragraph::new(header_text)
+        Paragraph::new(left_text)
             .style(
                 Style::default()
                     .fg(Color::Cyan)
                     .add_modifier(Modifier::BOLD),
             )
-            .block(Block::default().borders(Borders::ALL)),
-        chunks[0],
+            .block(Block::default().borders(Borders::LEFT | Borders::TOP | Borders::BOTTOM)),
+        header_chunks[0],
+    );
+
+    // Right Header: System Stats
+    let cpu_usage = app.sys.global_cpu_usage();
+    let mem_used = app.sys.used_memory() as f64 / GB;
+    let mem_total = app.sys.total_memory() as f64 / GB;
+    let proc_mem = app
+        .sys
+        .process(app.pid)
+        .map(|p| p.memory() as f64 / GB)
+        .unwrap_or(0.0);
+
+    let right_text = format!(
+        "CPU: {:>5.1}%\n\
+         P:{:>4.1}G | S:{:>4.1}/{:>2.0}G",
+        cpu_usage, proc_mem, mem_used, mem_total
+    );
+
+    f.render_widget(
+        Paragraph::new(right_text)
+            .alignment(ratatui::layout::Alignment::Right)
+            .style(
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            )
+            .block(Block::default().borders(Borders::RIGHT | Borders::TOP | Borders::BOTTOM)),
+        header_chunks[1],
     );
 
     // 2. Main Content
@@ -554,6 +612,15 @@ fn ui(f: &mut Frame, app: &App) {
         ];
         f.render_widget(
             Table::new(rows, [Constraint::Length(15), Constraint::Min(0)]).block(
+                Block::default()
+                    .title("Generation Summary")
+                    .borders(Borders::ALL),
+            ),
+            top_part_chunks[2],
+        );
+    } else {
+        f.render_widget(
+            Paragraph::new("\n\n  Waiting for first\n  generation to\n  complete...").block(
                 Block::default()
                     .title("Generation Summary")
                     .borders(Borders::ALL),
