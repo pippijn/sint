@@ -31,23 +31,38 @@ struct Door {
 
 pub struct MapWidget<'a> {
     pub state: Option<&'a GameState>,
+    pub block: Option<Block<'a>>,
+}
+
+impl<'a> MapWidget<'a> {
+    pub fn block(mut self, block: Block<'a>) -> Self {
+        self.block = Some(block);
+        self
+    }
 }
 
 impl<'a> Widget for MapWidget<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let block = Block::default().title("Ship Map").borders(Borders::ALL);
-        let inner_area = block.inner(area);
-        block.render(area, buf);
+        let area = if let Some(block) = self.block {
+            let inner = block.inner(area);
+            block.render(area, buf);
+            inner
+        } else {
+            let block = Block::default().title("Ship Map").borders(Borders::ALL);
+            let inner = block.inner(area);
+            block.render(area, buf);
+            inner
+        };
 
         if let Some(state) = self.state {
             match state.layout {
-                MapLayout::Star => render_star(state, inner_area, buf),
-                MapLayout::Torus => render_torus(state, inner_area, buf),
+                MapLayout::Star => render_star(state, area, buf),
+                MapLayout::Torus => render_torus(state, area, buf),
             }
         } else {
             Paragraph::new("Waiting for state...")
                 .style(Style::default().fg(Color::DarkGray))
-                .render(inner_area, buf);
+                .render(area, buf);
         }
     }
 }

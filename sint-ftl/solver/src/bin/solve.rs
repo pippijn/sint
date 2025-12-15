@@ -433,6 +433,7 @@ fn ui(f: &mut Frame, app: &SolverApp) {
     // Map Widget (Left)
     let map = MapWidget {
         state: current_state,
+        block: None,
     };
     f.render_widget(map, main_chunks[0]);
 

@@ -1,4 +1,5 @@
 use super::ScoreDetails;
+use serde::{Deserialize, Serialize};
 use sint_core::logic::pathfinding::MapDistances;
 use sint_core::logic::{cards::get_behavior, find_room_with_system};
 use sint_core::small_map::SmallSet;
@@ -9,7 +10,7 @@ use sint_core::types::{
 use std::collections::HashMap;
 
 /// Hyperparameters for the scoring function.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BeamScoringWeights {
     // Vital Stats
     pub hull_integrity: f64,

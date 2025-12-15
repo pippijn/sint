@@ -192,7 +192,7 @@ where
         let map = BTreeMap::<V::Id, V>::deserialize(deserializer)?;
         let mut fm = FieldMap::new();
         // Insert values. Note: order might change based on BTreeMap iteration
-        for (_, v) in map {
+        for v in map.into_values() {
             fm.insert(v);
         }
         Ok(fm)

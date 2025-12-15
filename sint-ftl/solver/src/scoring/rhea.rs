@@ -1,7 +1,8 @@
-use super::ScoreDetails;
+use crate::scoring::ScoreDetails;
+use serde::{Deserialize, Serialize};
 use sint_core::types::{GamePhase, GameState, HazardType, ItemType};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RheaScoringWeights {
     pub victory_base: f64,
     pub victory_hull_mult: f64,

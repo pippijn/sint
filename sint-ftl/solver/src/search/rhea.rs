@@ -102,8 +102,7 @@ where
         if population.is_empty() {
             population = (0..config.population_size)
                 .into_par_iter()
-                .enumerate()
-                .map(|(i, _)| {
+                .map(|i| {
                     let mut rng = StdRng::seed_from_u64(config.seed + seed_counter + i as u64);
                     generate_random_individual(&current_state, config.horizon, &mut rng)
                 })
@@ -148,8 +147,7 @@ where
 
             let mut next_pop: Vec<Individual> = (0..config.population_size - 1) // -1 for elite
                 .into_par_iter()
-                .enumerate()
-                .map(|(i, _)| {
+                .map(|i| {
                     let mut rng =
                         StdRng::seed_from_u64(config.seed + next_gen_seed_base + i as u64);
                     // Tournament
@@ -383,12 +381,10 @@ fn evaluate_individual(
     // Repair/Simulation
     let mut repaired_actions = Vec::new();
 
-    for i in 0..ind.actions.len() {
+    for (pid, act) in &ind.actions {
         if driver.state.phase == GamePhase::GameOver || driver.state.phase == GamePhase::Victory {
             break;
         }
-
-        let (pid, act) = &ind.actions[i];
 
         let mut effective_action = (pid.clone(), act.clone());
         let mut success = false;

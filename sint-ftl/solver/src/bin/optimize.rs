@@ -9,13 +9,10 @@ use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
-    symbols,
-    text::Span,
-    widgets::{Axis, BarChart, Block, Borders, Chart, Dataset, GraphType, Paragraph, Row, Table},
+    widgets::{Block, Borders, Paragraph, Row, Table},
 };
 use sint_solver::optimization::{
-    EvaluationMetrics, OptimizationStatus, OptimizerConfig, OptimizerMessage, Strategy, Target,
-    run_ga, run_spsa,
+    OptimizationStatus, OptimizerConfig, OptimizerMessage, Strategy, Target, run_ga, run_spsa,
 };
 use sint_solver::scoring::beam::BeamScoringWeights;
 use sint_solver::scoring::rhea::RheaScoringWeights;
@@ -43,7 +40,7 @@ struct Args {
     generations: usize,
 
     /// Population Size (Optimizer GA)
-    #[arg(short, long, default_value_t = 40)]
+    #[arg(short, long, default_value_t = 20)]
     population: usize,
 
     /// Seeds to evaluate (comma separated)
@@ -159,6 +156,9 @@ fn run_cli(config: OptimizerConfig) {
                 print!(".");
                 io::stdout().flush().unwrap();
             }
+            OptimizerMessage::SeedDone { .. } => {
+                // Ignore per-seed updates in CLI
+            }
             OptimizerMessage::GenerationDone(status) => {
                 println!(); // Newline after dots
                 println!(
@@ -188,24 +188,37 @@ fn run_cli(config: OptimizerConfig) {
 }
 
 #[derive(Clone, Debug)]
-enum ProgressState {
-    Running(SearchProgress),
-    Done(EvaluationMetrics),
+struct IndividualStatus {
+    seed_statuses: Vec<u8>, // 0: Pending, 1: Running, 2: Win, 3: Loss, 4: Panic
+    seed_histories: Vec<Vec<f32>>,
+    current_progress: Vec<Option<SearchProgress>>,
+    action_histories: Vec<Vec<String>>,
 }
 
 struct App {
     config: OptimizerConfig,
     history: Vec<OptimizationStatus>,
-    current_gen_progress: Vec<Option<ProgressState>>,
+    population_status: Vec<IndividualStatus>,
+    population_genomes: Vec<Vec<f64>>,
     done: bool,
 }
 
 impl App {
     fn new(config: OptimizerConfig) -> App {
+        let population_status = vec![
+            IndividualStatus {
+                seed_statuses: vec![0; config.seeds.len()],
+                seed_histories: vec![Vec::new(); config.seeds.len()],
+                current_progress: vec![None; config.seeds.len()],
+                action_histories: vec![Vec::new(); config.seeds.len()],
+            };
+            config.population
+        ];
         App {
             config: config.clone(),
             history: Vec::new(),
-            current_gen_progress: vec![None; config.population],
+            population_status,
+            population_genomes: vec![Vec::new(); config.population],
             done: false,
         }
     }
@@ -234,7 +247,7 @@ fn run_tui(config: OptimizerConfig) -> Result<(), Box<dyn std::error::Error>> {
     });
 
     // Run Loop
-    let tick_rate = Duration::from_millis(100); // Faster tick for smooth UI updates
+    let tick_rate = Duration::from_millis(50); // Faster tick for smooth UI updates
     let mut last_tick = Instant::now();
 
     loop {
@@ -244,11 +257,12 @@ fn run_tui(config: OptimizerConfig) -> Result<(), Box<dyn std::error::Error>> {
             .checked_sub(last_tick.elapsed())
             .unwrap_or_else(|| Duration::from_secs(0));
 
-        if crossterm::event::poll(timeout)?
-            && let Event::Key(key) = event::read()?
-            && let KeyCode::Char('q') = key.code
-        {
-            break;
+        if crossterm::event::poll(timeout)? {
+            if let Event::Key(key) = event::read()? {
+                if let KeyCode::Char('q') = key.code {
+                    break;
+                }
+            }
         }
 
         if last_tick.elapsed() >= tick_rate {
@@ -260,15 +274,53 @@ fn run_tui(config: OptimizerConfig) -> Result<(), Box<dyn std::error::Error>> {
         while let Ok(msg) = rx.try_recv() {
             match msg {
                 OptimizerMessage::IndividualUpdate {
-                    index, progress, ..
+                    index,
+                    seed_idx,
+                    progress,
+                    score_history,
+                    ..
                 } => {
-                    if index < app.current_gen_progress.len() {
-                        app.current_gen_progress[index] = Some(ProgressState::Running(progress));
+                    if index < app.population_status.len() {
+                        let ind = &mut app.population_status[index];
+                        if seed_idx < ind.seed_statuses.len() {
+                            ind.seed_statuses[seed_idx] = 1; // Running
+                            ind.seed_histories[seed_idx] = score_history;
+
+                            // Update Action Ticker
+                            if let Some((pid, act)) = &progress.node.last_action {
+                                let action_str = format!(
+                                    "[R{}] {} -> {:?}",
+                                    progress.node.state.turn_count, pid, act
+                                );
+                                let history = &mut ind.action_histories[seed_idx];
+                                if history.last() != Some(&action_str) {
+                                    history.push(action_str);
+                                    if history.len() > 15 {
+                                        history.remove(0);
+                                    }
+                                }
+                            }
+
+                            ind.current_progress[seed_idx] = Some(progress);
+                        }
                     }
                 }
-                OptimizerMessage::IndividualDone { index, metrics, .. } => {
-                    if index < app.current_gen_progress.len() {
-                        app.current_gen_progress[index] = Some(ProgressState::Done(metrics));
+                OptimizerMessage::SeedDone {
+                    index,
+                    seed_idx,
+                    status,
+                    ..
+                } => {
+                    if index < app.population_status.len() {
+                        let ind = &mut app.population_status[index];
+                        if seed_idx < ind.seed_statuses.len() {
+                            ind.seed_statuses[seed_idx] = status;
+                        }
+                    }
+                }
+                OptimizerMessage::IndividualDone { index, genome, .. } => {
+                    if index < app.population_status.len() {
+                        app.population_genomes[index] = genome;
                     }
                 }
                 OptimizerMessage::GenerationDone(status) => {
@@ -276,9 +328,20 @@ fn run_tui(config: OptimizerConfig) -> Result<(), Box<dyn std::error::Error>> {
                         app.done = true;
                     }
                     app.history.push(*status);
-                    // Reset progress for next gen
-                    for p in &mut app.current_gen_progress {
-                        *p = None;
+                    // Reset status for next gen
+                    for ind in &mut app.population_status {
+                        for s in &mut ind.seed_statuses {
+                            *s = 0;
+                        }
+                        for h in &mut ind.seed_histories {
+                            h.clear();
+                        }
+                        for p in &mut ind.current_progress {
+                            *p = None;
+                        }
+                        for a in &mut ind.action_histories {
+                            a.clear();
+                        }
                     }
                 }
             }
@@ -294,42 +357,54 @@ fn run_tui(config: OptimizerConfig) -> Result<(), Box<dyn std::error::Error>> {
     )?;
     terminal.show_cursor()?;
 
+    // Print best results found so far
+    if let Some(last_status) = app.history.last() {
+        println!("\n🏆 Best Weights Found (Gen {}):", last_status.generation);
+        if let Some(w) = &last_status.current_weights_beam {
+            println!("{:#?}", w);
+        }
+        if let Some(w) = &last_status.current_weights_rhea {
+            println!("{:#?}", w);
+        }
+    } else {
+        println!("\n⚠️ No generations completed.");
+    }
+
     Ok(())
 }
 
+use ratatui::layout::Rect;
+use sint_solver::tui::map::MapWidget;
+use sint_solver::tui::optimization::{GenomeMosaic, ScoreRibbon, SeedGauntlet};
+
 fn ui(f: &mut Frame, app: &App) {
+    let area = f.area();
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints(
-            [
-                Constraint::Length(3),      // Header
-                Constraint::Percentage(40), // Chart
-                Constraint::Length(10),     // Stats Bar + Population Grid
-                Constraint::Min(0),         // Weights
-            ]
-            .as_ref(),
-        )
-        .split(f.area());
+        .constraints([
+            Constraint::Length(3),  // Header
+            Constraint::Min(0),     // Main Content
+            Constraint::Length(15), // Bottom Telemetry
+        ])
+        .split(area);
 
-    // ... Header and Chart remain same ...
-    // Header
+    // 1. Header
     let strategy_str = match app.config.strategy {
-        Strategy::GA => "Genetic Algorithm",
+        Strategy::GA => "Genetic Algorithm (Crowding)",
         Strategy::Spsa => "SPSA",
     };
     let target_str = match app.config.target {
-        Target::Beam => "Beam Search",
-        Target::Rhea => "RHEA",
+        Target::Beam => "Beam Search (Width 100)",
+        Target::Rhea => "RHEA (H10, G50, P20)",
     };
-
     let status_str = if app.done {
-        "DONE - Press 'q' to quit"
+        "DONE (q to quit)"
     } else {
-        "RUNNING - Press 'q' to quit"
+        "RUNNING (q to quit)"
     };
 
     let header_text = format!(
-        "Optimizer Visualization | Strategy: {} | Target: {} | Gen: {}/{} | Pop: {} | {}",
+        "SINT OPTIMIZER | Strat: {} | Target: {} | Gen: {}/{} | Pop: {} | {}",
         strategy_str,
         target_str,
         app.history.len(),
@@ -338,252 +413,210 @@ fn ui(f: &mut Frame, app: &App) {
         status_str
     );
 
-    let header = Paragraph::new(header_text)
-        .style(Style::default().fg(Color::Cyan))
-        .block(Block::default().borders(Borders::ALL).title("Status"));
-    f.render_widget(header, chunks[0]);
+    f.render_widget(
+        Paragraph::new(header_text)
+            .style(
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            )
+            .block(Block::default().borders(Borders::ALL)),
+        chunks[0],
+    );
 
-    // Chart
-    let best_data: Vec<(f64, f64)> = app
-        .history
-        .iter()
-        .map(|s| (s.generation as f64, s.best_score))
-        .collect();
+    // 2. Main Content (Mosaic, Ribbons, Gauntlet)
+    let main_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Length(45), // Genome Mosaic
+            Constraint::Min(0),     // Score Ribbons
+            Constraint::Length(75), // Seed Gauntlet + Stats
+        ])
+        .split(chunks[1]);
 
-    let avg_data: Vec<(f64, f64)> = app
-        .history
-        .iter()
-        .map(|s| (s.generation as f64, s.avg_score))
-        .collect();
+    // A. Genome Mosaic
+    let param_names = match app.config.target {
+        Target::Beam => sint_solver::optimization::get_param_names::<BeamScoringWeights>(),
+        Target::Rhea => sint_solver::optimization::get_param_names::<RheaScoringWeights>(),
+    };
 
-    let datasets = vec![
-        Dataset::default()
-            .name("Best Score")
-            .marker(symbols::Marker::Braille)
-            .graph_type(GraphType::Line)
-            .style(Style::default().fg(Color::Green))
-            .data(&best_data),
-        Dataset::default()
-            .name("Avg Score")
-            .marker(symbols::Marker::Braille)
-            .graph_type(GraphType::Line)
-            .style(Style::default().fg(Color::Yellow))
-            .data(&avg_data),
-    ];
-
-    let x_max = app.config.generations as f64;
-    // Find y range
-    let y_min = app
-        .history
-        .iter()
-        .map(|s| s.avg_score)
-        .fold(f64::INFINITY, |a, b| a.min(b))
-        .min(0.0);
-    let y_max = app
-        .history
-        .iter()
-        .map(|s| s.best_score)
-        .fold(f64::NEG_INFINITY, |a, b| a.max(b))
-        .max(100.0);
-
-    // Add some padding
-    let y_min = y_min - (y_max - y_min).abs() * 0.1;
-    let y_max = y_max + (y_max - y_min).abs() * 0.1;
-
-    let chart = Chart::new(datasets)
+    f.render_widget(
+        GenomeMosaic {
+            population: &app.population_genomes,
+            param_names: &param_names,
+            block: None,
+        }
         .block(
             Block::default()
-                .title("Fitness History")
+                .title("Genome Mosaic (DNA)")
                 .borders(Borders::ALL),
-        )
-        .x_axis(
-            Axis::default()
-                .title("Generation")
-                .style(Style::default().fg(Color::Gray))
-                .bounds([0.0, x_max])
-                .labels(vec![
-                    Span::styled("0", Style::default().add_modifier(Modifier::BOLD)),
-                    Span::styled(
-                        format!("{}", x_max),
-                        Style::default().add_modifier(Modifier::BOLD),
-                    ),
-                ]),
-        )
-        .y_axis(
-            Axis::default()
-                .title("Score")
-                .style(Style::default().fg(Color::Gray))
-                .bounds([y_min, y_max])
-                .labels(vec![
-                    Span::styled(
-                        format!("{:.0}", y_min),
-                        Style::default().add_modifier(Modifier::BOLD),
-                    ),
-                    Span::styled(
-                        format!("{:.0}", y_max),
-                        Style::default().add_modifier(Modifier::BOLD),
-                    ),
-                ]),
+        ),
+        main_chunks[0],
+    );
+
+    // B. Score Ribbons
+    // Find top 20 individuals based on average health score
+    let mut ribbon_data: Vec<(usize, f32, Vec<f32>)> = app
+        .population_status
+        .iter()
+        .enumerate()
+        .map(|(i, status)| {
+            // Average of first seed's history for visualization
+            let history = status.seed_histories[0].clone();
+            let avg_health = history.iter().sum::<f32>() / history.len().max(1) as f32;
+            (i, avg_health, history)
+        })
+        .collect();
+
+    ribbon_data.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+    let ribbon_list_area = main_chunks[1];
+    let ribbon_block = Block::default()
+        .title("Top Performances (Health over Rounds)")
+        .borders(Borders::ALL);
+    let ribbon_inner = ribbon_block.inner(ribbon_list_area);
+    f.render_widget(ribbon_block, ribbon_list_area);
+
+    for (i, (ind_idx, _score, history)) in ribbon_data
+        .iter()
+        .take(ribbon_inner.height as usize)
+        .enumerate()
+    {
+        f.render_widget(
+            ScoreRibbon {
+                data: history,
+                label: &format!("C{:02}", ind_idx),
+                max_rounds: 200,
+            },
+            Rect {
+                x: ribbon_inner.x,
+                y: ribbon_inner.y + i as u16,
+                width: ribbon_inner.width,
+                height: 1,
+            },
         );
-    f.render_widget(chart, chunks[1]);
+    }
 
-    // Split Stats Area: Left for History/Stats, Right for Current Gen Population
-    let stats_chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(40), Constraint::Percentage(60)].as_ref())
-        .split(chunks[2]);
+    // C. Seed Gauntlet + Best Result Table
+    let right_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage(60), // Gauntlet
+            Constraint::Percentage(40), // Outcome summary
+        ])
+        .split(main_chunks[2]);
 
-    // Outcome Stats (Best Individual of Current Gen)
-    if let Some(last_status) = app.history.last() {
-        let m = &last_status.best_metrics;
+    let gauntlet_data: Vec<Vec<u8>> = app
+        .population_status
+        .iter()
+        .map(|ind| ind.seed_statuses.clone())
+        .collect();
 
-        let wins = m.wins as u64;
-        let losses = m.losses as u64;
-        let timeouts = m.timeouts as u64;
-        let panics = m.panics as u64;
-        let total = wins + losses + timeouts + panics;
+    f.render_widget(
+        SeedGauntlet {
+            status: &gauntlet_data,
+            seed_labels: &app.config.seeds,
+            block: None,
+        }
+        .block(
+            Block::default()
+                .title("Seed Gauntlet (⠶:Run █:Win █:Loss !:Err █:Time)")
+                .borders(Borders::ALL),
+        ),
+        right_chunks[0],
+    );
 
-        let bars = vec![
-            ("Wins", wins),
-            ("Loss", losses),
-            ("Time", timeouts),
-            ("Fail", panics),
+    if let Some(last) = app.history.last() {
+        let m = &last.best_metrics;
+        let wins = m.wins.to_string();
+        let losses = m.losses.to_string();
+        let timeouts = m.timeouts.to_string();
+        let best_score = format!("{:.1}", last.best_score);
+        let avg_score = format!("{:.1}", last.avg_score);
+
+        let rows = vec![
+            Row::new(vec!["Wins", wins.as_str()]).style(Style::default().fg(Color::Green)),
+            Row::new(vec!["Losses", losses.as_str()]).style(Style::default().fg(Color::Red)),
+            Row::new(vec!["Timeouts", timeouts.as_str()]).style(Style::default().fg(Color::Yellow)),
+            Row::new(vec!["Best Score", best_score.as_str()]),
+            Row::new(vec!["Avg Score", avg_score.as_str()]),
         ];
+        f.render_widget(
+            Table::new(rows, [Constraint::Length(15), Constraint::Min(0)]).block(
+                Block::default()
+                    .title("Generation Summary")
+                    .borders(Borders::ALL),
+            ),
+            right_chunks[1],
+        );
+    }
 
-        let barchart = BarChart::default()
+    // 3. Bottom Telemetry (Best Individual Live View)
+    // We pick the best individual's first seed that is currently running or done.
+    let best_idx = ribbon_data.first().map(|(idx, _, _)| *idx);
+    let best_ind = best_idx.and_then(|idx| app.population_status.get(idx));
+    let best_progress = best_ind.and_then(|ind| ind.current_progress[0].as_ref());
+
+    if let Some(prog) = best_progress {
+        let ind_label = format!("(C{:02})", best_idx.unwrap());
+        let tele_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Length(40), // Map
+                Constraint::Length(30), // Stats
+                Constraint::Min(0),     // Action Log
+            ])
+            .split(chunks[2]);
+
+        // Map
+        f.render_widget(
+            MapWidget {
+                state: Some(&prog.node.state),
+                block: None,
+            }
             .block(
                 Block::default()
-                    .title(format!("Outcomes (Best, N={})", total))
+                    .title(format!("Ship Map {}", ind_label))
                     .borders(Borders::ALL),
-            )
-            .data(&bars)
-            .bar_width(8)
-            .bar_style(Style::default().fg(Color::Yellow))
-            .value_style(Style::default().fg(Color::Black).bg(Color::Yellow));
+            ),
+            tele_chunks[0],
+        );
 
-        f.render_widget(barchart, stats_chunks[0]);
+        // Stats
+        let stats_text = format!(
+            "Round: {}\nHull: {}/20\nBoss HP: {}/{}\nPhase: {:?}\nScore: {:.1}",
+            prog.node.state.turn_count,
+            prog.node.state.hull_integrity,
+            prog.node.state.enemy.hp,
+            prog.node.state.enemy.max_hp,
+            prog.node.state.phase,
+            prog.node.score.total
+        );
+        f.render_widget(
+            Paragraph::new(stats_text).block(
+                Block::default()
+                    .title(format!("Live Stats {}", ind_label))
+                    .borders(Borders::ALL),
+            ),
+            tele_chunks[1],
+        );
+
+        // Action Ticker (Full History)
+        let history = best_ind.map(|ind| &ind.action_histories[0]).unwrap();
+        let ticker_text = history.join("\n");
+        f.render_widget(
+            Paragraph::new(ticker_text).block(
+                Block::default()
+                    .title(format!("Action Ticker {}", ind_label))
+                    .borders(Borders::ALL),
+            ),
+            tele_chunks[2],
+        );
     } else {
-        let block = Block::default().title("Outcomes").borders(Borders::ALL);
-        f.render_widget(block, stats_chunks[0]);
+        f.render_widget(
+            Paragraph::new("Waiting for evaluation data...")
+                .block(Block::default().borders(Borders::ALL)),
+            chunks[2],
+        );
     }
-
-    // Population Visualization
-    // Render a grid of blocks representing individuals.
-    let mut pop_spans = Vec::new();
-    for p in app.current_gen_progress.iter() {
-        let (text, style) = match p {
-            Some(ProgressState::Running(prog)) => {
-                let color = if prog.node.state.hull_integrity <= 0 {
-                    Color::Red
-                } else if prog.is_done {
-                    Color::Green
-                } else {
-                    Color::Blue
-                };
-                (
-                    format!(
-                        " R{:03} | H{:02} | S{:.0} ",
-                        prog.step, prog.node.state.hull_integrity, prog.node.score.total
-                    ),
-                    Style::default().bg(color).fg(Color::White),
-                )
-            }
-            Some(ProgressState::Done(m)) => {
-                let color = if m.wins > 0 {
-                    Color::Green
-                } else if m.losses > 0 {
-                    Color::Red
-                } else if m.timeouts > 0 {
-                    Color::Yellow
-                } else {
-                    Color::Magenta
-                };
-                (
-                    format!(" DONE | S{:.0} ", m.score),
-                    Style::default().bg(color).fg(Color::Black),
-                )
-            }
-            None => (" ... ".to_string(), Style::default().fg(Color::DarkGray)),
-        };
-        pop_spans.push(Span::styled(text, style));
-        pop_spans.push(Span::raw(" ")); // Spacing
-    }
-
-    let pop_paragraph = Paragraph::new(ratatui::text::Line::from(pop_spans))
-        .block(
-            Block::default()
-                .title("Current Generation Population")
-                .borders(Borders::ALL),
-        )
-        .wrap(ratatui::widgets::Wrap { trim: true });
-
-    f.render_widget(pop_paragraph, stats_chunks[1]);
-
-    // Weights Table
-    if let Some(last_status) = app.history.last() {
-        let rows = if let Some(w) = &last_status.current_weights_beam {
-            format_beam_weights(w)
-        } else if let Some(w) = &last_status.current_weights_rhea {
-            format_rhea_weights(w)
-        } else {
-            vec![]
-        };
-
-        let table = Table::new(
-            rows,
-            [Constraint::Percentage(50), Constraint::Percentage(50)],
-        )
-        .header(Row::new(vec!["Parameter", "Value"]).style(Style::default().fg(Color::Yellow)))
-        .block(
-            Block::default()
-                .title("Current Best Weights")
-                .borders(Borders::ALL),
-        )
-        .column_spacing(1);
-        f.render_widget(table, chunks[3]);
-    }
-}
-
-fn format_beam_weights<'a>(w: &BeamScoringWeights) -> Vec<Row<'a>> {
-    let debug_str = format!("{:?}", w);
-    let content = debug_str
-        .trim_start_matches("BeamScoringWeights {")
-        .trim_end_matches("}");
-
-    content
-        .split(',')
-        .map(|part| {
-            let parts: Vec<&str> = part.split(':').collect();
-            if parts.len() == 2 {
-                Row::new(vec![
-                    parts[0].trim().to_string(),
-                    parts[1].trim().to_string(),
-                ])
-            } else {
-                Row::new(vec![part.trim().to_string(), "".to_string()])
-            }
-        })
-        .collect()
-}
-
-fn format_rhea_weights<'a>(w: &RheaScoringWeights) -> Vec<Row<'a>> {
-    let debug_str = format!("{:?}", w);
-    let content = debug_str
-        .trim_start_matches("RheaScoringWeights {")
-        .trim_end_matches("}");
-
-    content
-        .split(',')
-        .map(|part| {
-            let parts: Vec<&str> = part.split(':').collect();
-            if parts.len() == 2 {
-                Row::new(vec![
-                    parts[0].trim().to_string(),
-                    parts[1].trim().to_string(),
-                ])
-            } else {
-                Row::new(vec![part.trim().to_string(), "".to_string()])
-            }
-        })
-        .collect()
 }
