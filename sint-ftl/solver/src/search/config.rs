@@ -26,7 +26,7 @@ pub struct CommonSearchConfig {
 #[derive(Parser, Debug, Clone, Copy)]
 pub struct BeamConfig {
     /// Beam Width (Number of states to keep per step)
-    #[arg(long, default_value_t = 300)]
+    #[arg(long, default_value_t = 100)]
     pub beam_width: usize,
 }
 

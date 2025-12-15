@@ -69,6 +69,8 @@ pub struct BeamScoringWeights {
     pub situation_exposure_penalty: f64,
     pub system_disabled_penalty: f64,
     pub shooting_reward: f64,
+    pub ship_ammo_reward: f64,
+    pub ship_ammo_cap: f64,
 
     // Exponents (Non-Linearity)
     pub hull_exponent: f64,
@@ -185,7 +187,7 @@ impl Default for BeamScoringWeights {
             active_situation_penalty: 100000.0,
             threat_player_penalty: 20.0,
             threat_system_penalty: 200.0,
-            death_penalty: 0.5,
+            death_penalty: 10000.0,
 
             // Roles
             station_keeping_reward: 10.0,
@@ -194,7 +196,7 @@ impl Default for BeamScoringWeights {
             gunner_working_bonus: 500.0,
             gunner_distance_factor: 20.0,
 
-            firefighter_base_reward: 15000.0,
+            firefighter_base_reward: 30000.0,
             firefighter_distance_factor: 1000.0,
 
             healing_reward: 20.0,
@@ -220,6 +222,8 @@ impl Default for BeamScoringWeights {
             situation_exposure_penalty: 0.01,
             system_disabled_penalty: 75000.0,
             shooting_reward: 2000000.0,
+            ship_ammo_reward: 500.0,
+            ship_ammo_cap: 10.0,
             scavenger_reward: 200.0,
             repair_proximity_reward: 100.0,
             cargo_repair_incentive: 15000.0,
@@ -267,7 +271,7 @@ impl Default for BeamScoringWeights {
 
             fire_panic_threshold_base: 1.0,
             fire_panic_threshold_hull_scaling: 5.0,
-            survival_only_multiplier: 0.1,
+            survival_only_multiplier: 0.5,
 
             // Multipliers
             fire_urgency_mult: 10.0,
@@ -289,7 +293,7 @@ impl Default for BeamScoringWeights {
 
             victory_score: 1000000000.0,
             game_over_score: -1000000000.0,
-            victory_hull_multiplier: 10000.0,
+            victory_hull_multiplier: 100000.0,
             fire_spread_projected_damage: 1.0,
             max_hazard_multiplier: 5.0,
             critical_survival_boss_hp_threshold: 5.0,
@@ -528,8 +532,13 @@ pub fn score_static(
         // Finishing the boss IS survival, but only if it happens SOON.
         if is_critical {
             if projected_hull <= 0 {
-                // SURVIVAL SUPREMACY: Death is certain, no checkmate possible.
-                checkmate_mult = 0.0;
+                // SURVIVAL SUPREMACY: Death is certain, but allow a "Death or Glory" attempt
+                // if the boss is extremely low.
+                if state.enemy.hp <= 5 {
+                    checkmate_mult *= 0.1;
+                } else {
+                    checkmate_mult = 0.0;
+                }
             } else if projected_hull <= 2 {
                 // NEAR DEATH: Only allow checkmate if boss is 1-2 HP.
                 if state.enemy.hp > 2 {
@@ -1122,11 +1131,14 @@ pub fn score_static(
             // NEW: Potential Damage (Static Reward for holding ammo)
             // Pulled towards cannons if holding nuts
             let dist = distances.min_distance(p.room_id, &cannon_rooms);
-            let mut pot_damage = (peppernuts as f64 * 50000.0) / (dist as f64 + 1.0);
+            let mut pot_damage = (peppernuts as f64 * 4000.0) / (dist as f64 + 1.0);
+
+            // Scale with checkmate and bloodlust to ensure we don't prune shooting paths
+            pot_damage *= checkmate_mult * bloodlust_mult;
 
             // Critical boost for 1 HP
             if state.enemy.hp == 1 {
-                pot_damage *= 100.0;
+                pot_damage *= 10.0;
             }
 
             if !cannon_operational {
@@ -1394,8 +1406,8 @@ pub fn score_static(
             .count();
     }
 
-    // Ship-wide ammo reward
-    details.logistics += total_nuts as f64 * 500.0;
+    // Ship-wide ammo reward (Capped to prevent infinite hoarding)
+    details.logistics += (total_nuts as f64).min(weights.ship_ammo_cap) * weights.ship_ammo_reward;
 
     // Kitchen Proximity: Pull players towards kitchen if ammo is low
     if total_nuts < 10
@@ -1448,11 +1460,14 @@ pub fn score_static(
                     .filter(|i| **i == ItemType::Peppernut)
                     .count();
             }
-            if nuts_in_room < 10 {
-                let mut b_reward = weights.bake_reward;
-                if state.enemy.hp == 1 {
-                    b_reward *= 100.0;
-                }
+
+            // Only reward baking if we are below both room and ship-wide caps
+            // AND we don't already have enough nuts to kill the boss
+            if nuts_in_room < 10
+                && (total_nuts as f64) < weights.ship_ammo_cap
+                && (total_nuts as i32) < state.enemy.hp
+            {
+                let b_reward = weights.bake_reward;
                 details.logistics += b_reward;
             }
         }
