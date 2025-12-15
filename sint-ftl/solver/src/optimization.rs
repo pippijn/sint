@@ -8,7 +8,6 @@ use dashmap::DashMap;
 use rand::prelude::*;
 use sint_core::types::GamePhase;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::Sender;
 
 #[derive(Clone, Debug)]
@@ -90,6 +89,20 @@ impl EvaluationMetrics {
     pub fn average(&mut self, count: usize) {
         if count > 0 {
             self.score /= count as f64;
+        }
+    }
+
+    pub fn get_status(&self) -> u8 {
+        if self.wins > 0 {
+            2 // Win
+        } else if self.losses > 0 {
+            3 // Loss
+        } else if self.timeouts > 0 {
+            5 // Timeout
+        } else if self.panics > 0 {
+            4 // Panic
+        } else {
+            0 // Pending/Unknown
         }
     }
 }
@@ -230,6 +243,7 @@ pub fn evaluate_batch(
     tx: &Sender<OptimizerMessage>,
     generation: usize,
     existing_results: &[SeedResult],
+    index_offset: usize,
 ) -> Vec<EvaluationMetrics> {
     let mut tasks = Vec::new();
     let mut metrics_per_genome = vec![EvaluationMetrics::default(); genomes.len()];
@@ -237,8 +251,12 @@ pub fn evaluate_batch(
     // Track completed tasks
     let mut completed = std::collections::HashSet::new();
     for res in existing_results {
-        completed.insert((res.ind_idx, res.seed_idx));
-        metrics_per_genome[res.ind_idx].add(&res.metrics);
+        // Only consider results that fall within our current window
+        if res.ind_idx >= index_offset && res.ind_idx < index_offset + genomes.len() {
+            let local_idx = res.ind_idx - index_offset;
+            completed.insert((local_idx, res.seed_idx));
+            metrics_per_genome[local_idx].add(&res.metrics);
+        }
     }
 
     for (g_idx, genome) in genomes.iter().enumerate() {
@@ -247,7 +265,7 @@ pub fn evaluate_batch(
                 continue;
             }
             tasks.push(GameTask {
-                genome_idx: g_idx,
+                genome_idx: g_idx + index_offset, // Use global index
                 seed_idx: s_idx,
                 genome: genome.clone(),
                 seed,
@@ -259,28 +277,28 @@ pub fn evaluate_batch(
         .map(|n| n.get())
         .unwrap_or(1);
 
-    // Limit parallel games to avoid oversubscription, but allow them to use nested Rayon parallelism.
+    // Limit parallel games to avoid oversubscription.
+    // We target roughly 25% of cores for games, leaving the other 75% for search parallelism.
+    // This ensures games finish faster while maintaining 100% total CPU usage.
     let max_parallel_games = (num_cores / 4).max(1);
-    let active_games = Arc::new(AtomicUsize::new(0));
     let histories: Arc<DashMap<(usize, usize), Vec<f32>>> = Arc::new(DashMap::new());
 
     let (result_tx, result_rx) = crossbeam_channel::unbounded::<GameResult>();
     let total_tasks = tasks.len();
 
+    // Use a bounded channel as a semaphore for game slots.
+    let (slot_tx, slot_rx) = crossbeam_channel::bounded::<()>(max_parallel_games);
+
     rayon::scope(|s| {
         for task in tasks {
-            // Cooperative yield while waiting for a slot.
-            // This thread will help with other Rayon tasks (like population evaluation) instead of blocking.
-            while active_games.load(Ordering::Acquire) >= max_parallel_games {
-                rayon::yield_now();
-            }
+            // Wait for a slot. This blocks the spawner thread but doesn't hijack it for Rayon work.
+            slot_tx.send(()).unwrap();
 
-            active_games.fetch_add(1, Ordering::SeqCst);
-            let active_counter = active_games.clone();
             let opt_tx = tx.clone();
             let res_tx = result_tx.clone();
             let histories_ref = histories.clone();
             let config_clone = config.clone();
+            let slot_rx_clone = slot_rx.clone();
 
             s.spawn(move |_| {
                 let mut m = EvaluationMetrics::default();
@@ -394,7 +412,8 @@ pub fn evaluate_batch(
                     metrics: m,
                 });
 
-                active_counter.fetch_sub(1, Ordering::SeqCst);
+                // Release slot
+                let _ = slot_rx_clone.try_recv();
             });
         }
     });
@@ -451,8 +470,14 @@ pub fn run_ga(
             });
         }
 
-        let scored_metrics =
-            evaluate_batch(config, &population, &tx, generation, &existing_seed_results);
+        let scored_metrics = evaluate_batch(
+            config,
+            &population,
+            &tx,
+            generation,
+            &existing_seed_results,
+            0,
+        );
         existing_seed_results.clear(); // Clear for next generations
 
         for (i, m) in scored_metrics.iter().enumerate() {
@@ -578,7 +603,14 @@ pub fn run_ga(
         }
 
         // 2. Evaluate all children in one large batch
-        let children_metrics = evaluate_batch(config, &all_children, &tx, generation, &[]);
+        let children_metrics = evaluate_batch(
+            config,
+            &all_children,
+            &tx,
+            generation,
+            &[],
+            config.population,
+        );
 
         // 3. Survival logic (Deterministic Crowding)
         for (i1, i2, c1_idx, c2_idx) in pairings {
@@ -645,11 +677,13 @@ pub fn run_spsa(
     let mut best_theta: Vec<f64>;
     let mut best_metrics: EvaluationMetrics;
     let mut current_metrics: EvaluationMetrics;
+    let mut existing_seed_results = Vec::new();
 
     if let Some(ckpt) = initial_checkpoint {
         start_generation = ckpt.generation;
         theta = ckpt.population[0].clone();
         best_theta = ckpt.population[1].clone();
+        existing_seed_results = ckpt.seed_results;
 
         // Initialize metrics from history
         if let Some(last) = ckpt.history.last() {
@@ -661,7 +695,7 @@ pub fn run_spsa(
     } else {
         theta = vec![1.0; param_count];
         best_theta = theta.clone();
-        let initial_metrics_batch = evaluate_batch(config, &[theta.clone()], &tx, 0, &[]);
+        let initial_metrics_batch = evaluate_batch(config, &[theta.clone()], &tx, 0, &[], 0);
         current_metrics = initial_metrics_batch[0].clone();
         current_metrics.average(config.seeds.len());
         best_metrics = current_metrics.clone();
@@ -675,7 +709,9 @@ pub fn run_spsa(
     let alpha = 0.602;
 
     for k in start_generation..config.generations {
-        let mut rng = rand::rng();
+        let base_seed = config.seeds.first().cloned().unwrap_or(12345);
+        let mut rng = rand::rngs::StdRng::seed_from_u64(base_seed + k as u64);
+
         let ak = a / (k as f64 + 1.0 + big_a).powf(alpha);
         let ck = c / (k as f64 + 1.0).powf(gamma);
 
@@ -697,7 +733,9 @@ pub fn run_spsa(
         }
 
         let perturbed = vec![theta_plus, theta_minus];
-        let m_perturbed = evaluate_batch(config, &perturbed, &tx, k, &[]);
+        let m_perturbed = evaluate_batch(config, &perturbed, &tx, k, &existing_seed_results, 0);
+        existing_seed_results.clear(); // Only relevant for first evaluate call after resume
+
         let m_plus = &m_perturbed[0];
         let m_minus = &m_perturbed[1];
 
@@ -713,7 +751,7 @@ pub fn run_spsa(
             }
         }
 
-        let updated_metrics_batch = evaluate_batch(config, &[theta.clone()], &tx, k, &[]);
+        let updated_metrics_batch = evaluate_batch(config, &[theta.clone()], &tx, k, &[], 0);
         current_metrics = updated_metrics_batch[0].clone();
         current_metrics.average(config.seeds.len());
 

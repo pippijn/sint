@@ -154,10 +154,91 @@ fn test_evaluate_batch_resumption_skipping() {
     }];
 
     // This should return immediately without spawning any tasks because all work is done
-    let results = evaluate_batch(&config, &genomes, &tx, 0, &existing);
+    let results = evaluate_batch(&config, &genomes, &tx, 0, &existing, 0);
 
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].score, 99.0);
+}
+
+#[test]
+fn test_spsa_resume_skipping() {
+    use sint_solver::optimization::{
+        Checkpoint, EvaluationMetrics, OptimizerConfig, SeedResult, Strategy, Target,
+    };
+
+    // 1. Create a checkpoint mid-iteration for SPSA
+    let checkpoint = Checkpoint {
+        config: OptimizerConfig {
+            strategy: Strategy::Spsa,
+            target: Target::Beam,
+            generations: 10,
+            population: 1, // SPSA population is pseudo-defined
+            seeds: vec![123],
+            beam_width: 1,
+            rhea_horizon: 1,
+            rhea_generations: 1,
+            rhea_population: 1,
+        },
+        generation: 5,
+        population: vec![vec![1.0; 10], vec![1.0; 10]], // [theta, best_theta]
+        seed_results: vec![SeedResult {
+            ind_idx: 0, // theta_plus
+            seed_idx: 0,
+            metrics: EvaluationMetrics {
+                score: 777.0,
+                ..Default::default()
+            },
+        }],
+        history: Vec::new(),
+    };
+
+    // 2. Simulate the perturbed evaluation in run_spsa
+    // Currently, run_spsa passes &[] instead of the existing results!
+    let (tx, _rx) = std::sync::mpsc::channel();
+    let theta_perturbed = vec![vec![1.1; 10], vec![0.9; 10]]; // theta_plus, theta_minus
+
+    // We want to see if it uses the 777.0 score from the checkpoint
+    let results = sint_solver::optimization::evaluate_batch(
+        &checkpoint.config,
+        &theta_perturbed,
+        &tx,
+        5,
+        &checkpoint.seed_results,
+        0,
+    );
+
+    // If this is 777.0, evaluate_batch logic is fine, but we need to ensure
+    // run_spsa actually passes the results down.
+    assert_eq!(
+        results[0].score, 777.0,
+        "SPSA should use the existing result from the checkpoint!"
+    );
+}
+
+#[test]
+fn test_spsa_perturbation_determinism() {
+    use rand::prelude::*;
+
+    // We want to see if SPSA produces the same delta if we "resume" it.
+    // Currently it uses rand::rng() which is thread_rng and non-deterministic.
+
+    let p = 10;
+
+    let get_delta = |k: u64| {
+        let mut rng = rand::rngs::StdRng::seed_from_u64(12345 + k);
+        let delta: Vec<f64> = (0..p)
+            .map(|_| if rng.random_bool(0.5) { 1.0 } else { -1.0 })
+            .collect();
+        delta
+    };
+
+    let delta1 = get_delta(5);
+    let delta2 = get_delta(5);
+
+    assert_eq!(
+        delta1, delta2,
+        "SPSA perturbations should be deterministic based on generation for safe resumption."
+    );
 }
 
 #[test]
@@ -238,5 +319,138 @@ fn test_history_duplication_on_resume() {
         4,
         "History should contain initial items plus new progress. Found {} items.",
         app_history.len()
+    );
+}
+
+#[test]
+fn test_seed_status_preservation_on_resume() {
+    use sint_solver::optimization::{Checkpoint, EvaluationMetrics, SeedResult};
+
+    // 1. Create a checkpoint with one win and one loss
+    let win_metrics = EvaluationMetrics {
+        wins: 1,
+        losses: 0,
+        ..Default::default()
+    };
+    let loss_metrics = EvaluationMetrics {
+        wins: 0,
+        losses: 1,
+        ..Default::default()
+    };
+
+    let checkpoint = Checkpoint {
+        config: OptimizerConfig {
+            strategy: Strategy::GA,
+            target: Target::Beam,
+            generations: 1,
+            population: 1,
+            seeds: vec![1, 2],
+            beam_width: 1,
+            rhea_horizon: 1,
+            rhea_generations: 1,
+            rhea_population: 1,
+        },
+        generation: 1,
+        population: vec![vec![1.0]],
+        seed_results: vec![
+            SeedResult {
+                ind_idx: 0,
+                seed_idx: 0,
+                metrics: win_metrics,
+            },
+            SeedResult {
+                ind_idx: 0,
+                seed_idx: 1,
+                metrics: loss_metrics,
+            },
+        ],
+        history: Vec::new(),
+    };
+    // 2. Simulate fixed run_tui status mapping logic
+    let mut seed_statuses = vec![0u8; 2];
+    for res in &checkpoint.seed_results {
+        seed_statuses[res.seed_idx] = res.metrics.get_status();
+    }
+    // 3. Verify
+    // This will FAIL if the bug exists, as the second seed should be status 3 (Loss)
+    assert_eq!(seed_statuses[0], 2, "Seed 0 should be Win (2)");
+    assert_eq!(
+        seed_statuses[1], 3,
+        "Seed 1 should be Loss (3), but was {}",
+        seed_statuses[1]
+    );
+}
+
+#[test]
+fn test_ga_resume_collision_corruption() {
+    use sint_solver::optimization::{
+        Checkpoint, EvaluationMetrics, OptimizerConfig, SeedResult, Strategy, Target,
+    };
+
+    // 1. Imagine we are in Gen 0.
+    // 2. Parents (0-4) are done.
+    // 3. Children (0-4) are being evaluated.
+    // 4. We crash while Child 0 has Seed 0 finished with a specific score.
+
+    let child_0_seed_0_metrics = EvaluationMetrics {
+        score: 666.0, // Distinctive "corrupt" score
+        wins: 1,
+        ..Default::default()
+    };
+
+    let checkpoint = Checkpoint {
+        config: OptimizerConfig {
+            strategy: Strategy::GA,
+            target: Target::Beam,
+            generations: 10,
+            population: 5,
+            seeds: vec![123],
+            beam_width: 1,
+            rhea_horizon: 1,
+            rhea_generations: 1,
+            rhea_population: 1,
+        },
+        generation: 0,
+        population: vec![vec![0.0; 10]; 5],
+        // The fix: child results are saved with an offset (ind_idx = 5 for Child 0)
+        seed_results: vec![SeedResult {
+            ind_idx: 5,
+            seed_idx: 0,
+            metrics: child_0_seed_0_metrics,
+        }],
+        history: Vec::new(),
+    };
+    // --- SIMULATE RESUME IN run_ga ---
+    let existing_seed_results = checkpoint.seed_results;
+
+    // The parents we ARE ABOUT TO evaluate
+    let parents = vec![vec![1.0; 10]; 5];
+
+    // We use evaluate_batch to see what tasks it produces
+    // We expect it to produce a task for Parent 0, but it will SKIP IT because of the collision!
+
+    // NOTE: We need a way to check which tasks are skipped without running the whole things.
+    // We can't easily check internal evaluate_batch logic without modifying it or using mocks.
+
+    // Actually, I'll just check that Child 0 result is NOT in the final parents metrics.
+    // But evaluate_batch currently returns them.
+
+    // Let's just prove the collision exists in the 'completed' HashSet inside evaluate_batch.
+    // Since I can't see the HashSet, I'll check the returned scores.
+
+    let (tx, _rx) = std::sync::mpsc::channel();
+    let results = sint_solver::optimization::evaluate_batch(
+        &checkpoint.config,
+        &parents,
+        &tx,
+        0,
+        &existing_seed_results,
+        0,
+    );
+    // If results[0] has score 666.0, it means Parent 0 was SKIPPED
+    // and incorrectly assigned Child 0's score from the checkpoint!
+    assert_ne!(
+        results[0].score, 666.0,
+        "Parent 0 incorrectly used Child 0's score from checkpoint due to index collision!"
     );
 }

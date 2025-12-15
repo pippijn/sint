@@ -380,7 +380,7 @@ fn run_tui(
             if res.ind_idx < app.population_status.len() {
                 let ind = &mut app.population_status[res.ind_idx];
                 if res.seed_idx < ind.seed_statuses.len() {
-                    ind.seed_statuses[res.seed_idx] = 2; // Marked as Win/Done (approximate status)
+                    ind.seed_statuses[res.seed_idx] = res.metrics.get_status();
                 }
             }
         }
@@ -406,12 +406,10 @@ fn run_tui(
     });
 
     // Run Loop
-    let tick_rate = Duration::from_millis(50); // Faster tick for smooth UI updates
+    let tick_rate = Duration::from_millis(100); // Throttle UI to 10Hz
     let mut last_tick = Instant::now();
 
     loop {
-        terminal.draw(|f| ui(f, &app))?;
-
         let timeout = tick_rate
             .checked_sub(last_tick.elapsed())
             .unwrap_or_else(|| Duration::from_secs(0));
@@ -425,10 +423,11 @@ fn run_tui(
 
         if last_tick.elapsed() >= tick_rate {
             app.on_tick();
+            terminal.draw(|f| ui(f, &app))?;
             last_tick = Instant::now();
         }
 
-        // Check for updates
+        // Check for updates (process all available messages before next tick)
         while let Ok(msg) = rx.try_recv() {
             match msg {
                 OptimizerMessage::IndividualStarting { index, genome, .. } => {
