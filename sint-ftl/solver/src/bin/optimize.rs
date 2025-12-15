@@ -8,12 +8,13 @@ use ratatui::{
     Frame, Terminal,
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
-    style::{Color, Modifier, Style},
+    style::{Color, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph, Row, Table},
+    widgets::{Block, Borders, Paragraph},
 };
 use sint_solver::optimization::{
-    OptimizationStatus, OptimizerConfig, OptimizerMessage, Strategy, Target, run_ga, run_spsa,
+    Checkpoint, OptimizationStatus, OptimizerConfig, OptimizerMessage, SeedResult, Strategy,
+    Target, run_ga, run_spsa,
 };
 use sint_solver::scoring::beam::BeamScoringWeights;
 use sint_solver::scoring::rhea::RheaScoringWeights;
@@ -53,8 +54,12 @@ struct Args {
     #[arg(long, default_value = "12345")]
     seeds: String,
 
-    /// Enable TUI mode
+    /// Checkpoint file path (loads if exists, saves periodically)
     #[arg(long)]
+    checkpoint: Option<String>,
+
+    /// TUI Mode
+    #[arg(long, default_value_t = true)]
     tui: bool,
 
     #[command(flatten)]
@@ -115,15 +120,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         rhea_population: args.rhea.rhea_population,
     };
 
-    if args.tui {
-        run_tui(config)
+    let checkpoint = if let Some(path) = &args.checkpoint {
+        if std::path::Path::new(path).exists() {
+            println!("🔄 Loading checkpoint from {}...", path);
+            Some(Checkpoint::load(path)?)
+        } else {
+            None
+        }
     } else {
-        run_cli(config);
+        None
+    };
+
+    if args.tui {
+        run_tui(config, checkpoint, args.checkpoint)
+    } else {
+        run_cli(config, checkpoint, args.checkpoint);
         Ok(())
     }
 }
 
-fn run_cli(config: OptimizerConfig) {
+fn run_cli(
+    config: OptimizerConfig,
+    initial_checkpoint: Option<Checkpoint>,
+    checkpoint_path: Option<String>,
+) {
     println!(
         "🧬 Starting Optimization ({} -> {}): Gens={}, Pop={}, Seeds={:?}",
         match config.strategy {
@@ -142,15 +162,36 @@ fn run_cli(config: OptimizerConfig) {
     let (tx, rx) = mpsc::channel();
     let thread_config = config.clone();
 
+    let mut current_generation = initial_checkpoint
+        .as_ref()
+        .map(|c| c.generation)
+        .unwrap_or(0);
+    let mut current_population = initial_checkpoint
+        .as_ref()
+        .map(|c| c.population.clone())
+        .unwrap_or_default(); // Will be initialized in run_ga if empty
+    let mut current_seed_results = initial_checkpoint
+        .as_ref()
+        .map(|c| c.seed_results.clone())
+        .unwrap_or_default();
+    let mut history = initial_checkpoint
+        .as_ref()
+        .map(|c| c.history.clone())
+        .unwrap_or_default();
+
     thread::spawn(move || match thread_config.strategy {
-        Strategy::GA => run_ga(&thread_config, tx),
-        Strategy::Spsa => run_spsa(&thread_config, tx),
+        Strategy::GA => run_ga(&thread_config, tx, initial_checkpoint),
+        Strategy::Spsa => run_spsa(&thread_config, tx, initial_checkpoint),
     });
 
     while let Ok(msg) = rx.recv() {
         match msg {
-            OptimizerMessage::IndividualStarting { .. } => {
-                // Ignore in CLI
+            OptimizerMessage::IndividualStarting { index, genome, .. } => {
+                if index >= current_population.len() {
+                    current_population.resize(index + 1, genome);
+                } else {
+                    current_population[index] = genome;
+                }
             }
             OptimizerMessage::IndividualUpdate { .. } => {
                 // Ignore live updates in CLI for now
@@ -160,10 +201,78 @@ fn run_cli(config: OptimizerConfig) {
                 print!(".");
                 io::stdout().flush().unwrap();
             }
-            OptimizerMessage::SeedDone { .. } => {
-                // Ignore per-seed updates in CLI
+            OptimizerMessage::SeedDone {
+                index,
+                seed_idx,
+                metrics,
+                ..
+            } => {
+                if let Some(m) = metrics {
+                    current_seed_results.push(SeedResult {
+                        ind_idx: index,
+                        seed_idx,
+                        metrics: m,
+                    });
+
+                    // Save checkpoint on every seed completion in CLI
+                    if let Some(path) = &checkpoint_path {
+                        let population_to_save = if config.strategy == Strategy::GA {
+                            current_population.clone()
+                        } else {
+                            // SPSA: [current_theta, best_theta]
+                            if current_population.is_empty() {
+                                Vec::new()
+                            } else {
+                                vec![
+                                    current_population[0].clone(),
+                                    history
+                                        .last()
+                                        .map(|h| h.best_genome.clone())
+                                        .unwrap_or_else(|| current_population[0].clone()),
+                                ]
+                            }
+                        };
+
+                        let ckpt = Checkpoint {
+                            config: config.clone(),
+                            generation: current_generation,
+                            population: population_to_save,
+                            seed_results: current_seed_results.clone(),
+                            history: history.clone(),
+                        };
+                        let _ = ckpt.save(path);
+                    }
+                }
             }
             OptimizerMessage::GenerationDone(status) => {
+                current_generation = status.generation + 1;
+                current_seed_results.clear();
+                history.push(*status.clone());
+
+                // For SPSA, we store [current_theta, best_theta] in the population field
+                let population_to_save = if config.strategy == Strategy::GA {
+                    current_population.clone()
+                } else {
+                    // SPSA: [current_theta, best_theta]
+                    if current_population.is_empty() {
+                        vec![status.best_genome.clone(), status.best_genome.clone()]
+                    } else {
+                        vec![current_population[0].clone(), status.best_genome.clone()]
+                    }
+                };
+
+                // Save checkpoint at end of generation
+                if let Some(path) = &checkpoint_path {
+                    let ckpt = Checkpoint {
+                        config: config.clone(),
+                        generation: current_generation,
+                        population: population_to_save,
+                        seed_results: Vec::new(),
+                        history: history.clone(),
+                    };
+                    let _ = ckpt.save(path);
+                }
+
                 println!(); // Newline after dots
                 println!(
                     "Gen {}: Best Score {:.2} | Avg Score {:.2}",
@@ -248,7 +357,11 @@ impl App {
     }
 }
 
-fn run_tui(config: OptimizerConfig) -> Result<(), Box<dyn std::error::Error>> {
+fn run_tui(
+    config: OptimizerConfig,
+    initial_checkpoint: Option<Checkpoint>,
+    checkpoint_path: Option<String>,
+) -> Result<(), Box<dyn std::error::Error>> {
     // Setup Terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -259,13 +372,37 @@ fn run_tui(config: OptimizerConfig) -> Result<(), Box<dyn std::error::Error>> {
     // App State
     let mut app = App::new(config.clone());
 
+    // Apply checkpoint to app state if available
+    if let Some(ckpt) = &initial_checkpoint {
+        app.population_genomes = ckpt.population.clone();
+        app.history = ckpt.history.clone();
+        for res in &ckpt.seed_results {
+            if res.ind_idx < app.population_status.len() {
+                let ind = &mut app.population_status[res.ind_idx];
+                if res.seed_idx < ind.seed_statuses.len() {
+                    ind.seed_statuses[res.seed_idx] = 2; // Marked as Win/Done (approximate status)
+                }
+            }
+        }
+    }
+
+    // Local state for checkpointing
+    let mut current_generation = initial_checkpoint
+        .as_ref()
+        .map(|c| c.generation)
+        .unwrap_or(0);
+    let mut current_seed_results = initial_checkpoint
+        .as_ref()
+        .map(|c| c.seed_results.clone())
+        .unwrap_or_default();
+
     // Spawn Optimization Thread
     let (tx, rx) = mpsc::channel();
     let thread_config = config.clone();
 
     thread::spawn(move || match thread_config.strategy {
-        Strategy::GA => run_ga(&thread_config, tx),
-        Strategy::Spsa => run_spsa(&thread_config, tx),
+        Strategy::GA => run_ga(&thread_config, tx, initial_checkpoint),
+        Strategy::Spsa => run_spsa(&thread_config, tx, initial_checkpoint),
     });
 
     // Run Loop
@@ -335,12 +472,33 @@ fn run_tui(config: OptimizerConfig) -> Result<(), Box<dyn std::error::Error>> {
                     index,
                     seed_idx,
                     status,
+                    metrics,
                     ..
                 } => {
                     if index < app.population_status.len() {
                         let ind = &mut app.population_status[index];
                         if seed_idx < ind.seed_statuses.len() {
                             ind.seed_statuses[seed_idx] = status;
+
+                            if let Some(m) = metrics {
+                                current_seed_results.push(SeedResult {
+                                    ind_idx: index,
+                                    seed_idx,
+                                    metrics: m,
+                                });
+
+                                // Save checkpoint on every seed completion
+                                if let Some(path) = &checkpoint_path {
+                                    let ckpt = Checkpoint {
+                                        config: app.config.clone(),
+                                        generation: current_generation,
+                                        population: app.population_genomes.clone(),
+                                        seed_results: current_seed_results.clone(),
+                                        history: app.history.clone(),
+                                    };
+                                    let _ = ckpt.save(path);
+                                }
+                            }
                         }
                     }
                 }
@@ -350,10 +508,40 @@ fn run_tui(config: OptimizerConfig) -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
                 OptimizerMessage::GenerationDone(status) => {
+                    current_generation = status.generation + 1;
+                    current_seed_results.clear();
+
                     if status.generation == app.config.generations - 1 {
                         app.done = true;
                     }
-                    app.history.push(*status);
+                    app.history.push(*status.clone());
+
+                    // Save checkpoint at end of generation
+                    if let Some(path) = &checkpoint_path {
+                        let population_to_save = if app.config.strategy == Strategy::GA {
+                            app.population_genomes.clone()
+                        } else {
+                            // SPSA: [current_theta, best_theta]
+                            if app.population_genomes.is_empty() {
+                                vec![status.best_genome.clone(), status.best_genome.clone()]
+                            } else {
+                                vec![
+                                    app.population_genomes[0].clone(),
+                                    status.best_genome.clone(),
+                                ]
+                            }
+                        };
+
+                        let ckpt = Checkpoint {
+                            config: app.config.clone(),
+                            generation: current_generation,
+                            population: population_to_save,
+                            seed_results: Vec::new(),
+                            history: app.history.clone(),
+                        };
+                        let _ = ckpt.save(path);
+                    }
+
                     // Reset status for next gen
                     for ind in &mut app.population_status {
                         for s in &mut ind.seed_statuses {
@@ -401,7 +589,10 @@ fn run_tui(config: OptimizerConfig) -> Result<(), Box<dyn std::error::Error>> {
 
 use ratatui::layout::Rect;
 use sint_solver::tui::map::MapWidget;
-use sint_solver::tui::optimization::{GenomeMosaic, ScoreRibbon, SeedGauntlet};
+use sint_solver::tui::optimization::{
+    ActionTicker, GenerationSummary, GenomeMosaic, LiveStats, OptimizationHeader, ScoreBreakdown,
+    ScoreRibbon, SeedGauntlet,
+};
 
 fn ui(f: &mut Frame, app: &App) {
     let area = f.area();
@@ -415,14 +606,6 @@ fn ui(f: &mut Frame, app: &App) {
         .split(area);
 
     // 1. Header
-    let header_chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Min(0),     // Left: Progress
-            Constraint::Length(30), // Right: System Stats
-        ])
-        .split(chunks[0]);
-
     let strategy_str = match app.config.strategy {
         Strategy::GA => "Genetic Algorithm (Crowding)",
         Strategy::Spsa => "SPSA",
@@ -463,36 +646,7 @@ fn ui(f: &mut Frame, app: &App) {
     let total_games = app.config.population * app.config.seeds.len();
     let games_pending = total_games.saturating_sub(games_done + games_running);
 
-    // Left Header: Workload
-    let left_text = format!(
-        "SINT OPTIMIZER | Strat: {} | Target: {} | Gen: {}/{} | Pop: {} | {}\n\
-         WORKLOAD: Games: {}/{} ({} Pending, {} Running) | Genomes: {}/{} Completed",
-        strategy_str,
-        target_str,
-        app.history.len(),
-        app.config.generations,
-        app.config.population,
-        status_str,
-        games_done,
-        total_games,
-        games_pending,
-        games_running,
-        inds_done,
-        app.config.population,
-    );
-
-    f.render_widget(
-        Paragraph::new(left_text)
-            .style(
-                Style::default()
-                    .fg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD),
-            )
-            .block(Block::default().borders(Borders::LEFT | Borders::TOP | Borders::BOTTOM)),
-        header_chunks[0],
-    );
-
-    // Right Header: System Stats
+    // System Stats
     let cpu_usage = app.sys.global_cpu_usage();
     let mem_used = app.sys.used_memory() as f64 / GB;
     let mem_total = app.sys.total_memory() as f64 / GB;
@@ -502,22 +656,25 @@ fn ui(f: &mut Frame, app: &App) {
         .map(|p| p.memory() as f64 / GB)
         .unwrap_or(0.0);
 
-    let right_text = format!(
-        "CPU: {:>5.1}%\n\
-         P:{:>4.1}G | S:{:>4.1}/{:>2.0}G",
-        cpu_usage, proc_mem, mem_used, mem_total
-    );
-
     f.render_widget(
-        Paragraph::new(right_text)
-            .alignment(ratatui::layout::Alignment::Right)
-            .style(
-                Style::default()
-                    .fg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD),
-            )
-            .block(Block::default().borders(Borders::RIGHT | Borders::TOP | Borders::BOTTOM)),
-        header_chunks[1],
+        OptimizationHeader {
+            strategy: strategy_str,
+            target: &target_str,
+            generation: app.history.len(),
+            max_generations: app.config.generations,
+            population: app.config.population,
+            status: status_str,
+            games_done,
+            total_games,
+            games_pending,
+            games_running,
+            inds_done,
+            cpu_usage,
+            mem_proc: proc_mem,
+            mem_used,
+            mem_total,
+        },
+        chunks[0],
     );
 
     // 2. Main Content
@@ -595,39 +752,36 @@ fn ui(f: &mut Frame, app: &App) {
     );
 
     // A3. Summary
-    if let Some(last) = app.history.last() {
-        let m = &last.best_metrics;
-        let wins = m.wins.to_string();
-        let losses = m.losses.to_string();
-        let timeouts = m.timeouts.to_string();
-        let best_score = format!("{:.1}", last.best_score);
-        let avg_score = format!("{:.1}", last.avg_score);
-
-        let rows = vec![
-            Row::new(vec!["Wins", wins.as_str()]).style(Style::default().fg(Color::Green)),
-            Row::new(vec!["Losses", losses.as_str()]).style(Style::default().fg(Color::Red)),
-            Row::new(vec!["Timeouts", timeouts.as_str()]).style(Style::default().fg(Color::Yellow)),
-            Row::new(vec!["Best Score", best_score.as_str()]),
-            Row::new(vec!["Avg Score", avg_score.as_str()]),
-        ];
-        f.render_widget(
-            Table::new(rows, [Constraint::Length(15), Constraint::Min(0)]).block(
-                Block::default()
-                    .title("Generation Summary")
-                    .borders(Borders::ALL),
-            ),
-            top_part_chunks[2],
-        );
+    let summary_widget = if let Some(last) = app.history.last() {
+        GenerationSummary {
+            wins: last.best_metrics.wins,
+            losses: last.best_metrics.losses,
+            timeouts: last.best_metrics.timeouts,
+            best_score: last.best_score,
+            avg_score: last.avg_score,
+            is_loading: false,
+            block: None,
+        }
     } else {
-        f.render_widget(
-            Paragraph::new("\n\n  Waiting for first\n  generation to\n  complete...").block(
-                Block::default()
-                    .title("Generation Summary")
-                    .borders(Borders::ALL),
-            ),
-            top_part_chunks[2],
-        );
-    }
+        GenerationSummary {
+            wins: 0,
+            losses: 0,
+            timeouts: 0,
+            best_score: 0.0,
+            avg_score: 0.0,
+            is_loading: true,
+            block: None,
+        }
+    };
+
+    f.render_widget(
+        summary_widget.block(
+            Block::default()
+                .title("Generation Summary")
+                .borders(Borders::ALL),
+        ),
+        top_part_chunks[2],
+    );
 
     // B. Score Ribbons (Middle part, full width)
     let mut ribbon_data: Vec<(usize, usize, f32, Vec<f32>)> = Vec::new();
@@ -716,6 +870,7 @@ fn ui(f: &mut Frame, app: &App) {
             .constraints([
                 Constraint::Length(85), // Map (Increased from 65)
                 Constraint::Length(30), // Stats
+                Constraint::Length(40), // Score Breakdown
                 Constraint::Min(0),     // Action Log
             ])
             .split(chunks[2]);
@@ -735,34 +890,31 @@ fn ui(f: &mut Frame, app: &App) {
         );
 
         // Stats
-        let stats_text = format!(
-            "Round: {}\nHull: {}/20\nBoss HP: {}/{}\nPhase: {:?}\nScore: {:.1}",
-            prog.node.state.turn_count,
-            prog.node.state.hull_integrity,
-            prog.node.state.enemy.hp,
-            prog.node.state.enemy.max_hp,
-            prog.node.state.phase,
-            prog.node.score.total
-        );
         f.render_widget(
-            Paragraph::new(stats_text).block(
-                Block::default()
-                    .title(format!("Live Stats {}", ind_label))
-                    .borders(Borders::ALL),
-            ),
+            LiveStats {
+                state: &prog.node.state,
+                score: prog.node.score.total,
+                label: &ind_label,
+            },
             tele_chunks[1],
         );
 
-        // Action Ticker (Full History)
-        let history = &app.population_status[*ind_idx].action_histories[*seed_idx];
-        let ticker_text = history.join("\n");
+        // Score Breakdown
         f.render_widget(
-            Paragraph::new(ticker_text).block(
-                Block::default()
-                    .title(format!("Action Ticker {}", ind_label))
-                    .borders(Borders::ALL),
-            ),
+            ScoreBreakdown {
+                score: &prog.node.score,
+                label: &ind_label,
+            },
             tele_chunks[2],
+        );
+
+        // Action Ticker (Full History)
+        f.render_widget(
+            ActionTicker {
+                history: &app.population_status[*ind_idx].action_histories[*seed_idx],
+                label: &ind_label,
+            },
+            tele_chunks[3],
         );
     } else {
         f.render_widget(

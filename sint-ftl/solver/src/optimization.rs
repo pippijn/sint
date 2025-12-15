@@ -38,22 +38,25 @@ pub enum OptimizerMessage {
         index: usize,
         seed_idx: usize,
         status: u8,
+        metrics: Option<EvaluationMetrics>,
     },
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Serialize, Deserialize)]
 pub enum Strategy {
     GA,
     Spsa,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Serialize, Deserialize)]
 pub enum Target {
     Beam,
     Rhea,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OptimizerConfig {
     pub strategy: Strategy,
     pub target: Target,
@@ -66,7 +69,7 @@ pub struct OptimizerConfig {
     pub rhea_population: usize,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct EvaluationMetrics {
     pub score: f64,
     pub wins: usize,
@@ -76,7 +79,7 @@ pub struct EvaluationMetrics {
 }
 
 impl EvaluationMetrics {
-    fn add(&mut self, other: &EvaluationMetrics) {
+    pub fn add(&mut self, other: &EvaluationMetrics) {
         self.score += other.score;
         self.wins += other.wins;
         self.losses += other.losses;
@@ -84,14 +87,14 @@ impl EvaluationMetrics {
         self.panics += other.panics;
     }
 
-    fn average(&mut self, count: usize) {
+    pub fn average(&mut self, count: usize) {
         if count > 0 {
             self.score /= count as f64;
         }
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OptimizationStatus {
     pub generation: usize,
     pub best_score: f64,
@@ -102,6 +105,38 @@ pub struct OptimizationStatus {
     pub current_weights_rhea: Option<RheaScoringWeights>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SeedResult {
+    pub ind_idx: usize,
+    pub seed_idx: usize,
+    pub metrics: EvaluationMetrics,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Checkpoint {
+    pub config: OptimizerConfig,
+    pub generation: usize,
+    pub population: Vec<Vec<f64>>,
+    pub seed_results: Vec<SeedResult>,
+    pub history: Vec<OptimizationStatus>,
+}
+
+impl Checkpoint {
+    pub fn save(&self, path: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let tmp_path = format!("{}.tmp", path);
+        let file = std::fs::File::create(&tmp_path)?;
+        serde_json::to_writer_pretty(file, self)?;
+        std::fs::rename(tmp_path, path)?;
+        Ok(())
+    }
+
+    pub fn load(path: &str) -> Result<Self, Box<dyn std::error::Error>> {
+        let file = std::fs::File::open(path)?;
+        let checkpoint = serde_json::from_reader(file)?;
+        Ok(checkpoint)
+    }
+}
+
 fn get_base_weights_beam() -> BeamScoringWeights {
     BeamScoringWeights::default()
 }
@@ -110,7 +145,6 @@ fn get_base_weights_rhea() -> RheaScoringWeights {
     RheaScoringWeights::default()
 }
 
-use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::{Map, Value};
 
@@ -152,14 +186,14 @@ pub fn apply_multipliers_rhea(base: &RheaScoringWeights, m: &[f64]) -> RheaScori
     apply_multipliers(base, m)
 }
 
-fn get_param_count(target: Target) -> usize {
+pub fn get_param_count(target: Target) -> usize {
     match target {
         Target::Beam => get_param_names::<BeamScoringWeights>().len(),
         Target::Rhea => get_param_names::<RheaScoringWeights>().len(),
     }
 }
 
-fn mutate(rng: &mut impl Rng, genome: &mut [f64]) {
+pub fn mutate(rng: &mut impl Rng, genome: &mut [f64]) {
     let mutation_rate = 1.0 / genome.len() as f64;
 
     for val in genome.iter_mut() {
@@ -190,15 +224,28 @@ struct GameResult {
     metrics: EvaluationMetrics,
 }
 
-fn evaluate_batch(
+pub fn evaluate_batch(
     config: &OptimizerConfig,
     genomes: &[Vec<f64>],
     tx: &Sender<OptimizerMessage>,
     generation: usize,
+    existing_results: &[SeedResult],
 ) -> Vec<EvaluationMetrics> {
     let mut tasks = Vec::new();
+    let mut metrics_per_genome = vec![EvaluationMetrics::default(); genomes.len()];
+
+    // Track completed tasks
+    let mut completed = std::collections::HashSet::new();
+    for res in existing_results {
+        completed.insert((res.ind_idx, res.seed_idx));
+        metrics_per_genome[res.ind_idx].add(&res.metrics);
+    }
+
     for (g_idx, genome) in genomes.iter().enumerate() {
         for (s_idx, &seed) in config.seeds.iter().enumerate() {
+            if completed.contains(&(g_idx, s_idx)) {
+                continue;
+            }
             tasks.push(GameTask {
                 genome_idx: g_idx,
                 seed_idx: s_idx,
@@ -218,7 +265,6 @@ fn evaluate_batch(
     let histories: Arc<DashMap<(usize, usize), Vec<f32>>> = Arc::new(DashMap::new());
 
     let (result_tx, result_rx) = crossbeam_channel::unbounded::<GameResult>();
-    let mut metrics_per_genome = vec![EvaluationMetrics::default(); genomes.len()];
     let total_tasks = tasks.len();
 
     rayon::scope(|s| {
@@ -340,6 +386,7 @@ fn evaluate_batch(
                     index: g_idx,
                     seed_idx: s_idx,
                     status,
+                    metrics: Some(m.clone()),
                 });
 
                 let _ = res_tx.send(GameResult {
@@ -362,26 +409,40 @@ fn evaluate_batch(
     metrics_per_genome
 }
 
-pub fn run_ga(config: &OptimizerConfig, tx: Sender<OptimizerMessage>) {
+pub fn run_ga(
+    config: &OptimizerConfig,
+    tx: Sender<OptimizerMessage>,
+    initial_checkpoint: Option<Checkpoint>,
+) {
     let param_count = get_param_count(config.target);
     let mut rng = rand::rng();
 
-    let default_genome = vec![1.0; param_count];
-    let mut population: Vec<Vec<f64>> = (0..config.population)
-        .map(|i| {
-            if i == 0 {
-                default_genome.clone()
-            } else {
-                let mut g = default_genome.clone();
-                for _ in 0..3 {
-                    mutate(&mut rng, &mut g);
-                }
-                g
-            }
-        })
-        .collect();
+    let mut start_generation = 0;
+    let mut population: Vec<Vec<f64>>;
+    let mut existing_seed_results = Vec::new();
 
-    for generation in 0..config.generations {
+    if let Some(ckpt) = initial_checkpoint {
+        start_generation = ckpt.generation;
+        population = ckpt.population;
+        existing_seed_results = ckpt.seed_results;
+    } else {
+        let default_genome = vec![1.0; param_count];
+        population = (0..config.population)
+            .map(|i| {
+                if i == 0 {
+                    default_genome.clone()
+                } else {
+                    let mut g = default_genome.clone();
+                    for _ in 0..3 {
+                        mutate(&mut rng, &mut g);
+                    }
+                    g
+                }
+            })
+            .collect();
+    }
+
+    for generation in start_generation..config.generations {
         for (i, genome) in population.iter().enumerate() {
             let _ = tx.send(OptimizerMessage::IndividualStarting {
                 generation,
@@ -390,7 +451,9 @@ pub fn run_ga(config: &OptimizerConfig, tx: Sender<OptimizerMessage>) {
             });
         }
 
-        let scored_metrics = evaluate_batch(config, &population, &tx, generation);
+        let scored_metrics =
+            evaluate_batch(config, &population, &tx, generation, &existing_seed_results);
+        existing_seed_results.clear(); // Clear for next generations
 
         for (i, m) in scored_metrics.iter().enumerate() {
             let _ = tx.send(OptimizerMessage::IndividualDone {
@@ -515,7 +578,7 @@ pub fn run_ga(config: &OptimizerConfig, tx: Sender<OptimizerMessage>) {
         }
 
         // 2. Evaluate all children in one large batch
-        let children_metrics = evaluate_batch(config, &all_children, &tx, generation);
+        let children_metrics = evaluate_batch(config, &all_children, &tx, generation, &[]);
 
         // 3. Survival logic (Deterministic Crowding)
         for (i1, i2, c1_idx, c2_idx) in pairings {
@@ -571,24 +634,47 @@ pub fn run_ga(config: &OptimizerConfig, tx: Sender<OptimizerMessage>) {
     }
 }
 
-pub fn run_spsa(config: &OptimizerConfig, tx: Sender<OptimizerMessage>) {
+pub fn run_spsa(
+    config: &OptimizerConfig,
+    tx: Sender<OptimizerMessage>,
+    initial_checkpoint: Option<Checkpoint>,
+) {
     let param_count = get_param_count(config.target);
-    let mut theta = vec![1.0; param_count];
-    let p = theta.len();
+    let mut start_generation = 0;
+    let mut theta: Vec<f64>;
+    let mut best_theta: Vec<f64>;
+    let mut best_metrics: EvaluationMetrics;
+    let mut current_metrics: EvaluationMetrics;
 
+    if let Some(ckpt) = initial_checkpoint {
+        start_generation = ckpt.generation;
+        theta = ckpt.population[0].clone();
+        best_theta = ckpt.population[1].clone();
+
+        // Initialize metrics from history
+        if let Some(last) = ckpt.history.last() {
+            best_metrics = last.best_metrics.clone();
+        } else {
+            // Should not happen if generation > 0
+            best_metrics = EvaluationMetrics::default();
+        }
+    } else {
+        theta = vec![1.0; param_count];
+        best_theta = theta.clone();
+        let initial_metrics_batch = evaluate_batch(config, &[theta.clone()], &tx, 0, &[]);
+        current_metrics = initial_metrics_batch[0].clone();
+        current_metrics.average(config.seeds.len());
+        best_metrics = current_metrics.clone();
+    }
+
+    let p = theta.len();
     let c = 0.05;
     let gamma = 0.101;
     let a = 0.1;
     let big_a = 20.0;
     let alpha = 0.602;
 
-    let mut best_theta = theta.clone();
-    let initial_metrics_batch = evaluate_batch(config, &[theta.clone()], &tx, 0);
-    let mut current_metrics = initial_metrics_batch[0].clone();
-    current_metrics.average(config.seeds.len());
-    let mut best_metrics = current_metrics.clone();
-
-    for k in 0..config.generations {
+    for k in start_generation..config.generations {
         let mut rng = rand::rng();
         let ak = a / (k as f64 + 1.0 + big_a).powf(alpha);
         let ck = c / (k as f64 + 1.0).powf(gamma);
@@ -611,7 +697,7 @@ pub fn run_spsa(config: &OptimizerConfig, tx: Sender<OptimizerMessage>) {
         }
 
         let perturbed = vec![theta_plus, theta_minus];
-        let m_perturbed = evaluate_batch(config, &perturbed, &tx, k);
+        let m_perturbed = evaluate_batch(config, &perturbed, &tx, k, &[]);
         let m_plus = &m_perturbed[0];
         let m_minus = &m_perturbed[1];
 
@@ -627,7 +713,7 @@ pub fn run_spsa(config: &OptimizerConfig, tx: Sender<OptimizerMessage>) {
             }
         }
 
-        let updated_metrics_batch = evaluate_batch(config, &[theta.clone()], &tx, k);
+        let updated_metrics_batch = evaluate_batch(config, &[theta.clone()], &tx, k, &[]);
         current_metrics = updated_metrics_batch[0].clone();
         current_metrics.average(config.seeds.len());
 

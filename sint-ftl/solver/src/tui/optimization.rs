@@ -1,9 +1,12 @@
 use ratatui::{
     buffer::Buffer,
-    layout::Rect,
-    style::{Color, Style},
-    widgets::{Block, Widget},
+    layout::{Alignment, Constraint, Rect},
+    style::{Color, Modifier, Style},
+    widgets::{Block, Paragraph, Row, Table, Widget},
 };
+
+use crate::scoring::ScoreDetails;
+use sint_core::types::GameState;
 
 /// A widget that renders a horizontal ribbon of color representing a game's state over time.
 /// Each cell in the ribbon represents one round.
@@ -238,5 +241,234 @@ impl<'a> Widget for SeedGauntlet<'a> {
                     .set_style(Style::default().fg(color));
             }
         }
+    }
+}
+
+/// Header showing optimization progress and system stats
+pub struct OptimizationHeader<'a> {
+    pub strategy: &'a str,
+    pub target: &'a str,
+    pub generation: usize,
+    pub max_generations: usize,
+    pub population: usize,
+    pub status: &'a str,
+    pub games_done: usize,
+    pub total_games: usize,
+    pub games_pending: usize,
+    pub games_running: usize,
+    pub inds_done: usize,
+    pub cpu_usage: f32,
+    pub mem_proc: f64,
+    pub mem_used: f64,
+    pub mem_total: f64,
+}
+
+impl<'a> Widget for OptimizationHeader<'a> {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        let header_chunks = ratatui::layout::Layout::default()
+            .direction(ratatui::layout::Direction::Horizontal)
+            .constraints([
+                Constraint::Min(0),     // Left: Progress
+                Constraint::Length(30), // Right: System Stats
+            ])
+            .split(area);
+
+        // Left Header: Workload
+        let left_text = format!(
+            "SINT OPTIMIZER | Strat: {} | Target: {} | Gen: {}/{} | Pop: {} | {}\n\
+             WORKLOAD: Games: {}/{} ({} Pending, {} Running) | Genomes: {}/{} Completed",
+            self.strategy,
+            self.target,
+            self.generation,
+            self.max_generations,
+            self.population,
+            self.status,
+            self.games_done,
+            self.total_games,
+            self.games_pending,
+            self.games_running,
+            self.inds_done,
+            self.population,
+        );
+
+        Paragraph::new(left_text)
+            .style(
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            )
+            .block(Block::default().borders(
+                ratatui::widgets::Borders::LEFT
+                    | ratatui::widgets::Borders::TOP
+                    | ratatui::widgets::Borders::BOTTOM,
+            ))
+            .render(header_chunks[0], buf);
+
+        // Right Header: System Stats
+        let right_text = format!(
+            "CPU: {:>5.1}%\nP:{:>4.1}G | S:{:>4.1}/{:>2.0}G",
+            self.cpu_usage, self.mem_proc, self.mem_used, self.mem_total
+        );
+
+        Paragraph::new(right_text)
+            .alignment(Alignment::Right)
+            .style(
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            )
+            .block(Block::default().borders(
+                ratatui::widgets::Borders::RIGHT
+                    | ratatui::widgets::Borders::TOP
+                    | ratatui::widgets::Borders::BOTTOM,
+            ))
+            .render(header_chunks[1], buf);
+    }
+}
+
+/// Detailed live statistics for a single game simulation
+pub struct LiveStats<'a> {
+    pub state: &'a GameState,
+    pub score: f64,
+    pub label: &'a str,
+}
+
+impl<'a> Widget for LiveStats<'a> {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        let stats_text = format!(
+            "Round: {}\nHull: {}/20\nBoss HP: {}/{}\nPhase: {:?}\nScore: {:.1}",
+            self.state.turn_count,
+            self.state.hull_integrity,
+            self.state.enemy.hp,
+            self.state.enemy.max_hp,
+            self.state.phase,
+            self.score
+        );
+
+        Paragraph::new(stats_text)
+            .block(
+                Block::default()
+                    .title(format!("Live Stats {}", self.label))
+                    .borders(ratatui::widgets::Borders::ALL),
+            )
+            .render(area, buf);
+    }
+}
+
+/// Table breaking down the score components
+pub struct ScoreBreakdown<'a> {
+    pub score: &'a ScoreDetails,
+    pub label: &'a str,
+}
+
+impl<'a> Widget for ScoreBreakdown<'a> {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        let s = self.score;
+        let v_str = format!("{:.1}", s.vitals);
+        let h_str = format!("{:.1}", s.hazards);
+        let o_str = format!("{:.1}", s.offense);
+        let p_str = format!("{:.1}", s.panic);
+        let l_str = format!("{:.1}", s.logistics);
+        let s_str = format!("{:.1}", s.situations);
+        let t_str = format!("{:.1}", s.threats);
+        let pr_str = format!("{:.1}", s.progression);
+        let ao_str = format!("{:.1}", s.anti_oscillation);
+        let tot_str = format!("{:.1}", s.total);
+
+        let rows = vec![
+            Row::new(vec!["Vitals", v_str.as_str()]),
+            Row::new(vec!["Hazards", h_str.as_str()]),
+            Row::new(vec!["Offense", o_str.as_str()]),
+            Row::new(vec!["Panic", p_str.as_str()]),
+            Row::new(vec!["Logistics", l_str.as_str()]),
+            Row::new(vec!["Situations", s_str.as_str()]),
+            Row::new(vec!["Threats", t_str.as_str()]),
+            Row::new(vec!["Progression", pr_str.as_str()]),
+            Row::new(vec!["Anti-Osc", ao_str.as_str()]),
+            Row::new(vec!["TOTAL", tot_str.as_str()]).style(
+                Style::default()
+                    .add_modifier(Modifier::BOLD)
+                    .fg(Color::Yellow),
+            ),
+        ];
+
+        Table::new(rows, [Constraint::Length(15), Constraint::Min(0)])
+            .block(
+                Block::default()
+                    .title(format!("Score Breakdown {}", self.label))
+                    .borders(ratatui::widgets::Borders::ALL),
+            )
+            .render(area, buf);
+    }
+}
+
+/// A ticker showing the last few actions taken in a simulation
+pub struct ActionTicker<'a> {
+    pub history: &'a [String],
+    pub label: &'a str,
+}
+
+impl<'a> Widget for ActionTicker<'a> {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        let ticker_text = self.history.join("\n");
+        Paragraph::new(ticker_text)
+            .block(
+                Block::default()
+                    .title(format!("Action Ticker {}", self.label))
+                    .borders(ratatui::widgets::Borders::ALL),
+            )
+            .render(area, buf);
+    }
+}
+
+/// Summary of the best and average performance in a generation
+pub struct GenerationSummary<'a> {
+    pub wins: usize,
+    pub losses: usize,
+    pub timeouts: usize,
+    pub best_score: f64,
+    pub avg_score: f64,
+    pub is_loading: bool,
+    pub block: Option<Block<'a>>,
+}
+
+impl<'a> GenerationSummary<'a> {
+    pub fn block(mut self, block: Block<'a>) -> Self {
+        self.block = Some(block);
+        self
+    }
+}
+
+impl<'a> Widget for GenerationSummary<'a> {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        let area = if let Some(block) = self.block {
+            let inner = block.inner(area);
+            block.render(area, buf);
+            inner
+        } else {
+            area
+        };
+
+        if self.is_loading {
+            Paragraph::new("\n\n  Waiting for first\n  generation to\n  complete...")
+                .render(area, buf);
+            return;
+        }
+
+        let wins = self.wins.to_string();
+        let losses = self.losses.to_string();
+        let timeouts = self.timeouts.to_string();
+        let best_score = format!("{:.1}", self.best_score);
+        let avg_score = format!("{:.1}", self.avg_score);
+
+        let rows = vec![
+            Row::new(vec!["Wins", wins.as_str()]).style(Style::default().fg(Color::Green)),
+            Row::new(vec!["Losses", losses.as_str()]).style(Style::default().fg(Color::Red)),
+            Row::new(vec!["Timeouts", timeouts.as_str()]).style(Style::default().fg(Color::Yellow)),
+            Row::new(vec!["Best Score", best_score.as_str()]),
+            Row::new(vec!["Avg Score", avg_score.as_str()]),
+        ];
+
+        Table::new(rows, [Constraint::Length(15), Constraint::Min(0)]).render(area, buf);
     }
 }
