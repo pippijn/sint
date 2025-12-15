@@ -150,6 +150,16 @@ impl Checkpoint {
     }
 }
 
+pub type GACrossoverPairing = (usize, usize, usize, usize);
+pub type GAChildGeneration = (Vec<Vec<f64>>, Vec<GACrossoverPairing>);
+
+pub fn calculate_genome_distance(g1: &[f64], g2: &[f64]) -> f64 {
+    g1.iter()
+        .zip(g2.iter())
+        .map(|(a, b)| (a - b).powi(2))
+        .sum::<f64>()
+}
+
 fn get_base_weights_beam() -> BeamScoringWeights {
     BeamScoringWeights::default()
 }
@@ -418,14 +428,163 @@ pub fn evaluate_batch(
         }
     });
 
-    // Collect all results
+    // Collect remaining results
     for _ in 0..total_tasks {
         if let Ok(res) = result_rx.recv() {
-            metrics_per_genome[res.genome_idx].add(&res.metrics);
+            let local_idx = res.genome_idx - index_offset;
+            metrics_per_genome[local_idx].add(&res.metrics);
         }
     }
 
     metrics_per_genome
+}
+
+pub fn apply_ga_survival_logic(
+    config: &OptimizerConfig,
+    scored_pop: &[(EvaluationMetrics, Vec<f64>)],
+    all_children: &[Vec<f64>],
+    children_metrics: &[EvaluationMetrics],
+    pairings: &[GACrossoverPairing],
+) -> Vec<Vec<f64>> {
+    let mut new_pop = vec![vec![]; config.population];
+
+    // First, carry over the top elites to ensure we never lose our best-so-far
+    let elite_count = (config.population as f64 * 0.1).ceil() as usize;
+    let mut elite_slots = std::collections::HashSet::new();
+    for i in 0..elite_count {
+        new_pop[i] = scored_pop[i].1.clone();
+        elite_slots.insert(i);
+    }
+
+    for &(i1, i2, c1_idx, c2_idx) in pairings {
+        let p1 = &scored_pop[i1];
+        let p2 = &scored_pop[i2];
+        let c1_genome = &all_children[c1_idx];
+        let c2_genome = &all_children[c2_idx];
+
+        let mut m_c1 = children_metrics[c1_idx].clone();
+        m_c1.average(config.seeds.len());
+        let mut m_c2 = children_metrics[c2_idx].clone();
+        m_c2.average(config.seeds.len());
+
+        let (winner1, winner2) = if calculate_genome_distance(&p1.1, c1_genome)
+            + calculate_genome_distance(&p2.1, c2_genome)
+            < calculate_genome_distance(&p1.1, c2_genome)
+                + calculate_genome_distance(&p2.1, c1_genome)
+        {
+            // Competition: (P1 vs C1) and (P2 vs C2)
+            let w1 = if m_c1.score > p1.0.score {
+                c1_genome.clone()
+            } else {
+                p1.1.clone()
+            };
+            let w2 = if m_c2.score > p2.0.score {
+                c2_genome.clone()
+            } else {
+                p2.1.clone()
+            };
+            (w1, w2)
+        } else {
+            // Competition: (P1 vs C2) and (P2 vs C1)
+            let w1 = if m_c2.score > p1.0.score {
+                c2_genome.clone()
+            } else {
+                p1.1.clone()
+            };
+            let w2 = if m_c1.score > p2.0.score {
+                c1_genome.clone()
+            } else {
+                p2.1.clone()
+            };
+            (w1, w2)
+        };
+
+        // Place winners back in their original slots, unless that slot is reserved for an elite
+        if !elite_slots.contains(&i1) {
+            new_pop[i1] = winner1;
+        }
+        if !elite_slots.contains(&i2) {
+            new_pop[i2] = winner2;
+        }
+    }
+
+    // Fill any remaining empty slots (e.g. if population was odd)
+    for i in 0..config.population {
+        if new_pop[i].is_empty() {
+            new_pop[i] = scored_pop[i].1.clone();
+        }
+    }
+    new_pop
+}
+
+pub fn produce_ga_children(
+    config: &OptimizerConfig,
+    scored_pop: &[(EvaluationMetrics, Vec<f64>)],
+    generation: usize,
+) -> GAChildGeneration {
+    let param_count = get_param_count(config.target);
+
+    // Deterministic RNG for child generation based on generation
+    let base_seed = config.seeds.first().cloned().unwrap_or(12345);
+    let mut child_rng = rand::rngs::StdRng::seed_from_u64(base_seed + generation as u64 + 1000000);
+
+    let mut all_children = Vec::new();
+    let mut pairings = Vec::new();
+
+    // Deterministic Crowding: Pair up the entire population (excluding elites if desired,
+    // but here we pair everyone to maintain population slots).
+    let mut indices: Vec<usize> = (0..config.population).collect();
+    indices.shuffle(&mut child_rng);
+
+    for chunk in indices.chunks_exact(2) {
+        let i1 = chunk[0];
+        let i2 = chunk[1];
+        let p1_genome = &scored_pop[i1].1;
+        let p2_genome = &scored_pop[i2].1;
+
+        let alpha = 0.5;
+        let mut c1 = Vec::with_capacity(param_count);
+        let mut c2 = Vec::with_capacity(param_count);
+        for i in 0..param_count {
+            let v1 = p1_genome[i];
+            let v2 = p2_genome[i];
+            let min = v1.min(v2);
+            let max = v1.max(v2);
+            let range = max - min;
+            let lower = min - range * alpha;
+            let upper = max + range * alpha;
+
+            let mut val1 = child_rng.random_range(lower..=upper);
+            if val1 < 0.0 {
+                val1 = 0.0;
+            }
+            c1.push(val1);
+
+            let mut val2 = child_rng.random_range(lower..=upper);
+            if val2 < 0.0 {
+                val2 = 0.0;
+            }
+            c2.push(val2);
+        }
+
+        mutate(&mut child_rng, &mut c1);
+        mutate(&mut child_rng, &mut c2);
+
+        let c1_idx = all_children.len();
+        all_children.push(c1);
+        let c2_idx = all_children.len();
+        all_children.push(c2);
+
+        pairings.push((i1, i2, c1_idx, c2_idx));
+    }
+    (all_children, pairings)
+}
+
+pub fn get_spsa_delta(base_seed: u64, k: usize, p: usize) -> Vec<f64> {
+    let mut rng = rand::rngs::StdRng::seed_from_u64(base_seed + k as u64);
+    (0..p)
+        .map(|_| if rng.random_bool(0.5) { 1.0 } else { -1.0 })
+        .collect()
 }
 
 pub fn run_ga(
@@ -478,7 +637,6 @@ pub fn run_ga(
             &existing_seed_results,
             0,
         );
-        existing_seed_results.clear(); // Clear for next generations
 
         for (i, m) in scored_metrics.iter().enumerate() {
             let _ = tx.send(OptimizerMessage::IndividualDone {
@@ -536,71 +694,7 @@ pub fn run_ga(
             },
         )));
 
-        let elite_count = (config.population as f64 * 0.2).ceil() as usize;
-        let mut new_pop = Vec::new();
-        for item in scored_pop.iter().take(elite_count) {
-            new_pop.push(item.1.clone());
-        }
-
-        let total_rank_sum: usize = (1..=config.population).sum();
-
-        // 1. Generate ALL children first
-        let mut all_children = Vec::new();
-        let mut pairings = Vec::new(); // Store which parents produced which children
-
-        while new_pop.len() + all_children.len() < config.population {
-            let select_parent_idx = |rng: &mut ThreadRng| {
-                let mut r = rng.random_range(0..total_rank_sum);
-                for i in 0..scored_pop.len() {
-                    let weight = config.population - i;
-                    if r < weight {
-                        return i;
-                    }
-                    r -= weight;
-                }
-                0
-            };
-
-            let i1 = select_parent_idx(&mut rng);
-            let i2 = select_parent_idx(&mut rng);
-            let p1_genome = &scored_pop[i1].1;
-            let p2_genome = &scored_pop[i2].1;
-
-            let alpha = 0.5;
-            let mut c1 = Vec::with_capacity(param_count);
-            let mut c2 = Vec::with_capacity(param_count);
-            for i in 0..param_count {
-                let v1 = p1_genome[i];
-                let v2 = p2_genome[i];
-                let min = v1.min(v2);
-                let max = v1.max(v2);
-                let range = max - min;
-                let lower = min - range * alpha;
-                let upper = max + range * alpha;
-
-                let mut val1 = rng.random_range(lower..=upper);
-                if val1 < 0.0 {
-                    val1 = 0.0;
-                }
-                c1.push(val1);
-
-                let mut val2 = rng.random_range(lower..=upper);
-                if val2 < 0.0 {
-                    val2 = 0.0;
-                }
-                c2.push(val2);
-            }
-
-            mutate(&mut rng, &mut c1);
-            mutate(&mut rng, &mut c2);
-
-            let c1_idx = all_children.len();
-            all_children.push(c1);
-            let c2_idx = all_children.len();
-            all_children.push(c2);
-
-            pairings.push((i1, i2, c1_idx, c2_idx));
-        }
+        let (all_children, pairings) = produce_ga_children(config, &scored_pop, generation);
 
         // 2. Evaluate all children in one large batch
         let children_metrics = evaluate_batch(
@@ -608,61 +702,19 @@ pub fn run_ga(
             &all_children,
             &tx,
             generation,
-            &[],
+            &existing_seed_results,
             config.population,
         );
+        existing_seed_results.clear(); // Safe to clear now that all phases are done
 
         // 3. Survival logic (Deterministic Crowding)
-        for (i1, i2, c1_idx, c2_idx) in pairings {
-            let p1 = &scored_pop[i1];
-            let p2 = &scored_pop[i2];
-            let c1_genome = &all_children[c1_idx];
-            let c2_genome = &all_children[c2_idx];
-
-            let mut m_c1 = children_metrics[c1_idx].clone();
-            m_c1.average(config.seeds.len());
-            let mut m_c2 = children_metrics[c2_idx].clone();
-            m_c2.average(config.seeds.len());
-
-            let dist = |g1: &[f64], g2: &[f64]| {
-                g1.iter()
-                    .zip(g2.iter())
-                    .map(|(a, b)| (a - b).powi(2))
-                    .sum::<f64>()
-            };
-
-            if dist(&p1.1, c1_genome) + dist(&p2.1, c2_genome)
-                < dist(&p1.1, c2_genome) + dist(&p2.1, c1_genome)
-            {
-                if m_c1.score > p1.0.score {
-                    new_pop.push(c1_genome.clone());
-                } else {
-                    new_pop.push(p1.1.clone());
-                }
-                if new_pop.len() < config.population {
-                    if m_c2.score > p2.0.score {
-                        new_pop.push(c2_genome.clone());
-                    } else {
-                        new_pop.push(p2.1.clone());
-                    }
-                }
-            } else {
-                if m_c2.score > p1.0.score {
-                    new_pop.push(c2_genome.clone());
-                } else {
-                    new_pop.push(p1.1.clone());
-                }
-                if new_pop.len() < config.population {
-                    if m_c1.score > p2.0.score {
-                        new_pop.push(c1_genome.clone());
-                    } else {
-                        new_pop.push(p2.1.clone());
-                    }
-                }
-            }
-        }
-
-        population = new_pop;
+        population = apply_ga_survival_logic(
+            config,
+            &scored_pop,
+            &all_children,
+            &children_metrics,
+            &pairings,
+        );
     }
 }
 
@@ -710,14 +762,10 @@ pub fn run_spsa(
 
     for k in start_generation..config.generations {
         let base_seed = config.seeds.first().cloned().unwrap_or(12345);
-        let mut rng = rand::rngs::StdRng::seed_from_u64(base_seed + k as u64);
+        let delta = get_spsa_delta(base_seed, k, p);
 
         let ak = a / (k as f64 + 1.0 + big_a).powf(alpha);
         let ck = c / (k as f64 + 1.0).powf(gamma);
-
-        let delta: Vec<f64> = (0..p)
-            .map(|_| if rng.random_bool(0.5) { 1.0 } else { -1.0 })
-            .collect();
 
         let mut theta_plus = theta.clone();
         let mut theta_minus = theta.clone();

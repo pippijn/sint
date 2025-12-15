@@ -217,27 +217,23 @@ fn test_spsa_resume_skipping() {
 
 #[test]
 fn test_spsa_perturbation_determinism() {
-    use rand::prelude::*;
-
-    // We want to see if SPSA produces the same delta if we "resume" it.
-    // Currently it uses rand::rng() which is thread_rng and non-deterministic.
+    use sint_solver::optimization::get_spsa_delta;
 
     let p = 10;
+    let seed = 12345;
+    let k = 5;
 
-    let get_delta = |k: u64| {
-        let mut rng = rand::rngs::StdRng::seed_from_u64(12345 + k);
-        let delta: Vec<f64> = (0..p)
-            .map(|_| if rng.random_bool(0.5) { 1.0 } else { -1.0 })
-            .collect();
-        delta
-    };
-
-    let delta1 = get_delta(5);
-    let delta2 = get_delta(5);
+    let delta1 = get_spsa_delta(seed, k, p);
+    let delta2 = get_spsa_delta(seed, k, p);
+    let delta3 = get_spsa_delta(seed, k + 1, p);
 
     assert_eq!(
         delta1, delta2,
-        "SPSA perturbations should be deterministic based on generation for safe resumption."
+        "Same seed and iteration must produce same delta"
+    );
+    assert_ne!(
+        delta1, delta3,
+        "Different iteration must produce different delta"
     );
 }
 
@@ -319,6 +315,195 @@ fn test_history_duplication_on_resume() {
         4,
         "History should contain initial items plus new progress. Found {} items.",
         app_history.len()
+    );
+}
+
+#[test]
+fn test_ga_child_result_loss_on_resume() {
+    use sint_solver::optimization::{
+        Checkpoint, EvaluationMetrics, OptimizerConfig, SeedResult, Strategy, Target,
+    };
+    use std::sync::mpsc;
+
+    // 1. Create checkpoint with a child result (index 1 on population 1)
+    let child_metrics = EvaluationMetrics {
+        score: 555.0,
+        ..Default::default()
+    };
+    let checkpoint = Checkpoint {
+        config: OptimizerConfig {
+            strategy: Strategy::GA,
+            target: Target::Beam,
+            generations: 1,
+            population: 1,
+            seeds: vec![123],
+            beam_width: 1,
+            rhea_horizon: 1,
+            rhea_generations: 1,
+            rhea_population: 1,
+        },
+        generation: 0,
+        population: vec![vec![1.0; 10]],
+        seed_results: vec![SeedResult {
+            ind_idx: 1,
+            seed_idx: 0,
+            metrics: child_metrics,
+        }],
+        history: Vec::new(),
+    };
+
+    let (tx, _rx) = mpsc::channel();
+
+    // We can't easily run the whole run_ga because it's non-terminating or heavy.
+    // But we can simulate the logic:
+    let existing = checkpoint.seed_results.clone();
+
+    // Phase 1: Parent eval (index_offset 0)
+    // Existing results contains ind_idx 1. Parent eval is ind_idx 0.
+    // This correctly ignores ind_idx 1.
+    let _ = sint_solver::optimization::evaluate_batch(
+        &checkpoint.config,
+        &checkpoint.population,
+        &tx,
+        0,
+        &existing,
+        0,
+    );
+
+    // THE FIX: run_ga no longer calls existing.clear() here.
+
+    // Phase 2: Child eval (index_offset 1)
+    // It should now correctly use index 1 from 'existing'.
+    let children = vec![vec![2.0; 10]];
+    let results = sint_solver::optimization::evaluate_batch(
+        &checkpoint.config,
+        &children,
+        &tx,
+        0,
+        &existing,
+        1,
+    );
+    // If results[0].score is 555.0, it means it was skipped (good).
+    // If it's NOT 555.0, it means it re-ran the game (bug/waste).
+    assert_eq!(
+        results[0].score, 555.0,
+        "Child results from checkpoint were lost before child evaluation phase!"
+    );
+}
+
+#[test]
+fn test_ga_child_generation_determinism() {
+    use sint_solver::optimization::{
+        EvaluationMetrics, OptimizerConfig, Strategy, Target, produce_ga_children,
+    };
+
+    let config = OptimizerConfig {
+        strategy: Strategy::GA,
+        target: Target::Beam,
+        generations: 10,
+        population: 10,
+        seeds: vec![12345],
+        beam_width: 1,
+        rhea_horizon: 1,
+        rhea_generations: 1,
+        rhea_population: 1,
+    };
+
+    let param_count = get_param_count(Target::Beam);
+    let mut scored_pop = Vec::new();
+    for i in 0..10 {
+        scored_pop.push((EvaluationMetrics::default(), vec![i as f64; param_count]));
+    }
+
+    let (children1, _) = produce_ga_children(&config, &scored_pop, 0);
+    let (children2, _) = produce_ga_children(&config, &scored_pop, 0);
+    let (children3, _) = produce_ga_children(&config, &scored_pop, 1);
+
+    assert_eq!(
+        children1, children2,
+        "Same generation must produce same children"
+    );
+    assert_ne!(
+        children1, children3,
+        "Different generation must produce different children"
+    );
+}
+
+#[test]
+fn test_genome_distance() {
+    use sint_solver::optimization::calculate_genome_distance;
+
+    let g1 = vec![0.0, 0.0, 0.0];
+    let g2 = vec![3.0, 4.0, 0.0];
+
+    // (3-0)^2 + (4-0)^2 + (0-0)^2 = 9 + 16 = 25
+    assert_eq!(calculate_genome_distance(&g1, &g2), 25.0);
+}
+
+#[test]
+fn test_ga_population_diversity_preservation() {
+    use sint_solver::optimization::{
+        EvaluationMetrics, OptimizerConfig, Strategy, Target, produce_ga_children,
+    };
+    use std::collections::HashSet;
+
+    let config = OptimizerConfig {
+        strategy: Strategy::GA,
+        target: Target::Beam,
+        generations: 1,
+        population: 20,
+        seeds: vec![1],
+        beam_width: 1,
+        rhea_horizon: 1,
+        rhea_generations: 1,
+        rhea_population: 1,
+    };
+
+    // 1. Start with a population of UNIQUE individuals
+    let mut scored_pop = Vec::new();
+    let param_count = sint_solver::optimization::get_param_count(Target::Beam);
+    for i in 0..20 {
+        scored_pop.push((
+            EvaluationMetrics {
+                score: i as f64,
+                ..Default::default()
+            },
+            vec![i as f64; param_count],
+        ));
+    }
+
+    // 2. Generate children and simulate the survival loop from run_ga
+    let (all_children, pairings) = produce_ga_children(&config, &scored_pop, 0);
+
+    // Simulate children having very poor scores so parents always win
+    let mut children_metrics = vec![EvaluationMetrics::default(); all_children.len()];
+    for m in &mut children_metrics {
+        m.score = -1000.0;
+    }
+
+    // Call the actual production logic
+    let new_pop = sint_solver::optimization::apply_ga_survival_logic(
+        &config,
+        &scored_pop,
+        &all_children,
+        &children_metrics,
+        &pairings,
+    );
+
+    // 3. Check for duplicates
+    let mut unique_genomes = HashSet::new();
+    for g in &new_pop {
+        // Use a string representation for hashing floats roughly
+        let s = format!("{:?}", g);
+        unique_genomes.insert(s);
+    }
+
+    assert_eq!(
+        unique_genomes.len(),
+        config.population,
+        "Population should contain unique individuals. Found {} unique out of {}. Redundancy Bug detected!",
+        unique_genomes.len(),
+        config.population
     );
 }
 
