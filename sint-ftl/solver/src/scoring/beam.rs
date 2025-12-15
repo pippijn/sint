@@ -95,6 +95,9 @@ pub struct BeamScoringWeights {
     pub turn_penalty: f64,
     pub step_penalty: f64,
 
+    pub survival_round_reward: f64, // New: Reward for living through rounds
+    pub survival_step_reward: f64,  // New: Reward for living through steps
+
     pub checkmate_system_bonus: f64, // New: Extra reward for operational systems when boss is low
 
     // Checkmate
@@ -112,6 +115,8 @@ pub struct BeamScoringWeights {
     pub fire_in_critical_hull_penalty: f64,  // New: Extreme penalty for fire when hull is low
     pub critical_survival_mult: f64,
     pub critical_threat_mult: f64,
+
+    pub panic_anti_oscillation_mult: f64, // New: Relax anti-oscillation in panic
 
     pub item_juggling_penalty: f64, // New: Penalty for picking up and dropping the same item
 
@@ -204,7 +209,7 @@ impl Default for BeamScoringWeights {
             situation_logistics_reward: 500.0,
             situation_resolved_reward: 25000.0,
             system_importance_multiplier: 15.0,
-            boss_killing_blow_reward: 20000000.0,
+            boss_killing_blow_reward: 200000000.0,
             inaction_penalty: 50000.0,
 
             // Logistics
@@ -213,7 +218,7 @@ impl Default for BeamScoringWeights {
             hazard_proximity_reward: 100.0,
             situation_exposure_penalty: 0.01,
             system_disabled_penalty: 75000.0,
-            shooting_reward: 1500000.0,
+            shooting_reward: 2000000.0,
             scavenger_reward: 200.0,
             repair_proximity_reward: 100.0,
             cargo_repair_incentive: 15000.0,
@@ -225,6 +230,10 @@ impl Default for BeamScoringWeights {
             boss_level_reward: 200000.0,
             turn_penalty: 5000.0,
             step_penalty: 100.0,
+
+            survival_round_reward: 1000.0,
+            survival_step_reward: 1.0,
+
             checkmate_system_bonus: 10000.0,
 
             // Checkmate
@@ -242,6 +251,7 @@ impl Default for BeamScoringWeights {
             fire_in_critical_hull_penalty: 50000000.0,
             critical_survival_mult: 0.5,
             critical_threat_mult: 2.0,
+            panic_anti_oscillation_mult: 0.1,
 
             // Exponents
             hull_exponent: 1.5,
@@ -326,8 +336,8 @@ pub fn calculate_score(
                 | GameAction::Revive { .. }
         )
     {
-        details.logistics += 50.0;
-        details.total += 50.0;
+        details.logistics += 5000.0;
+        details.total += 5000.0;
     }
 
     // Commitment Bonus: Reward moving towards hazards
@@ -380,8 +390,11 @@ pub fn score_static(
         return details;
     }
     // SUICIDE PREVENTION: Death must be worse than any living hell.
+    // GRADIENT: Reward surviving as long as possible even if death is certain.
     if state.phase == GamePhase::GameOver || state.hull_integrity <= 0 {
-        details.total = weights.game_over_score;
+        details.total = weights.game_over_score
+            + (state.turn_count as f64 * weights.survival_round_reward)
+            + (history.len() as f64 * weights.survival_step_reward);
         return details;
     }
 
@@ -450,8 +463,11 @@ pub fn score_static(
         - (fire_spread_sources as f64 * weights.fire_spread_projected_damage) as i32;
     // If fires will kill us this round, apply massive penalty but don't prune yet.
     // This allows "death or glory" plays to win before the fire damage applies.
+    // GRADIENT: Use a slightly less severe penalty for projected death than actual death.
     if projected_hull <= 0 && state.phase != GamePhase::Victory {
-        details.panic += weights.game_over_score;
+        details.panic += weights.game_over_score * 0.95
+            + (state.turn_count as f64 * weights.survival_round_reward)
+            + (history.len() as f64 * weights.survival_step_reward);
     }
 
     // Use PROJECTED hull for scaling
@@ -504,7 +520,7 @@ pub fn score_static(
 
         // EXTRA BUMP for 1 HP - The "Just Kill It" factor
         if state.enemy.hp == 1 {
-            checkmate_mult *= 10.0; // Massive boost for final HP
+            checkmate_mult *= 100.0; // Massive boost for final HP
         }
 
         // Survival Override: If we are in critical condition, dampen bloodlust.
@@ -579,6 +595,24 @@ pub fn score_static(
             * weights.fire_panic_threshold_hull_scaling;
     let in_fire_panic = rooms_on_fire as f64 > fire_panic_threshold;
 
+    if in_fire_panic || is_critical {
+        // Survival Mode: If we are about to die or overwhelmed by fire,
+        // focus on survival, but keep logistics active to ensure we have tools/ammo.
+        let dampening = if (state.enemy.hp as f64) <= 5.0 {
+            // Boss is almost dead! Victory is the best survival.
+            2.0
+        } else if (state.enemy.hp as f64) <= weights.checkmate_dampening_boss_hp_threshold {
+            // Boss is low, but not dead.
+            (weights.survival_only_multiplier * weights.panic_dampening_multiplier * 2.0).min(1.5)
+        } else {
+            weights.survival_only_multiplier
+        };
+        details.offense *= dampening;
+        details.situations *= dampening;
+        details.progression *= dampening;
+        // Do NOT dampen logistics - we need ammo to end the threat!
+    }
+
     // --- 1. Vital Stats & Progression ---
     // Non-linear Hull Penalty: Penalize missing hull exponentially (Square of missing health)
     // Use PROJECTED hull
@@ -612,24 +646,6 @@ pub fn score_static(
     // NEW: Low Boss HP Reward
     if state.enemy.hp > 0 && state.enemy.hp <= 5 {
         details.offense += weights.low_boss_hp_reward * (6.0 - state.enemy.hp as f64);
-    }
-
-    if in_fire_panic || is_critical {
-        // Survival Mode: If we are about to die or overwhelmed by fire,
-        // focus on survival, but keep logistics active to ensure we have tools/ammo.
-        let dampening = if (state.enemy.hp as f64) <= 2.0 {
-            // Boss is almost dead! Victory is the best survival.
-            1.5
-        } else if (state.enemy.hp as f64) <= weights.checkmate_dampening_boss_hp_threshold {
-            // Boss is low, but not dead.
-            (weights.survival_only_multiplier * weights.panic_dampening_multiplier).min(1.0)
-        } else {
-            weights.survival_only_multiplier
-        };
-        details.offense *= dampening;
-        details.situations *= dampening;
-        details.progression *= dampening;
-        // Do NOT dampen logistics - we need ammo to end the threat!
     }
 
     if state.enemy.hp <= 0 {
@@ -1444,7 +1460,11 @@ pub fn score_static(
             item_throw_count += 1;
             // Penalize excessive throwing (juggling)
             if item_throw_count > 2 {
-                details.anti_oscillation -= 1000.0 * (item_throw_count as f64);
+                let mut penalty = 1000.0 * (item_throw_count as f64);
+                if in_fire_panic || is_critical {
+                    penalty *= weights.panic_anti_oscillation_mult;
+                }
+                details.anti_oscillation -= penalty;
             }
 
             // Reward throwing ammo to someone closer to cannons
@@ -1502,7 +1522,7 @@ pub fn score_static(
                 }
             }
             if found_pickup {
-                details.anti_oscillation -= weights.item_juggling_penalty;
+                details.logistics -= weights.item_juggling_penalty;
             }
         }
 
@@ -1568,7 +1588,11 @@ pub fn score_static(
                     }
                 }
                 if !useful {
-                    details.anti_oscillation -= weights.backtracking_penalty;
+                    let mut penalty = weights.backtracking_penalty;
+                    if in_fire_panic || is_critical {
+                        penalty *= weights.panic_anti_oscillation_mult;
+                    }
+                    details.anti_oscillation -= penalty;
                 }
             }
         }

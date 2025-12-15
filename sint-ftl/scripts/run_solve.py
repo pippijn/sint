@@ -187,6 +187,8 @@ def main() -> None:
     new_args = []
     skip_next = False
     for arg in unknown_args:
+        if arg == "--":
+            continue
         if skip_next:
             skip_next = False
             continue
