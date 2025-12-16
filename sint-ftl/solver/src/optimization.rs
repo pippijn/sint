@@ -713,6 +713,14 @@ pub fn run_ga(
 
         let (all_children, pairings) = produce_ga_children(config, &scored_pop, generation);
 
+        for (idx, genome) in all_children.iter().enumerate() {
+            let _ = tx.send(OptimizerMessage::IndividualStarting {
+                generation,
+                index: config.population + idx,
+                genome: genome.clone(),
+            });
+        }
+
         let _ = tx.send(OptimizerMessage::PhaseStarting {
             generation,
             name: "Child Evaluation".to_string(),
@@ -727,6 +735,17 @@ pub fn run_ga(
             &existing_seed_results,
             config.population,
         );
+
+        for (i, m) in children_metrics.iter().enumerate() {
+            let _ = tx.send(OptimizerMessage::IndividualDone {
+                generation,
+                index: config.population + i,
+                score: m.score / config.seeds.len() as f64,
+                metrics: m.clone(),
+                genome: all_children[i].clone(),
+            });
+        }
+
         existing_seed_results.clear(); // Safe to clear now that all phases are done
 
         // 3. Survival logic (Deterministic Crowding)

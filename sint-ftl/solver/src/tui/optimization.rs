@@ -77,11 +77,26 @@ pub struct GenomeMosaic<'a> {
     /// Parameter names for the header
     pub param_names: &'a [String],
     pub block: Option<Block<'a>>,
+    pub row_offset: usize,
 }
 
 impl<'a> GenomeMosaic<'a> {
+    pub fn new(population: &'a [Vec<f64>], param_names: &'a [String]) -> Self {
+        Self {
+            population,
+            param_names,
+            block: None,
+            row_offset: 0,
+        }
+    }
+
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
+        self
+    }
+
+    pub fn row_offset(mut self, offset: usize) -> Self {
+        self.row_offset = offset;
         self
     }
 }
@@ -128,7 +143,7 @@ impl<'a> Widget for GenomeMosaic<'a> {
             let y = area.y + header_height as u16 + row_idx as u16;
 
             // Chromosome Label
-            let label = format!("C{:02}", row_idx);
+            let label = format!("C{:02}", row_idx + self.row_offset);
             buf.set_string(area.x, y, label, Style::default().fg(Color::Gray));
 
             for (col_idx, &val) in genome.iter().enumerate() {
@@ -166,11 +181,26 @@ pub struct SeedGauntlet<'a> {
     pub status: &'a [Vec<u8>],
     pub seed_labels: &'a [u64],
     pub block: Option<Block<'a>>,
+    pub row_offset: usize,
 }
 
 impl<'a> SeedGauntlet<'a> {
+    pub fn new(status: &'a [Vec<u8>], seed_labels: &'a [u64]) -> Self {
+        Self {
+            status,
+            seed_labels,
+            block: None,
+            row_offset: 0,
+        }
+    }
+
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
+        self
+    }
+
+    pub fn row_offset(mut self, offset: usize) -> Self {
+        self.row_offset = offset;
         self
     }
 }
@@ -219,7 +249,7 @@ impl<'a> Widget for SeedGauntlet<'a> {
             let y = area.y + header_height + r_idx as u16;
 
             // Chromosome Label
-            let label = format!("C{:02}", r_idx);
+            let label = format!("C{:02}", r_idx + self.row_offset);
             buf.set_string(area.x, y, label, Style::default().fg(Color::Gray));
 
             for (c_idx, &s) in row.iter().enumerate() {

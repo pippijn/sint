@@ -338,7 +338,7 @@ impl App {
                 current_progress: vec![None; config.seeds.len()],
                 action_histories: vec![Vec::new(); config.seeds.len()],
             };
-            config.population
+            config.population * 2
         ];
         let mut sys = System::new_all();
         sys.refresh_all();
@@ -348,7 +348,7 @@ impl App {
             config: config.clone(),
             history: Vec::new(),
             population_status,
-            population_genomes: vec![Vec::new(); config.population],
+            population_genomes: vec![Vec::new(); config.population * 2],
             current_phase: "Initializing".to_string(),
             done: false,
             sys,
@@ -386,6 +386,8 @@ fn run_tui(
     // Apply checkpoint to app state if available
     if let Some(ckpt) = &initial_checkpoint {
         app.population_genomes = ckpt.population.clone();
+        app.population_genomes
+            .resize(app.config.population * 2, Vec::new());
         app.history = ckpt.history.clone();
         for res in &ckpt.seed_results {
             if res.ind_idx < app.population_status.len() {
@@ -637,12 +639,28 @@ fn ui(f: &mut Frame, app: &App) {
         "RUNNING (q to quit)"
     };
 
-    // Calculate Progress
+    // Calculate Progress Focus based on Phase
+    let is_child_phase = app.current_phase == "Child Evaluation";
+    let (relevant_status, relevant_genomes, row_offset) =
+        if is_child_phase && app.config.strategy == Strategy::GA {
+            (
+                &app.population_status[app.config.population..app.config.population * 2],
+                &app.population_genomes[app.config.population..app.config.population * 2],
+                app.config.population,
+            )
+        } else {
+            (
+                &app.population_status[..app.config.population],
+                &app.population_genomes[..app.config.population],
+                0,
+            )
+        };
+
     let mut games_done = 0;
     let mut games_running = 0;
     let mut inds_done = 0;
 
-    for ind in &app.population_status {
+    for ind in relevant_status {
         let mut ind_seeds_done = 0;
         for &s in &ind.seed_statuses {
             if s >= 2 {
@@ -657,7 +675,7 @@ fn ui(f: &mut Frame, app: &App) {
         }
     }
 
-    let total_games = app.config.population * app.config.seeds.len();
+    let total_games = relevant_status.len() * app.config.seeds.len();
     let games_pending = total_games.saturating_sub(games_done + games_running);
 
     // System Stats
@@ -676,7 +694,7 @@ fn ui(f: &mut Frame, app: &App) {
             target: &target_str,
             generation: app.history.len(),
             max_generations: app.config.generations,
-            population: app.config.population,
+            population: relevant_status.len(),
             status: status_str,
             phase: &app.current_phase,
             games_done,
@@ -718,7 +736,10 @@ fn ui(f: &mut Frame, app: &App) {
     };
 
     let mosaic_title = Line::from(vec![
-        Span::raw("Genome Mosaic (DNA: "),
+        Span::raw(format!(
+            "{} Mosaic (DNA: ",
+            if is_child_phase { "Child" } else { "Genome" }
+        )),
         Span::styled("Blue", Style::default().fg(Color::Blue)),
         Span::raw("<1.0<"),
         Span::styled("Red", Style::default().fg(Color::Red)),
@@ -726,24 +747,23 @@ fn ui(f: &mut Frame, app: &App) {
     ]);
 
     f.render_widget(
-        GenomeMosaic {
-            population: &app.population_genomes,
-            param_names: &param_names,
-            block: None,
-        }
-        .block(Block::default().title(mosaic_title).borders(Borders::ALL)),
+        GenomeMosaic::new(relevant_genomes, &param_names)
+            .row_offset(row_offset)
+            .block(Block::default().title(mosaic_title).borders(Borders::ALL)),
         top_part_chunks[0],
     );
 
     // A2. Seed Gauntlet
-    let gauntlet_data: Vec<Vec<u8>> = app
-        .population_status
+    let gauntlet_data: Vec<Vec<u8>> = relevant_status
         .iter()
         .map(|ind| ind.seed_statuses.clone())
         .collect();
 
     let gauntlet_title = Line::from(vec![
-        Span::raw("Seed Gauntlet ("),
+        Span::raw(format!(
+            "{} Gauntlet (",
+            if is_child_phase { "Child" } else { "Seed" }
+        )),
         Span::styled("⠶", Style::default().fg(Color::Blue)),
         Span::raw(":Run "),
         Span::styled("█", Style::default().fg(Color::Green)),
@@ -757,12 +777,9 @@ fn ui(f: &mut Frame, app: &App) {
     ]);
 
     f.render_widget(
-        SeedGauntlet {
-            status: &gauntlet_data,
-            seed_labels: &app.config.seeds,
-            block: None,
-        }
-        .block(Block::default().title(gauntlet_title).borders(Borders::ALL)),
+        SeedGauntlet::new(&gauntlet_data, &app.config.seeds)
+            .row_offset(row_offset)
+            .block(Block::default().title(gauntlet_title).borders(Borders::ALL)),
         top_part_chunks[1],
     );
 
@@ -800,13 +817,14 @@ fn ui(f: &mut Frame, app: &App) {
 
     // B. Score Ribbons (Middle part, full width)
     let mut ribbon_data: Vec<(usize, usize, f32, Vec<f32>)> = Vec::new();
-    for (i, status) in app.population_status.iter().enumerate() {
+    for (i, status) in relevant_status.iter().enumerate() {
+        let actual_idx = i + row_offset;
         let mut running_any = false;
         for (seed_idx, &s) in status.seed_statuses.iter().enumerate() {
             if s == 1 {
                 let history = &status.seed_histories[seed_idx];
                 let avg_health = history.iter().sum::<f32>() / history.len().max(1) as f32;
-                ribbon_data.push((i, seed_idx, avg_health, history.clone()));
+                ribbon_data.push((actual_idx, seed_idx, avg_health, history.clone()));
                 running_any = true;
             }
         }
@@ -821,7 +839,7 @@ fn ui(f: &mut Frame, app: &App) {
                 .unwrap_or(0);
             let history = &status.seed_histories[best_idx];
             let avg_health = history.iter().sum::<f32>() / history.len().max(1) as f32;
-            ribbon_data.push((i, best_idx, avg_health, history.clone()));
+            ribbon_data.push((actual_idx, best_idx, avg_health, history.clone()));
         }
     }
 
