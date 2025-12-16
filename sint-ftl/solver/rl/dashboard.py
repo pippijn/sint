@@ -44,7 +44,7 @@ class SintDashboard:
             Layout(name="latest", ratio=2),
         )
         layout["left"].split_column(
-            Layout(name="stats", size=12),
+            Layout(name="stats", size=15),
             Layout(name="actions", ratio=1),
             Layout(name="eval", ratio=1),
         )
@@ -117,6 +117,16 @@ class SintDashboard:
         table.add_row("Steps/sec (FPS)", f"{fps:.1f}")
         best_reward_str = f"{stats['best_mean_reward']:.2f}" if stats['best_mean_reward'] != -float("inf") else "N/A"
         table.add_row("Best Mean Reward", best_reward_str)
+
+        total_ep = stats.get("total_episodes", 0)
+        table.add_row("Total Episodes", f"{total_ep:,}")
+        if total_ep > 0:
+            win_rate = (stats.get("wins", 0) / total_ep) * 100
+            loss_rate = (stats.get("losses", 0) / total_ep) * 100
+            timeout_rate = (stats.get("timeouts", 0) / total_ep) * 100
+            table.add_row("Win Rate", f"[green]{win_rate:5.1f}%[/green]")
+            table.add_row("Loss Rate", f"[red]{loss_rate:5.1f}%[/red]")
+            table.add_row("Timeout Rate", f"[yellow]{timeout_rate:5.1f}%[/yellow]")
 
         if eval_history:
             history_str = " ".join([f"{r:+.1f}" for _, r, _, _ in eval_history[-8:]])

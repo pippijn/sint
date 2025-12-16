@@ -49,6 +49,10 @@ class TUICallback(BaseCallback):
             "latest_reward_breakdown": {},
             "latest_seed": 0,
             "action_counts": {},
+            "wins": 0,
+            "losses": 0,
+            "timeouts": 0,
+            "total_episodes": 0,
         }
 
         # Best Episode (Hall of Fame)
@@ -111,11 +115,19 @@ class TUICallback(BaseCallback):
                         sorted_actions = sorted(self.stats["action_counts"].items(), key=lambda x: x[1], reverse=True)
                         act_str = " ".join([f"{a}:{c/total_actions*100:.0f}%" for a, c in sorted_actions[:8]])
 
+                    total_ep = self.stats.get("total_episodes", 0)
+                    rates_str = ""
+                    if total_ep > 0:
+                        w = self.stats.get("wins", 0)
+                        l = self.stats.get("losses", 0)
+                        t = self.stats.get("timeouts", 0)
+                        rates_str = f" | W/L/T: {w}/{l}/{t}"
+
                     print(
                         f"[{datetime.now().strftime('%H:%M:%S')}] "
                         f"Step: {self.n_calls:8,} | "
                         f"FPS: {fps:6.1f} | "
-                        f"Rew: {latest_r:+.4f} ({top_driver}) | "
+                        f"Rew: {latest_r:+.4f} ({top_driver}){rates_str} | "
                         f"Best Ep: {self.best_ep_reward:8.1f} | "
                         f"Best Mean: {best:>8} | "
                         f"Acts: {act_str}"
@@ -252,6 +264,17 @@ class TUICallback(BaseCallback):
                                     # which is stored in terminal_info by our SintEnv
                                     ep_seed = info.get("initial_seed", self.current_ep_seeds[i])
                                     
+                                    self.stats["total_episodes"] += 1
+                                    s_final = info.get("terminal_state")
+                                    if s_final:
+                                        if s_final.get('phase') == 'Victory':
+                                            self.stats["wins"] += 1
+                                        elif s_final.get('phase') == 'GameOver':
+                                            self.stats["losses"] += 1
+                                    
+                                    if info.get("TimeLimit.truncated"):
+                                        self.stats["timeouts"] += 1
+
                                     if self.current_ep_rewards[i] > self.best_ep_reward:
                                         self.best_ep_reward = self.current_ep_rewards[i]
                                         self.best_ep_breakdown = self.current_ep_breakdowns[i].copy()
