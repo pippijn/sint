@@ -181,6 +181,8 @@ pub enum SystemType {
 }
 
 impl SystemType {
+    pub const COUNT: usize = 11;
+
     pub fn as_u32(&self) -> u32 {
         match self {
             SystemType::Bow => 2,
@@ -211,6 +213,64 @@ impl SystemType {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_system_type_count_sync() {
+        // This test ensures that SystemType::COUNT is large enough for all variant IDs.
+        // It uses an exhaustive match to force developers to update the test 
+        // whenever a new variant is added to SystemType.
+        let check_bounds = |v: SystemType| {
+            let id = v.as_u32() as usize;
+            assert!(
+                id < SystemType::COUNT,
+                "SystemType::{:?} ID ({}) is >= SystemType::COUNT ({}). Please update COUNT.",
+                v, id, SystemType::COUNT
+            );
+        };
+
+        // If you get a compilation error here, a new variant was added to SystemType.
+        // 1. Add the variant to this match arm.
+        // 2. Ensure SystemType::as_u32() returns a unique ID for it.
+        // 3. Ensure SystemType::COUNT is greater than the highest ID.
+        let dummy = SystemType::Bow;
+        match dummy {
+            SystemType::Bow => check_bounds(SystemType::Bow),
+            SystemType::Dormitory => check_bounds(SystemType::Dormitory),
+            SystemType::Cargo => check_bounds(SystemType::Cargo),
+            SystemType::Engine => check_bounds(SystemType::Engine),
+            SystemType::Kitchen => check_bounds(SystemType::Kitchen),
+            SystemType::Cannons => check_bounds(SystemType::Cannons),
+            SystemType::Bridge => check_bounds(SystemType::Bridge),
+            SystemType::Sickbay => check_bounds(SystemType::Sickbay),
+            SystemType::Storage => check_bounds(SystemType::Storage),
+        }
+    }
+
+    #[test]
+    fn test_item_type_count_sync() {
+        let check_bounds = |v: ItemType| {
+            let idx = v.as_usize();
+            assert!(
+                idx < ItemType::COUNT,
+                "ItemType::{:?} index ({}) is >= ItemType::COUNT ({}). Please update COUNT.",
+                v, idx, ItemType::COUNT
+            );
+        };
+
+        let dummy = ItemType::Peppernut;
+        match dummy {
+            ItemType::Peppernut => check_bounds(ItemType::Peppernut),
+            ItemType::Extinguisher => check_bounds(ItemType::Extinguisher),
+            ItemType::Keychain => check_bounds(ItemType::Keychain),
+            ItemType::Wheelbarrow => check_bounds(ItemType::Wheelbarrow),
+            ItemType::Mitre => check_bounds(ItemType::Mitre),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Hash)]
 pub enum HazardType {
     Fire,
@@ -226,6 +286,20 @@ pub enum ItemType {
     Keychain,
     Wheelbarrow,
     Mitre,
+}
+
+impl ItemType {
+    pub const COUNT: usize = 5;
+
+    pub fn as_usize(&self) -> usize {
+        match self {
+            ItemType::Peppernut => 0,
+            ItemType::Extinguisher => 1,
+            ItemType::Keychain => 2,
+            ItemType::Wheelbarrow => 3,
+            ItemType::Mitre => 4,
+        }
+    }
 }
 
 // --- Player ---

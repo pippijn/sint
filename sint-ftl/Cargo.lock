@@ -3041,6 +3041,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sint-core",
+ "smallvec",
  "sysinfo",
 ]
 

@@ -1,7 +1,7 @@
 use sint_solver::scoring::beam::BeamScoringWeights;
 use sint_solver::search::SearchProgress;
 use sint_solver::search::beam::beam_search;
-use sint_solver::search::config::BeamSearchConfig;
+use sint_solver::search::config::{BeamSearchConfig, ParallelismMode};
 
 use std::time::Instant;
 
@@ -14,6 +14,7 @@ fn test_beam_smoke() {
         steps: 50, // Increased to ensure round transition
         time_limit: 5,
         verbose: false,
+        parallelism: ParallelismMode::Disabled,
     };
     let weights = BeamScoringWeights::default();
     let result = beam_search(&config, &weights, None::<fn(SearchProgress)>);
@@ -29,6 +30,7 @@ fn test_beam_determinism() {
         steps: 20,
         time_limit: 10,
         verbose: false,
+        parallelism: ParallelismMode::Disabled,
     };
     let weights = BeamScoringWeights::default();
 
@@ -65,6 +67,7 @@ fn test_beam_time_limit() {
         steps: 5000,   // Many steps
         time_limit: 1, // Short time limit
         verbose: false,
+        parallelism: ParallelismMode::Disabled,
     };
     let weights = BeamScoringWeights::default();
 
@@ -93,6 +96,7 @@ fn test_beam_width_effect() {
         steps: 20,
         time_limit: 5,
         verbose: false,
+        parallelism: ParallelismMode::Disabled,
     };
 
     let config_wide = BeamSearchConfig {
@@ -102,6 +106,7 @@ fn test_beam_width_effect() {
         steps: 20,
         time_limit: 5,
         verbose: false,
+        parallelism: ParallelismMode::Disabled,
     };
 
     let res_narrow =

@@ -47,7 +47,7 @@ struct Args {
     generations: usize,
 
     /// Population Size (Optimizer GA)
-    #[arg(short, long, default_value_t = 20)]
+    #[arg(short = 'P', long, default_value_t = 20)]
     population: usize,
 
     /// Seeds to evaluate (comma separated)
@@ -61,6 +61,9 @@ struct Args {
     /// TUI Mode
     #[arg(long, default_value_t = false)]
     tui: bool,
+
+    #[command(flatten)]
+    common: sint_solver::search::config::CommonSearchConfig,
 
     #[command(flatten)]
     beam: BeamConfig,
@@ -114,6 +117,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         generations: args.generations,
         population: args.population,
         seeds: seeds.clone(),
+        steps: args.common.steps,
+        players: args.common.players,
+        time_limit: args.common.time_limit,
         beam_width: args.beam.beam_width,
         rhea_horizon: args.rhea.rhea_horizon,
         rhea_generations: args.rhea.rhea_generations,

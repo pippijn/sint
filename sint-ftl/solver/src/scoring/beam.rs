@@ -7,7 +7,7 @@ use sint_core::types::{
     AttackEffect, CardId, CardSentiment, GameAction, GamePhase, GameState, HazardType, ItemType,
     MAX_HULL, PlayerId, RoomId, SystemType,
 };
-use std::collections::HashMap;
+use smallvec::SmallVec;
 
 /// Hyperparameters for the scoring function.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -403,37 +403,133 @@ pub fn score_static(
         return details;
     }
 
+    // --- ANALYSIS PASS: One pass over rooms to collect all metrics ---
+    let mut rooms_on_fire = 0;
+    let mut fire_spread_sources = 0;
+    let mut fire_count_total = 0;
+    let mut water_count_total = 0;
+    let mut fire_rooms = SmallSet::new();
+    let mut fire_penalty_raw = 0.0;
+    let mut hazardous_rooms = SmallSet::new();
+    let mut cannon_rooms = SmallSet::new();
+    let mut kitchen_rooms = SmallSet::new();
+    let mut sickbay_rooms = SmallSet::new();
+    let mut nut_locations = SmallSet::new();
+    let mut cargo_id = None;
+    let mut engine_id = None;
+    let mut total_nuts_in_rooms = 0;
+
+    // Fast system lookup using fixed-size array
+    let mut system_to_room: [Option<RoomId>; SystemType::COUNT] = [None; SystemType::COUNT];
+
+    // Accumulators for scores that we can calculate early
+    let mut system_health_reward_acc = 0.0;
+    let mut broken_systems_penalty_acc = 0.0;
+    let mut disabled_systems_penalty_acc = 0.0;
+    let mut critical_hazards_penalty_acc = 0.0;
+    let mut checkmate_system_bonus_acc = 0.0;
+    let mut nuts_logistics_acc = 0.0;
+
+    // Item Mapping for fast lookup
+    let mut item_to_rooms: [SmallSet<RoomId>; ItemType::COUNT] = Default::default();
+
+    for room in state.map.rooms.values() {
+        let mut f_count = 0;
+        let mut w_count = 0;
+        for h in &room.hazards {
+            match h {
+                HazardType::Fire => f_count += 1,
+                HazardType::Water => w_count += 1,
+            }
+        }
+
+        if f_count > 0 {
+            rooms_on_fire += 1;
+            fire_count_total += f_count;
+            fire_rooms.insert(room.id);
+            if f_count >= 2 {
+                fire_spread_sources += 1;
+            }
+            fire_penalty_raw += (f_count as f64).powf(weights.fire_exponent);
+        }
+        water_count_total += w_count;
+
+        if f_count > 0 || w_count > 0 || room.is_broken {
+            hazardous_rooms.insert(room.id);
+        }
+
+        if let Some(sys) = room.system {
+            system_to_room[sys.as_u32() as usize] = Some(room.id);
+            system_health_reward_acc += room.system_health as f64;
+
+            match sys {
+                SystemType::Cannons => {
+                    cannon_rooms.insert(room.id);
+                }
+                SystemType::Kitchen => {
+                    kitchen_rooms.insert(room.id);
+                }
+                SystemType::Sickbay => {
+                    sickbay_rooms.insert(room.id);
+                }
+                SystemType::Cargo => cargo_id = Some(room.id),
+                SystemType::Engine => engine_id = Some(room.id),
+                _ => {}
+            }
+
+            if room.is_broken {
+                broken_systems_penalty_acc += weights.system_importance_multiplier;
+            }
+
+            if matches!(
+                sys,
+                SystemType::Engine | SystemType::Cannons | SystemType::Bridge
+            ) {
+                let is_blocked = state.active_situations.iter().any(|card| {
+                    card.solution
+                        .as_ref()
+                        .map(|s| s.target_system == Some(sys))
+                        .unwrap_or(false)
+                });
+                if room.is_broken || f_count > 0 || w_count > 0 || is_blocked {
+                    disabled_systems_penalty_acc += weights.system_importance_multiplier;
+                }
+                if !room.hazards.is_empty() {
+                    critical_hazards_penalty_acc +=
+                        (room.hazards.len() as f64) * weights.system_importance_multiplier;
+                }
+            }
+
+            if room.hazards.is_empty() && state.enemy.hp <= 10 {
+                checkmate_system_bonus_acc += weights.checkmate_system_bonus;
+            }
+        }
+
+        for item in &room.items {
+            item_to_rooms[item.as_usize()].insert(room.id);
+        }
+
+        let mut room_nuts = 0;
+        for item in &room.items {
+            if *item == ItemType::Peppernut {
+                room_nuts += 1;
+            }
+        }
+
+        if room_nuts > 0 {
+            total_nuts_in_rooms += room_nuts;
+            nut_locations.insert(room.id);
+            nuts_logistics_acc += room_nuts as f64 * weights.loose_ammo_reward;
+            if room.system == Some(SystemType::Cannons) {
+                nuts_logistics_acc += room_nuts as f64 * weights.ammo_stockpile_reward;
+            }
+        }
+    }
+
+    details.logistics += nuts_logistics_acc;
+
     // PROJECTED DAMAGE: One hull damage per room on fire at end of round.
-    // Enhanced: Account for potential fire spread if a room has 2+ fire tokens.
-    let rooms_on_fire = state
-        .map
-        .rooms
-        .values()
-        .filter(|r| r.hazards.contains(&HazardType::Fire))
-        .count();
-
-    let fire_spread_sources = state
-        .map
-        .rooms
-        .values()
-        .filter(|r| r.hazards.iter().filter(|h| **h == HazardType::Fire).count() >= 2)
-        .count();
-
-    let fire_count_total: usize = state
-        .map
-        .rooms
-        .values()
-        .map(|r| r.hazards.iter().filter(|h| **h == HazardType::Fire).count())
-        .sum();
-
-    // PROJECTED DAMAGE: Structural Burn
-    // If a room contains Fire at the end of the round, the ship takes -1 Hull Damage.
-    let fire_damage = state
-        .map
-        .rooms
-        .values()
-        .filter(|r| r.hazards.contains(&HazardType::Fire))
-        .count();
+    let fire_damage = rooms_on_fire;
 
     let mut telegraphed_hull_damage = 0;
     if let Some(attack) = &state.enemy.next_attack
@@ -477,7 +573,7 @@ pub fn score_static(
 
     // Use PROJECTED hull for scaling
     let missing_hull_percent =
-        ((MAX_HULL as f64 - projected_hull as f64) / MAX_HULL as f64).max(0.0);
+        ((MAX_HULL as f64 - projected_hull as f64) / MAX_HULL as f64).max(0.0_f64);
 
     // Continuous Multipliers:
     // survival_multiplier: 1.0 at full health, down to critical_survival_mult at 0 health.
@@ -569,7 +665,7 @@ pub fn score_static(
 
     if is_critical {
         let mut panic_penalty = weights.critical_hull_penalty_base;
-        let deficit = (weights.critical_hull_threshold + 1.0 - projected_hull as f64).max(0.0);
+        let deficit = (weights.critical_hull_threshold + 1.0 - projected_hull as f64).max(0.0_f64);
         panic_penalty += deficit.powf(weights.panic_hull_exponent)
             * weights.critical_hull_penalty_per_hp
             * hull_penalty_scaler;
@@ -626,7 +722,7 @@ pub fn score_static(
     // --- 1. Vital Stats & Progression ---
     // Non-linear Hull Penalty: Penalize missing hull exponentially (Square of missing health)
     // Use PROJECTED hull
-    let missing_hull = (MAX_HULL as f64 - projected_hull as f64).max(0.0);
+    let missing_hull = (MAX_HULL as f64 - projected_hull as f64).max(0.0_f64);
     let mut hull_penalty = missing_hull.powf(weights.hull_exponent) * weights.hull_integrity;
     if state.is_resting {
         hull_penalty *= weights.rest_round_vitals_multiplier;
@@ -666,50 +762,18 @@ pub fn score_static(
     details.progression -= history.len() as f64 * weights.step_penalty;
 
     // --- 1. Vital Stats & Progression ---
-    let mut fire_rooms = SmallSet::new();
-    let mut water_count = 0;
-    let mut fire_count = 0;
-
-    for room in state.map.rooms.values() {
-        let has_fire = room.hazards.contains(&HazardType::Fire);
-        if has_fire {
-            fire_rooms.insert(room.id);
-            fire_count += room
-                .hazards
-                .iter()
-                .filter(|h| **h == HazardType::Fire)
-                .count();
-        }
-        water_count += room
-            .hazards
-            .iter()
-            .filter(|h| **h == HazardType::Water)
-            .count();
-    }
-
     // Cubic Fire Penalty: Make firefighting > repairing
     // Non-Linear Fire Penalty based on Hull Risk (Inverse Power Function)
     // Use PROJECTED hull to feel the fear.
-    // Less dampened: increase the risk multiplier as hull drops.
     let hull_risk_mult = (1.0
         + (missing_hull_percent * weights.hull_risk_scaling_factor)
             .powf(weights.hull_risk_scaling_exponent))
     .min(weights.hull_risk_max_mult);
 
-    let mut fire_penalty = 0.0;
-    for room in state.map.rooms.values() {
-        let cnt = room
-            .hazards
-            .iter()
-            .filter(|h| **h == HazardType::Fire)
-            .count();
-        if cnt > 0 {
-            fire_penalty += (cnt as f64).powf(weights.fire_exponent) * weights.fire_penalty_base;
-        }
-    }
+    let mut fire_penalty = fire_penalty_raw * weights.fire_penalty_base;
     // Also add room count penalty to encourage clearing rooms completely
     fire_penalty +=
-        (fire_rooms.len() as f64).powf(weights.fire_exponent) * weights.fire_penalty_base;
+        (rooms_on_fire as f64).powf(weights.fire_exponent) * weights.fire_penalty_base;
 
     fire_penalty *= hull_risk_mult * hazard_multiplier;
 
@@ -720,9 +784,8 @@ pub fn score_static(
     details.hazards -= fire_penalty;
 
     // Fire Token Penalty: Quadratic penalty for total fire tokens to reflect spreading risk.
-    // Use hull_penalty_scaler for general urgency, but not doubled with hazard_multiplier.
     let mut fire_token_penalty =
-        (fire_count as f64).powf(2.0) * weights.fire_token_penalty * hull_penalty_scaler;
+        (fire_count_total as f64).powf(2.0) * weights.fire_token_penalty * hull_penalty_scaler;
 
     if state.is_resting {
         fire_token_penalty *= weights.rest_round_hazard_multiplier;
@@ -730,61 +793,21 @@ pub fn score_static(
 
     details.hazards -= fire_token_penalty;
 
-    details.hazards -= water_count as f64 * weights.water_penalty * hull_penalty_scaler;
+    details.hazards -= water_count_total as f64 * weights.water_penalty * hull_penalty_scaler;
 
-    // -- System Disabled --
-    for room in state.map.rooms.values() {
-        if let Some(sys) = room.system {
-            // Reward high system health
-            details.vitals += room.system_health as f64 * weights.system_health_reward;
-
-            if room.is_broken {
-                details.hazards -= weights.system_broken_penalty
-                    * weights.system_importance_multiplier
-                    * hull_penalty_scaler;
-            }
-
-            if matches!(
-                sys,
-                SystemType::Engine | SystemType::Cannons | SystemType::Bridge
-            ) {
-                let has_disabling_hazard = room.is_broken
-                    || room.hazards.contains(&HazardType::Water)
-                    || room.hazards.contains(&HazardType::Fire);
-
-                let is_blocked_by_situation = state.active_situations.iter().any(|card| {
-                    card.solution
-                        .as_ref()
-                        .map(|s| s.target_system == Some(sys))
-                        .unwrap_or(false)
-                });
-
-                // Penalty for the system being currently disabled or blocked
-                if has_disabling_hazard || is_blocked_by_situation {
-                    details.hazards -= weights.system_disabled_penalty
-                        * weights.system_importance_multiplier
-                        * hull_penalty_scaler;
-                }
-
-                // New: Penalty for ANY hazard in a critical room (Danger Zone)
-                if !room.hazards.is_empty() {
-                    details.hazards -= weights.critical_system_hazard_penalty
-                        * (room.hazards.len() as f64)
-                        * weights.system_importance_multiplier
-                        * hull_penalty_scaler;
-                }
-            }
-
-            // New: Checkmate System Bonus
-            if room.hazards.is_empty() && state.enemy.hp <= 10 {
-                details.hazards += weights.checkmate_system_bonus;
-            }
-        }
-    }
+    // -- System Penalties (using pre-calculated accumulators) --
+    details.vitals += system_health_reward_acc * weights.system_health_reward;
+    details.hazards -=
+        broken_systems_penalty_acc * weights.system_broken_penalty * hull_penalty_scaler;
+    details.hazards -=
+        disabled_systems_penalty_acc * weights.system_disabled_penalty * hull_penalty_scaler;
+    details.hazards -=
+        critical_hazards_penalty_acc * weights.critical_system_hazard_penalty * hull_penalty_scaler;
+    details.hazards += checkmate_system_bonus_acc;
 
     // -- Cargo Hull Repair Incentive --
     let urgency = (MAX_HULL as f64 - projected_hull as f64)
-        .max(0.0)
+        .max(0.0_f64)
         .powf(weights.cargo_repair_exponent);
 
     // Reward for being in Cargo scales with damage
@@ -794,13 +817,6 @@ pub fn score_static(
         dynamic_incentive *= weights.rest_round_vitals_multiplier;
     }
 
-    let mut cargo_id = None;
-    for r in state.map.rooms.values() {
-        if r.system == Some(SystemType::Cargo) {
-            cargo_id = Some(r.id);
-            break;
-        }
-    }
     if let Some(cid) = cargo_id {
         let mut t_set = SmallSet::new();
         t_set.insert(cid);
@@ -812,7 +828,7 @@ pub fn score_static(
             if urgency > 0.0 {
                 let dist = distances.min_distance(p.room_id, &t_set);
                 if dist != 999 {
-                    details.vitals += (20.0 - dist as f64).max(0.0)
+                    details.vitals += (20.0 - dist as f64).max(0.0_f64)
                         * weights.cargo_repair_proximity_reward
                         * urgency;
                 }
@@ -821,24 +837,16 @@ pub fn score_static(
     }
 
     // -- Hazard Proximity Setup --
-    let mut hazardous_rooms = fire_rooms;
-    for room in state.map.rooms.values() {
-        if room.hazards.contains(&HazardType::Water) || room.is_broken {
-            hazardous_rooms.insert(room.id);
-        }
-    }
-
-    // We calculated fire_count (tokens) earlier. Let's use that.
-    let fire_urgency_mult = if fire_count > 0 {
-        1.0 + (fire_count as f64 * weights.fire_urgency_mult)
+    // We calculated fire_count_total (tokens) earlier. Let's use that.
+    let fire_urgency_mult = if fire_count_total > 0 {
+        1.0 + (fire_count_total as f64 * weights.fire_urgency_mult)
     } else {
         1.0
     };
 
     // Track minimum distance to each hazard across all players (for global coverage reward)
-    // Initialize with 999 (unreachable)
-    let mut hazard_min_dists: HashMap<RoomId, u32> =
-        hazardous_rooms.iter().map(|id| (id, 999)).collect();
+    // Using a SmallVec to keep allocations on the stack
+    let mut hazard_min_dists: SmallVec<[(RoomId, u32); 16]> = hazardous_rooms.iter().map(|id| (id, 999)).collect();
 
     // --- 3. Active Situations ---
     let negative_situations = state
@@ -853,13 +861,6 @@ pub fn score_static(
 
     for card in &state.active_situations {
         if card.id == CardId::Overheating {
-            let mut engine_id = None;
-            for r in state.map.rooms.values() {
-                if r.system == Some(SystemType::Engine) {
-                    engine_id = Some(r.id);
-                    break;
-                }
-            }
             if let Some(eid) = engine_id {
                 let count = state.players.values().filter(|p| p.room_id == eid).count();
                 details.situations -=
@@ -920,32 +921,6 @@ pub fn score_static(
         // No attack coming, but shields up? Wasted AP mostly, but small safety bonus
         if protected {
             details.threats -= weights.wasted_defense_penalty;
-        }
-    }
-
-    // --- 5. Player Heuristics ---
-    let mut cannon_rooms = SmallSet::new();
-    let mut kitchen_rooms = SmallSet::new();
-    let mut sickbay_rooms = SmallSet::new();
-    let mut nut_locations = SmallSet::new();
-
-    for room in state.map.rooms.values() {
-        if let Some(sys) = &room.system {
-            match sys {
-                SystemType::Cannons => {
-                    cannon_rooms.insert(room.id);
-                }
-                SystemType::Kitchen => {
-                    kitchen_rooms.insert(room.id);
-                }
-                SystemType::Sickbay => {
-                    sickbay_rooms.insert(room.id);
-                }
-                _ => {}
-            }
-        }
-        if room.items.contains(&ItemType::Peppernut) {
-            nut_locations.insert(room.id);
         }
     }
 
@@ -1038,7 +1013,7 @@ pub fn score_static(
         // Dynamic Role Override: Hazard Panic
         // If there is ANY hazard, only Gunners stick to their posts (unless hazard is in Cannons).
         // Everyone else becomes an emergency responder.
-        let total_hazards = fire_count_total + water_count;
+        let total_hazards = fire_count_total + water_count_total;
         if total_hazards > 0 {
             if matches!(p.id.as_str(), "P5" | "P6") {
                 // Gunners only leave if it's really bad or hazard is IN the cannons
@@ -1070,7 +1045,7 @@ pub fn score_static(
                 details.vitals += weights.healing_reward * urgency;
             } else {
                 details.vitals +=
-                    (20.0 - dist as f64).max(0.0) * weights.sickbay_distance_factor * urgency;
+                    (20.0 - dist as f64).max(0.0_f64) * weights.sickbay_distance_factor * urgency;
             }
         }
 
@@ -1100,7 +1075,7 @@ pub fn score_static(
 
             // Distance heuristic: Pull players with ammo to cannons
             // Note: Not multiplied by peppernuts to prevent hoarding abuse
-            gunner_score += (weights.gunner_dist_range - dist as f64).max(0.0)
+            gunner_score += (weights.gunner_dist_range - dist as f64).max(0.0_f64)
                 * weights.gunner_distance_factor
                 * (1.0 + weights.gunner_per_ammo_mult * peppernuts as f64);
 
@@ -1166,10 +1141,10 @@ pub fn score_static(
             let d = distances.min_distance(p.room_id, &t_set);
 
             // Update Global Hazard Coverage (lowest distance wins)
-            if let Some(min_d) = hazard_min_dists.get_mut(&hid)
-                && d < *min_d
-            {
-                *min_d = d;
+            for (hid_global, min_d) in &mut hazard_min_dists {
+                if *hid_global == hid && d < *min_d {
+                    *min_d = d;
+                }
             }
 
             // --- Individual Role Logic ---
@@ -1202,7 +1177,7 @@ pub fn score_static(
                 emergency_score +=
                     (weights.firefighter_base_reward / 2.0) * panic_mult * hazard_multiplier;
             } else {
-                emergency_score += (20.0 - best_target_dist as f64).max(0.0)
+                emergency_score += (20.0 - best_target_dist as f64).max(0.0_f64)
                     * (weights.firefighter_distance_factor / 2.0)
                     * panic_mult
                     * hazard_multiplier;
@@ -1210,7 +1185,7 @@ pub fn score_static(
 
             // Critical Bonus (was "Targeted Repair")
             if is_critical_target {
-                emergency_score += (20.0 - best_target_dist as f64).max(0.0)
+                emergency_score += (20.0 - best_target_dist as f64).max(0.0_f64)
                     * (weights.repair_proximity_reward / 2.0)
                     * hazard_multiplier;
             }
@@ -1234,7 +1209,7 @@ pub fn score_static(
 
             if !ammo_sources.is_empty() {
                 let d = distances.min_distance(p.room_id, &ammo_sources);
-                scavenger_score += (20.0 - d as f64).max(0.0) * weights.scavenger_reward;
+                scavenger_score += (20.0 - d as f64).max(0.0_f64) * weights.scavenger_reward;
             }
 
             if has_wheelbarrow {
@@ -1259,16 +1234,10 @@ pub fn score_static(
         if let Some(sol) = &card.solution
             && let Some(sys) = sol.target_system
         {
-            let mut target_room = None;
-            for r in state.map.rooms.values() {
-                if r.system == Some(sys) {
-                    target_room = Some(r.id);
-                    break;
-                }
-            }
+            let target_room = system_to_room[sys.as_u32() as usize];
             if let Some(tid) = target_room {
-                let mut qualified_distances = Vec::new();
-                let mut all_distances = Vec::new();
+                let mut qualified_distances: SmallVec<[u32; 8]> = SmallVec::new();
+                let mut all_distances: SmallVec<[u32; 8]> = SmallVec::new();
                 let required_item = sol.item_cost.as_ref();
 
                 let mut t_set = SmallSet::new();
@@ -1318,12 +1287,12 @@ pub fn score_static(
                         details.situations += weights.solution_solver_reward * importance_mult;
                     } else {
                         // Pull the qualified person
-                        details.situations += (20.0 - best_q_d as f64).max(0.0)
+                        details.situations += (20.0_f64 - best_q_d as f64).max(0.0_f64)
                             * weights.solution_distance_factor
                             * importance_mult;
                         // Pull the N-th person
                         if req_n > 1 && best_n_d != 999 {
-                            details.situations += (20.0 - best_n_d as f64).max(0.0)
+                            details.situations += (20.0_f64 - best_n_d as f64).max(0.0_f64)
                                 * weights.solution_distance_factor
                                 * importance_mult;
                         }
@@ -1339,12 +1308,8 @@ pub fn score_static(
                             sources.insert(k);
                         }
                     } else {
-                        // Generic item search
-                        for r in state.map.rooms.values() {
-                            if r.items.contains(item) {
-                                sources.insert(r.id);
-                            }
-                        }
+                        // Generic item search using pre-calculated mapping
+                        sources = item_to_rooms[item.as_usize()].clone();
                     }
 
                     let is_critical_sys = matches!(
@@ -1368,7 +1333,7 @@ pub fn score_static(
                             }
                         }
                         if min_source_dist != 999 {
-                            details.situations += (20.0 - min_source_dist as f64).max(0.0)
+                            details.situations += (20.0 - min_source_dist as f64).max(0.0_f64)
                                 * weights.situation_logistics_reward
                                 * importance_mult;
                         }
@@ -1379,23 +1344,7 @@ pub fn score_static(
     }
 
     // --- 8. Logistics (Ammo Stockpile) ---
-    let mut total_nuts = 0;
-    for room in state.map.rooms.values() {
-        let nuts = room
-            .items
-            .iter()
-            .filter(|i| **i == ItemType::Peppernut)
-            .count();
-        total_nuts += nuts;
-
-        // General loose ammo reward
-        details.logistics += nuts as f64 * weights.loose_ammo_reward;
-
-        if room.system == Some(SystemType::Cannons) {
-            // Massive reward for having ammo at Cannons
-            details.logistics += nuts as f64 * weights.ammo_stockpile_reward;
-        }
-    }
+    let mut total_nuts = total_nuts_in_rooms;
 
     // Include player inventory in total nuts
     for p in state.players.values() {
@@ -1417,17 +1366,26 @@ pub fn score_static(
         k_set.insert(kitchen_id);
         for p in state.players.values() {
             let d = distances.min_distance(p.room_id, &k_set);
-            details.logistics += (20.0 - d as f64).max(0.0) * 100.0;
+            details.logistics += (20.0 - d as f64).max(0.0_f64) * 100.0;
         }
     }
 
     // --- 6. Trajectory Heuristics (Anti-Oscillation & Inaction) ---
-    let mut player_moves: HashMap<PlayerId, Vec<(usize, u32)>> = HashMap::new();
-    let mut last_action_by_player: HashMap<PlayerId, &GameAction> = HashMap::new();
+    // Using fixed-size arrays to avoid heap allocations
+    let mut player_moves: [SmallVec<[(usize, u32); 8]>; 8] = Default::default();
     let mut item_throw_count = 0;
+
+    let player_to_idx = |pid: &PlayerId| -> usize {
+        if pid.starts_with('P') {
+            pid[1..].parse::<usize>().unwrap_or(0).saturating_sub(1).min(7)
+        } else {
+            0
+        }
+    };
 
     for (idx, item) in history.iter().enumerate() {
         let (pid, act) = *item;
+        let p_idx = player_to_idx(pid);
         if matches!(act, GameAction::Shoot) && state.enemy.hp >= 0 {
             let mut reward = weights.shooting_reward * offense_survival_multiplier;
 
@@ -1496,8 +1454,6 @@ pub fn score_static(
             }
         }
 
-        last_action_by_player.insert(pid.clone(), act);
-
         // Item Juggling Penalty: Penalize PickUp followed by Drop
         if let GameAction::Drop { item_index: _ } = act {
             let mut found_pickup = false;
@@ -1543,10 +1499,7 @@ pub fn score_static(
         }
 
         if let GameAction::Move { to_room } = act {
-            player_moves
-                .entry(pid.clone())
-                .or_default()
-                .push((idx, *to_room));
+            player_moves[p_idx].push((idx, *to_room));
         }
     }
 
@@ -1563,21 +1516,23 @@ pub fn score_static(
         details.anti_oscillation -= weights.inaction_penalty;
     }
 
-    for (pid, moves) in player_moves {
-        if moves.len() < 3 {
+    for (p_idx, moves) in player_moves.iter().enumerate() {
+        let moves_slice: &[(usize, u32)] = moves.as_slice();
+        if moves_slice.len() < 3 {
             continue;
         }
-        for i in 0..moves.len() - 2 {
-            let (_idx_a_start, room_a) = moves[i];
-            let (idx_b, _room_b) = moves[i + 1];
-            let (idx_a_return, room_a_return) = moves[i + 2];
+        let pid_str = format!("P{}", p_idx + 1);
+        for i in 0..moves_slice.len() - 2 {
+            let (_idx_a_start, room_a) = moves_slice[i];
+            let (idx_b, _room_b) = moves_slice[i + 1];
+            let (idx_a_return, room_a_return) = moves_slice[i + 2];
 
             if room_a == room_a_return {
                 let mut useful = false;
                 for j in (idx_b + 1)..idx_a_return {
                     if let Some(item) = history.get(j) {
                         let (actor, action) = *item;
-                        if actor == &pid {
+                        if actor == &pid_str {
                             match action {
                                 GameAction::Move { .. } => {}
                                 GameAction::Pass
@@ -1594,7 +1549,7 @@ pub fn score_static(
                             GameAction::Throw { target_player, .. }
                             | GameAction::Revive { target_player }
                             | GameAction::FirstAid { target_player } => {
-                                if target_player == &pid {
+                                if target_player == &pid_str {
                                     useful = true;
                                     break;
                                 }
@@ -1635,7 +1590,7 @@ fn score_transition(
 ) -> ScoreDetails {
     let mut details = ScoreDetails::default();
     // Hull Delta Penalty: Penalize the ACT of losing hull
-    let hull_loss = (parent.hull_integrity as f64 - current.hull_integrity as f64).max(0.0);
+    let hull_loss = (parent.hull_integrity as f64 - current.hull_integrity as f64).max(0.0_f64);
     details.vitals -= hull_loss * weights.hull_delta_penalty;
 
     // Situation Resolved Reward

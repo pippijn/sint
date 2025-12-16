@@ -62,6 +62,9 @@ pub struct OptimizerConfig {
     pub generations: usize,
     pub population: usize,
     pub seeds: Vec<u64>,
+    pub steps: usize,
+    pub players: usize,
+    pub time_limit: u64,
     pub beam_width: usize,
     pub rhea_horizon: usize,
     pub rhea_generations: usize,
@@ -348,11 +351,11 @@ pub fn evaluate_batch(
                         let weights =
                             apply_multipliers_beam(&get_base_weights_beam(), &task.genome);
                         let search_config = BeamSearchConfig {
-                            players: 6,
+                            players: config_clone.players,
                             seed: task.seed,
                             width: config_clone.beam_width,
-                            steps: 3000,
-                            time_limit: 300,
+                            steps: config_clone.steps,
+                            time_limit: config_clone.time_limit,
                             verbose: false,
                             parallelism: ParallelismMode::Disabled,
                         };
@@ -362,13 +365,13 @@ pub fn evaluate_batch(
                         let weights =
                             apply_multipliers_rhea(&get_base_weights_rhea(), &task.genome);
                         let search_config = RHEAConfig {
-                            players: 6,
+                            players: config_clone.players,
                             seed: task.seed,
                             horizon: config_clone.rhea_horizon,
                             generations: config_clone.rhea_generations,
                             population_size: config_clone.rhea_population,
-                            max_steps: 3000,
-                            time_limit: 300,
+                            max_steps: config_clone.steps,
+                            time_limit: config_clone.time_limit,
                             verbose: false,
                         };
                         rhea_search(&search_config, &weights, Some(cb))
@@ -694,6 +697,11 @@ pub fn run_ga(
                 current_weights_rhea: weights_rhea,
             },
         )));
+
+        // Skip producing and evaluating children for the next generation if this is the final one.
+        if generation == config.generations - 1 {
+            break;
+        }
 
         let (all_children, pairings) = produce_ga_children(config, &scored_pop, generation);
 

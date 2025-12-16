@@ -1,5 +1,6 @@
 use crate::scoring::ScoreDetails;
 use sint_core::types::{GameAction, GameState, PlayerId};
+use smallvec::SmallVec;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
@@ -49,8 +50,8 @@ pub struct SearchProgress {
 }
 
 impl SearchNode {
-    pub fn get_history(&self) -> Vec<&(PlayerId, GameAction)> {
-        let mut history = Vec::with_capacity(self.history_len);
+    pub fn get_history(&self) -> SmallVec<[&(PlayerId, GameAction); 64]> {
+        let mut history = SmallVec::with_capacity(self.history_len);
         let mut current = self;
         while let Some(parent) = &current.parent {
             if let Some(action) = &current.last_action {
@@ -62,8 +63,8 @@ impl SearchNode {
         history
     }
 
-    pub fn get_recent_history(&self, n: usize) -> Vec<&(PlayerId, GameAction)> {
-        let mut history = Vec::with_capacity(n);
+    pub fn get_recent_history(&self, n: usize) -> SmallVec<[&(PlayerId, GameAction); 64]> {
+        let mut history = SmallVec::with_capacity(n);
         let mut current = self;
         while let Some(parent) = &current.parent {
             if history.len() >= n {

@@ -431,6 +431,7 @@ fn expand_node(
                                 weights,
                                 distances,
                             );
+                            drop(current_history);
 
                             let signature = get_state_signature(&driver.state);
                             results.push(Arc::new(SearchNode {
