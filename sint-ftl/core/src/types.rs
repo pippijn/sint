@@ -220,14 +220,16 @@ mod tests {
     #[test]
     fn test_system_type_count_sync() {
         // This test ensures that SystemType::COUNT is large enough for all variant IDs.
-        // It uses an exhaustive match to force developers to update the test 
+        // It uses an exhaustive match to force developers to update the test
         // whenever a new variant is added to SystemType.
         let check_bounds = |v: SystemType| {
             let id = v.as_u32() as usize;
             assert!(
                 id < SystemType::COUNT,
                 "SystemType::{:?} ID ({}) is >= SystemType::COUNT ({}). Please update COUNT.",
-                v, id, SystemType::COUNT
+                v,
+                id,
+                SystemType::COUNT
             );
         };
 
@@ -256,7 +258,9 @@ mod tests {
             assert!(
                 idx < ItemType::COUNT,
                 "ItemType::{:?} index ({}) is >= ItemType::COUNT ({}). Please update COUNT.",
-                v, idx, ItemType::COUNT
+                v,
+                idx,
+                ItemType::COUNT
             );
         };
 

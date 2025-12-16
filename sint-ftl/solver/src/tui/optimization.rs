@@ -2,6 +2,7 @@ use ratatui::{
     buffer::Buffer,
     layout::{Alignment, Constraint, Rect},
     style::{Color, Modifier, Style},
+    text::{Line, Span},
     widgets::{Block, Paragraph, Row, Table, Widget},
 };
 
@@ -252,6 +253,7 @@ pub struct OptimizationHeader<'a> {
     pub max_generations: usize,
     pub population: usize,
     pub status: &'a str,
+    pub phase: &'a str,
     pub games_done: usize,
     pub total_games: usize,
     pub games_pending: usize,
@@ -280,35 +282,47 @@ impl<'a> Widget for OptimizationHeader<'a> {
             0.0
         };
 
-        let left_text = format!(
-            "SINT OPTIMIZER | Strat: {} | Target: {} | Gen: {}/{} | Pop: {} | {}\n\
-             WORKLOAD: Games: {}/{} ({:.1}%) ({} Pending, {} Running) | Genomes: {}/{} Completed",
-            self.strategy,
-            self.target,
-            self.generation,
-            self.max_generations,
-            self.population,
-            self.status,
-            self.games_done,
-            self.total_games,
-            games_pct,
-            self.games_pending,
-            self.games_running,
-            self.inds_done,
-            self.population,
-        );
+        let is_done = self.status.contains("DONE");
+        let header_color = if is_done { Color::Green } else { Color::Cyan };
 
-        Paragraph::new(left_text)
-            .style(
-                Style::default()
-                    .fg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD),
-            )
+        let left_lines = vec![
+            Line::from(vec![
+                Span::styled(
+                    "SINT OPTIMIZER",
+                    Style::default().add_modifier(Modifier::BOLD),
+                ),
+                Span::raw(" | Strat: "),
+                Span::raw(self.strategy),
+                Span::raw(" | Target: "),
+                Span::raw(self.target),
+                Span::raw(" | Gen: "),
+                Span::raw(format!("{}/{}", self.generation, self.max_generations)),
+                Span::raw(" | "),
+                Span::styled(self.phase, Style::default().fg(Color::Yellow)),
+                Span::raw(" | Pop: "),
+                Span::raw(self.population.to_string()),
+                Span::raw(" | "),
+                Span::styled(self.status, Style::default().add_modifier(Modifier::BOLD)),
+            ]),
+            Line::from(format!(
+                "WORKLOAD: Games: {}/{} ({:.1}%) ({} Pending, {} Running) | Genomes: {}/{} Completed",
+                self.games_done,
+                self.total_games,
+                games_pct,
+                self.games_pending,
+                self.games_running,
+                self.inds_done,
+                self.population,
+            )),
+        ];
+
+        Paragraph::new(left_lines)
             .block(Block::default().borders(
                 ratatui::widgets::Borders::LEFT
                     | ratatui::widgets::Borders::TOP
                     | ratatui::widgets::Borders::BOTTOM,
             ))
+            .style(Style::default().fg(header_color))
             .render(header_chunks[0], buf);
 
         // Right Header: System Stats
@@ -321,7 +335,7 @@ impl<'a> Widget for OptimizationHeader<'a> {
             .alignment(Alignment::Right)
             .style(
                 Style::default()
-                    .fg(Color::Cyan)
+                    .fg(header_color)
                     .add_modifier(Modifier::BOLD),
             )
             .block(Block::default().borders(

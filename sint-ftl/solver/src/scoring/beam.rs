@@ -772,8 +772,7 @@ pub fn score_static(
 
     let mut fire_penalty = fire_penalty_raw * weights.fire_penalty_base;
     // Also add room count penalty to encourage clearing rooms completely
-    fire_penalty +=
-        (rooms_on_fire as f64).powf(weights.fire_exponent) * weights.fire_penalty_base;
+    fire_penalty += (rooms_on_fire as f64).powf(weights.fire_exponent) * weights.fire_penalty_base;
 
     fire_penalty *= hull_risk_mult * hazard_multiplier;
 
@@ -846,7 +845,8 @@ pub fn score_static(
 
     // Track minimum distance to each hazard across all players (for global coverage reward)
     // Using a SmallVec to keep allocations on the stack
-    let mut hazard_min_dists: SmallVec<[(RoomId, u32); 16]> = hazardous_rooms.iter().map(|id| (id, 999)).collect();
+    let mut hazard_min_dists: SmallVec<[(RoomId, u32); 16]> =
+        hazardous_rooms.iter().map(|id| (id, 999)).collect();
 
     // --- 3. Active Situations ---
     let negative_situations = state
@@ -1377,7 +1377,11 @@ pub fn score_static(
 
     let player_to_idx = |pid: &PlayerId| -> usize {
         if pid.starts_with('P') {
-            pid[1..].parse::<usize>().unwrap_or(0).saturating_sub(1).min(7)
+            pid[1..]
+                .parse::<usize>()
+                .unwrap_or(0)
+                .saturating_sub(1)
+                .min(7)
         } else {
             0
         }

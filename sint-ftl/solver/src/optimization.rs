@@ -13,6 +13,10 @@ use std::sync::mpsc::Sender;
 #[derive(Clone, Debug)]
 pub enum OptimizerMessage {
     GenerationDone(Box<OptimizationStatus>),
+    PhaseStarting {
+        generation: usize,
+        name: String,
+    },
     IndividualStarting {
         generation: usize,
         index: usize,
@@ -625,6 +629,10 @@ pub fn run_ga(
     }
 
     for generation in start_generation..config.generations {
+        let _ = tx.send(OptimizerMessage::PhaseStarting {
+            generation,
+            name: "Parent Evaluation".to_string(),
+        });
         for (i, genome) in population.iter().enumerate() {
             let _ = tx.send(OptimizerMessage::IndividualStarting {
                 generation,
@@ -705,6 +713,11 @@ pub fn run_ga(
 
         let (all_children, pairings) = produce_ga_children(config, &scored_pop, generation);
 
+        let _ = tx.send(OptimizerMessage::PhaseStarting {
+            generation,
+            name: "Child Evaluation".to_string(),
+        });
+
         // 2. Evaluate all children in one large batch
         let children_metrics = evaluate_batch(
             config,
@@ -770,6 +783,11 @@ pub fn run_spsa(
     let alpha = 0.602;
 
     for k in start_generation..config.generations {
+        let _ = tx.send(OptimizerMessage::PhaseStarting {
+            generation: k,
+            name: "Perturbed Evaluation".to_string(),
+        });
+
         let base_seed = config.seeds.first().cloned().unwrap_or(12345);
         let delta = get_spsa_delta(base_seed, k, p);
 
@@ -807,6 +825,11 @@ pub fn run_spsa(
                 theta[i] = 0.0;
             }
         }
+
+        let _ = tx.send(OptimizerMessage::PhaseStarting {
+            generation: k,
+            name: "Baseline Evaluation".to_string(),
+        });
 
         let updated_metrics_batch = evaluate_batch(config, &[theta.clone()], &tx, k, &[], 0);
         current_metrics = updated_metrics_batch[0].clone();

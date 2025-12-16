@@ -192,6 +192,9 @@ fn run_cli(
 
     while let Ok(msg) = rx.recv() {
         match msg {
+            OptimizerMessage::PhaseStarting { name, .. } => {
+                println!("\n▶ Starting Phase: {}", name);
+            }
             OptimizerMessage::IndividualStarting { index, genome, .. } => {
                 if index >= current_population.len() {
                     current_population.resize(index + 1, genome);
@@ -319,6 +322,7 @@ struct App {
     history: Vec<OptimizationStatus>,
     population_status: Vec<IndividualStatus>,
     population_genomes: Vec<Vec<f64>>,
+    current_phase: String,
     done: bool,
     sys: System,
     pid: Pid,
@@ -345,6 +349,7 @@ impl App {
             history: Vec::new(),
             population_status,
             population_genomes: vec![Vec::new(); config.population],
+            current_phase: "Initializing".to_string(),
             done: false,
             sys,
             pid,
@@ -436,6 +441,9 @@ fn run_tui(
         // Check for updates (process all available messages before next tick)
         while let Ok(msg) = rx.try_recv() {
             match msg {
+                OptimizerMessage::PhaseStarting { name, .. } => {
+                    app.current_phase = name;
+                }
                 OptimizerMessage::IndividualStarting { index, genome, .. } => {
                     if index < app.population_genomes.len() {
                         app.population_genomes[index] = genome;
@@ -518,6 +526,7 @@ fn run_tui(
 
                     if status.generation == app.config.generations - 1 {
                         app.done = true;
+                        app.current_phase = "Complete".to_string();
                     }
                     app.history.push(*status.clone());
 
@@ -669,6 +678,7 @@ fn ui(f: &mut Frame, app: &App) {
             max_generations: app.config.generations,
             population: app.config.population,
             status: status_str,
+            phase: &app.current_phase,
             games_done,
             total_games,
             games_pending,
