@@ -167,6 +167,7 @@ fn run_cli(args: Args) {
                 steps: args.common.steps,
                 time_limit: args.common.time_limit,
                 verbose: true,
+                parallelism: args.beam.parallelism,
             };
             beam_search(&config, &weights, None::<fn(SearchProgress)>)
         }
@@ -242,6 +243,7 @@ fn run_tui(args: Args) -> Result<(), Box<dyn std::error::Error>> {
                     steps: solver_args.common.steps,
                     time_limit: solver_args.common.time_limit,
                     verbose: false, // Silence stdout in TUI
+                    parallelism: solver_args.beam.parallelism,
                 };
                 beam_search(&config, &weights, Some(callback))
             }

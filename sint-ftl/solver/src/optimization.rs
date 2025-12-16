@@ -2,7 +2,7 @@ use crate::scoring::beam::BeamScoringWeights;
 use crate::scoring::rhea::RheaScoringWeights;
 use crate::search::SearchProgress;
 use crate::search::beam::beam_search;
-use crate::search::config::{BeamSearchConfig, RHEAConfig};
+use crate::search::config::{BeamSearchConfig, ParallelismMode, RHEAConfig};
 use crate::search::rhea::rhea_search;
 use dashmap::DashMap;
 use rand::prelude::*;
@@ -354,6 +354,7 @@ pub fn evaluate_batch(
                             steps: 3000,
                             time_limit: 300,
                             verbose: false,
+                            parallelism: ParallelismMode::Disabled,
                         };
                         beam_search(&search_config, &weights, Some(cb))
                     }

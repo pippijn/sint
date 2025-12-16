@@ -1,7 +1,7 @@
 use crate::driver::GameDriver;
 use crate::scoring::ScoreDetails;
 use crate::scoring::beam::{BeamScoringWeights, calculate_score};
-use crate::search::config::BeamSearchConfig;
+use crate::search::config::{BeamSearchConfig, ParallelismMode};
 use crate::search::{SearchNode, SearchProgress, get_state_signature};
 use rayon::prelude::*;
 use sint_core::logic::pathfinding::MapDistances;
@@ -181,19 +181,40 @@ where
 
         let debug_clone = debug_ctx.clone();
         let distances_clone = distances.clone();
-        let next_nodes: Vec<Arc<SearchNode>> = beam
-            .par_iter()
-            .flat_map(|node| {
-                expand_node(
-                    node.clone(),
-                    weights,
-                    config,
-                    step,
-                    &debug_clone,
-                    &distances_clone,
-                )
-            })
-            .collect();
+
+        let use_parallel = match config.parallelism {
+            ParallelismMode::Enabled => true,
+            ParallelismMode::Disabled => false,
+            ParallelismMode::Automatic => config.width >= 100,
+        };
+
+        let next_nodes: Vec<Arc<SearchNode>> = if use_parallel {
+            beam.par_iter()
+                .flat_map(|node| {
+                    expand_node(
+                        node.clone(),
+                        weights,
+                        config,
+                        step,
+                        &debug_clone,
+                        &distances_clone,
+                    )
+                })
+                .collect()
+        } else {
+            beam.iter()
+                .flat_map(|node| {
+                    expand_node(
+                        node.clone(),
+                        weights,
+                        config,
+                        step,
+                        &debug_clone,
+                        &distances_clone,
+                    )
+                })
+                .collect()
+        };
 
         let total_generated = next_nodes.len();
 
@@ -218,13 +239,23 @@ where
         }
 
         let mut sorted_nodes: Vec<Arc<SearchNode>> = unique_nodes.into_values().collect();
-        sorted_nodes.par_sort_by(|a, b| {
-            b.score
-                .total
-                .partial_cmp(&a.score.total)
-                .unwrap()
-                .then_with(|| a.signature.cmp(&b.signature))
-        });
+        if use_parallel {
+            sorted_nodes.par_sort_by(|a, b| {
+                b.score
+                    .total
+                    .partial_cmp(&a.score.total)
+                    .unwrap()
+                    .then_with(|| a.signature.cmp(&b.signature))
+            });
+        } else {
+            sorted_nodes.sort_by(|a, b| {
+                b.score
+                    .total
+                    .partial_cmp(&a.score.total)
+                    .unwrap()
+                    .then_with(|| a.signature.cmp(&b.signature))
+            });
+        }
 
         if sorted_nodes.is_empty() && !beam.is_empty() && config.verbose {
             let best = &beam[0];

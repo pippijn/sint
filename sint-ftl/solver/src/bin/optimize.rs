@@ -59,7 +59,7 @@ struct Args {
     checkpoint: Option<String>,
 
     /// TUI Mode
-    #[arg(long, default_value_t = true)]
+    #[arg(long, default_value_t = false)]
     tui: bool,
 
     #[command(flatten)]

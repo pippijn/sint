@@ -28,6 +28,18 @@ pub struct BeamConfig {
     /// Beam Width (Number of states to keep per step)
     #[arg(long, default_value_t = 100)]
     pub beam_width: usize,
+
+    /// Parallelism Mode
+    #[arg(long, value_enum, default_value_t = ParallelismMode::Automatic)]
+    pub parallelism: ParallelismMode,
+}
+
+#[derive(clap::ValueEnum, Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ParallelismMode {
+    #[default]
+    Automatic,
+    Enabled,
+    Disabled,
 }
 
 #[derive(Parser, Debug, Clone, Copy)]
@@ -52,6 +64,7 @@ pub struct BeamSearchConfig {
     pub steps: usize,
     pub time_limit: u64,
     pub verbose: bool,
+    pub parallelism: ParallelismMode,
 }
 
 pub struct RHEAConfig {
@@ -79,7 +92,10 @@ impl Default for CommonSearchConfig {
 
 impl Default for BeamConfig {
     fn default() -> Self {
-        Self { beam_width: 300 }
+        Self {
+            beam_width: 300,
+            parallelism: ParallelismMode::Automatic,
+        }
     }
 }
 
